@@ -1,0 +1,22 @@
+# dépendances et sorties de build
+node_modules/
+dist/
+build/
+.expo/
+.next/
+.turbo/
+.vercel/
+*.log
+
+# documents internes — jamais versionnés
+.research/
+*.pdf
+.claude/
+
+# secrets — JAMAIS versionnés
+.env
+.env.*
+!.env.example
+
+# captures et fichiers temporaires
+.tmp/
