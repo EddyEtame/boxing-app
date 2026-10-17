@@ -1,18 +1,22 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { clubById, estOuvert } from '@/data/clubs';
+import { PERSONNES } from '@/data/coachs';
 import { ageOf, INVOICES } from '@/data/member';
 import { NEWS } from '@/data/news';
 import { auClub, heure, nextSession } from '@/features/planning/model';
 import { computeStats } from '@/features/stats/model';
 import { dateLine, formatIn, isoWeek } from '@/features/time';
 import { useSession } from '@/state/session';
+import { IconArrow } from '@/ui/icons';
 import { Page } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
+import { Tap } from '@/ui/Tap';
 import { Body, Display, Mono } from '@/ui/Text';
-import { duration, ink, radius, space, stroke } from '@/ui/theme';
+import { color, duration, ink, radius, space, stroke } from '@/ui/theme';
 
 import { ClubChips, LedgerRow, NewsRow, StatsFigure, TokenCard, type Entry } from './parts';
 
@@ -32,6 +36,7 @@ export function HomeMembre() {
   const stats = computeStats(member, now);
   const topClub = stats.parClub[0] ? clubById(stats.parClub[0].club) : club;
   const ouvert = estOuvert(club, now);
+  const coachs = PERSONNES.filter((p) => p.type === 'coach' && p.clubs.includes(clubActif));
   const entries: Entry[] = [
     ...member.passages.map((p) => ({ kind: 'passage' as const, date: p.date, club: p.club, heure: p.heure })),
     ...INVOICES.filter((f) => f.origine === 'Deciplus').map((f) => ({ kind: 'facture' as const, date: f.date, numero: f.numero, montant: f.montant, origine: f.origine })),
@@ -141,12 +146,54 @@ export function HomeMembre() {
 
       <Animated.View entering={FadeIn.duration(duration.jab).delay(498)} style={styles.section}>
         <View style={styles.sectionHead}>
+          <Mono size="micro">LES COACHS {auClub(club.id, club.court).toUpperCase()}</Mono>
+          <Mono size="micro">{coachs.length ? `${coachs.length}` : 'À VENIR'}</Mono>
+        </View>
+        <Tap onPress={() => router.push('/equipe')} style={styles.coachRow} accessibilityRole="button" accessibilityLabel="Les coachs et les boxeurs">
+          {coachs.length ? (
+            <View style={styles.faces}>
+              {coachs.slice(0, 4).map((p, i) => (
+                <View key={p.id} style={[styles.face, i > 0 && styles.faceOverlap]}>
+                  {p.photo ? (
+                    <Image source={p.photo} style={styles.faceImg} contentFit="cover" contentPosition="top" cachePolicy="memory-disk" />
+                  ) : (
+                    <Mono size="micro" tone="text">
+                      {p.initiales}
+                    </Mono>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={styles.coachText}>
+            <Body size="bodySmall" weight="semi" numberOfLines={2}>
+              {coachs.length ? coachs.map((p) => p.nom).join(', ') : 'Les portraits de ce club arrivent'}
+            </Body>
+            <Body size="caption" tone="muted" numberOfLines={1}>
+              {coachs.length ? 'Qui enseigne quoi, et où.' : 'Toute l’équipe, club par club.'}
+            </Body>
+          </View>
+          <IconArrow size={18} color={color.textDim} />
+        </Tap>
+      </Animated.View>
+
+      <Animated.View entering={FadeIn.duration(duration.jab).delay(581)} style={styles.section}>
+        <View style={styles.sectionHead}>
           <Mono size="micro">ACTUALITÉS</Mono>
           <Mono size="micro">{NEWS.length} ENTRÉES</Mono>
         </View>
         {NEWS.map((n, i) => (
           <NewsRow key={n.id} item={n} index={i} total={NEWS.length} now={now} />
         ))}
+        <Tap onPress={() => router.push('/combats')} style={styles.combatsRow} accessibilityRole="button" accessibilityLabel="Actualité des combats">
+          <View style={styles.coachText}>
+            <Mono size="micro">BOXE · MMA</Mono>
+            <Body size="bodySmall" weight="semi">
+              L’actualité des combats
+            </Body>
+          </View>
+          <IconArrow size={18} color={color.textDim} />
+        </Tap>
       </Animated.View>
     </Page>
   );
@@ -167,4 +214,11 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
   hero: { flexDirection: 'row', alignItems: 'flex-end', gap: space[3], marginBottom: space[3] },
   heroText: { paddingBottom: 6, gap: 2, flex: 1 },
+  coachRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
+  faces: { flexDirection: 'row' },
+  face: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', backgroundColor: ink[150], borderWidth: 2, borderColor: color.bg, alignItems: 'center', justifyContent: 'center' },
+  faceOverlap: { marginLeft: -14 },
+  faceImg: { width: '100%', height: '100%' },
+  coachText: { flex: 1, gap: 2 },
+  combatsRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], borderTopWidth: stroke.hair, borderTopColor: ink[200] },
 });

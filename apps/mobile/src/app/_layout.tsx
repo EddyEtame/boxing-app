@@ -55,6 +55,9 @@ export default function RootLayout() {
           <Stack.Screen name="contact" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="equipe" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="disciplines" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="combats" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

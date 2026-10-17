@@ -5,12 +5,17 @@ import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CLUBS, clubById } from '@/data/clubs';
+import { PERSONNES } from '@/data/coachs';
+import { DISCIPLINES } from '@/data/disciplines';
 import { NEWS, OFFRES, type NewsItem } from '@/data/news';
+import { useCombats } from '@/features/combats/useCombats';
+import { clubsProposant } from '@/features/planning/model';
 import { dateLineFromIso, moisCourt } from '@/features/time';
+import { IconArrow } from '@/ui/icons';
 import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
 import { Body, Display, Mono } from '@/ui/Text';
-import { color, MAX_CONTENT_WIDTH, radius, space, stroke, TAB_BAR_HEIGHT, whiteAlpha } from '@/ui/theme';
+import { color, ink, MAX_CONTENT_WIDTH, radius, space, stroke, TAB_BAR_HEIGHT, whiteAlpha } from '@/ui/theme';
 
 import { Poster } from './parts';
 
@@ -37,6 +42,10 @@ export function HomeInvite() {
   });
   const [clubIndex, setClubIndex] = useState(0);
   const salleW = colWidth * 0.72;
+  const discW = Math.round(colWidth * 0.46);
+  const portraitW = Math.round(colWidth * 0.42);
+  const combats = useCombats();
+  const portraits = PERSONNES.filter((p) => p.photo).slice(0, 8);
 
   return (
     <View style={styles.root}>
@@ -111,6 +120,72 @@ export function HomeInvite() {
           ))}
         </ScrollView>
 
+        <StripHead label="Les disciplines" action="Les huit" onPress={() => router.push('/disciplines')} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={discW + space[3]} decelerationRate="fast" contentContainerStyle={styles.strip}>
+          {DISCIPLINES.map((d, i) => {
+            const n = clubsProposant(d.famille).length;
+            return (
+              <Tap key={d.famille} style={{ width: discW }} onPress={() => router.push('/disciplines')} accessibilityRole="button" accessibilityLabel={d.nom}>
+                <Photo source={d.photo} style={styles.disc} darken={0.42} scrim={0.78}>
+                  <View style={styles.cardTop}>
+                    <Mono size="micro" tone="text">
+                      {String(i + 1).padStart(2, '0')}
+                    </Mono>
+                  </View>
+                  <View style={styles.cardBottom}>
+                    <Display size="display5" tight numberOfLines={2}>
+                      {d.nom}
+                    </Display>
+                    <Mono size="micro">{n ? `${n} ${n > 1 ? 'CLUBS' : 'CLUB'}` : 'SUR DEMANDE'}</Mono>
+                  </View>
+                </Photo>
+              </Tap>
+            );
+          })}
+        </ScrollView>
+
+        <StripHead label="Coachs et boxeurs" action={`${PERSONNES.length} portraits`} onPress={() => router.push('/equipe')} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={portraitW + space[3]} decelerationRate="fast" contentContainerStyle={styles.strip}>
+          {portraits.map((p) => (
+            <Tap key={p.id} style={{ width: portraitW }} onPress={() => router.push('/equipe')} accessibilityRole="button" accessibilityLabel={p.nom}>
+              <Photo source={p.photo!} style={styles.portrait} darken={0.18} scrim={0.62} vignette={false} contentPosition="top">
+                <View style={styles.cardBottom}>
+                  {p.tag ? (
+                    <Mono size="micro" tone="text">
+                      {p.tag.toUpperCase()}
+                    </Mono>
+                  ) : null}
+                  <Display size="display5" tight numberOfLines={1}>
+                    {p.nom}
+                  </Display>
+                  <Body size="caption" tone="muted" numberOfLines={2}>
+                    {p.role}
+                  </Body>
+                  <Mono size="micro">{p.clubs.map((c) => clubById(c).court.toUpperCase()).join(' · ')}</Mono>
+                </View>
+              </Photo>
+            </Tap>
+          ))}
+        </ScrollView>
+
+        <StripHead label="Actualité des combats" action={combats.origine === 'direct' ? 'En direct' : 'Dernier relevé'} onPress={() => router.push('/combats')} />
+        <View style={styles.combats}>
+          {combats.items.slice(0, 3).map((c) => (
+            <Tap key={c.lien} onPress={() => router.push('/combats')} style={styles.combatRow} accessibilityRole="button" accessibilityLabel={c.titre}>
+              <Mono size="micro" tone="dim" style={styles.combatDate}>
+                {c.date ? dateLineFromIso(c.date) : ''}
+              </Mono>
+              <Body size="bodySmall" weight="semi" style={{ flex: 1 }} numberOfLines={2}>
+                {c.titre}
+              </Body>
+              <IconArrow size={16} color={color.textDim} />
+            </Tap>
+          ))}
+          <Mono size="micro" tone="dim" style={styles.combatSource}>
+            BOXE · MMA · SOURCE ACTU-MMA.COM
+          </Mono>
+        </View>
+
         <View style={styles.newsHead}>
           <Body size="caption" eyebrow tone="muted">
             En ce moment
@@ -136,8 +211,35 @@ export function HomeInvite() {
   );
 }
 
+function StripHead({ label, action, onPress }: { label: string; action: string; onPress: () => void }) {
+  return (
+    <View style={styles.stripHead}>
+      <Body size="caption" eyebrow tone="muted" style={{ flex: 1 }}>
+        {label}
+      </Body>
+      <Tap onPress={onPress} haptic="selection" style={styles.stripAction} accessibilityRole="button" accessibilityLabel={`${label} : tout voir`}>
+        <Mono size="micro" tone="text">
+          {action.toUpperCase()}
+        </Mono>
+        <IconArrow size={14} color={color.text} />
+      </Tap>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bg },
+  stripHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], marginTop: space[6], marginBottom: space[3] },
+  stripAction: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  strip: { paddingHorizontal: space[4], gap: space[3] },
+  disc: { height: 200, borderRadius: radius.sm, justifyContent: 'space-between' },
+  portrait: { height: 236, borderRadius: radius.sm, justifyContent: 'flex-end' },
+  cardTop: { padding: space[3] },
+  cardBottom: { padding: space[3], gap: 2 },
+  combats: { paddingHorizontal: space[4] },
+  combatRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
+  combatDate: { width: 84 },
+  combatSource: { marginTop: space[2] },
   column: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
   head: { paddingHorizontal: space[4], gap: space[2], marginBottom: space[4] },
   cta: { marginHorizontal: space[4], marginTop: space[2], marginBottom: space[4], gap: space[2] },

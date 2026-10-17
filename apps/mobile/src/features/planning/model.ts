@@ -175,3 +175,12 @@ export function plagesLibres(club: ClubId, jour: number): Plage[] {
   if (!o.jours.includes(jour)) return [];
   return [{ id: `ouv-${club}-${jour}`, club, jour, debut: o.debut, fin: o.fin, source: 'ouverture' as const }];
 }
+
+/** Les clubs qui proposent une famille de discipline, lus dans le planning réel ; jamais une liste écrite à la main. */
+export function clubsProposant(f: Famille): ClubId[] {
+  const ids: ClubId[] = [];
+  for (const s of SLOTS) {
+    if (normaliseActivite(s.activite).famille === f && !ids.includes(s.club)) ids.push(s.club);
+  }
+  return ids;
+}
