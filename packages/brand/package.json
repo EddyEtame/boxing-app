@@ -1,0 +1,9 @@
+{
+  "name": "@bc/brand",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Jetons de marque Boxing Center : couleurs, typographie, espacements, mouvement. Partagés par l'app, l'admin et les e-mails.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false
+}

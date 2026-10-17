@@ -1,0 +1,22 @@
+{
+  "name": "boxing-center",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Application mobile BOXING CENTER — iOS & Android, interface d'administration et connecteurs",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "_note_prepare": "npm install branche le crochet qui retire les signatures d'outil des messages de commit (voir .githooks/commit-msg)",
+    "prepare": "git config core.hooksPath .githooks",
+    "mobile": "npm run start --workspace apps/mobile",
+    "mobile:web": "npm run web --workspace apps/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

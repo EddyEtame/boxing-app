@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Boxing Center",
+    "slug": "boxing-center",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "boxingcenter",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080808",
+    "primaryColor": "#E8001C",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "fr.boxingcenter.app",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "fr",
+        "CFBundleLocalizations": [
+          "fr",
+          "en"
+        ]
+      }
+    },
+    "android": {
+      "package": "fr.boxingcenter.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#080808",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#080808",
+          "image": "./assets/brand/logo-transparent-600.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-localization",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
