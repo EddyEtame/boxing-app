@@ -1,12 +1,9 @@
-import { HomeA } from '@/screens/home/HomeA';
-import { HomeB } from '@/screens/home/HomeB';
-import { HomeC } from '@/screens/home/HomeC';
-import { useDirection } from '@/state/direction';
+import { HomeInvite } from '@/screens/home/HomeInvite';
+import { HomeMembre } from '@/screens/home/HomeMembre';
+import { useProfil } from '@/state/session';
 
-const BY_DIRECTION = { A: HomeA, B: HomeB, C: HomeC } as const;
-
+/** Qui est devant l’écran décide de l’accueil : la vitrine pour l’invité, le coin pour l’adhérent. */
 export function Screen() {
-  const direction = useDirection((s) => s.direction);
-  const Home = BY_DIRECTION[direction];
-  return <Home />;
+  const profil = useProfil();
+  return profil === 'invite' ? <HomeInvite /> : <HomeMembre />;
 }

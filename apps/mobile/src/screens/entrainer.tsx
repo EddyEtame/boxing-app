@@ -6,7 +6,7 @@ import { CLUBS, clubById } from '@/data/clubs';
 import { ageOf } from '@/data/member';
 import { TRAINING_TYPES, TRAININGS, type Niveau, type Training, type TrainingType } from '@/data/trainings';
 import { SECURITE_LABEL, VIDEOS, type Video } from '@/data/videos';
-import { accesLibreFor, familleColor, heure, JOURS, JOURS_COURTS, jourFr, nextSession, type Famille } from '@/features/planning/model';
+import { familleColor, heure, JOURS, JOURS_COURTS, jourFr, nextSession, plagesLibres, type Famille } from '@/features/planning/model';
 import { useSession } from '@/state/session';
 import { IconLock } from '@/ui/icons';
 import { LowerThird } from '@/ui/LowerThird';
@@ -29,6 +29,7 @@ const FILTRES: { id: Filtre; label: string }[] = [
 
 export function Screen() {
   const member = useSession((s) => s.member);
+  const clubsChoisis = useSession((s) => s.clubsChoisis);
   const now = new Date();
   const age = ageOf(member, now);
   const actif = member.statut === 'actif';
@@ -96,7 +97,7 @@ export function Screen() {
         </View>
       )}
 
-      <SlotGroups trainings={trainings} club={member.clubPrincipal} today={jourFr(now)} age={age} actif={actif} onToggle={(id) => setTrainings((list) => list.map((t) => (t.id === id ? { ...t, jeParticipe: !t.jeParticipe, participants: t.participants + (t.jeParticipe ? -1 : 1) } : t)))} />
+      <SlotGroups trainings={trainings} clubs={clubsChoisis} today={jourFr(now)} age={age} actif={actif} onToggle={(id) => setTrainings((list) => list.map((t) => (t.id === id ? { ...t, jeParticipe: !t.jeParticipe, participants: t.participants + (t.jeParticipe ? -1 : 1) } : t)))} />
     </Page>
   );
 }
@@ -156,23 +157,23 @@ function VideoCard({ video, index, locked, first }: { video: Video; index: numbe
   );
 }
 
-function SlotGroups({ trainings, club, today, age, actif, onToggle }: { trainings: Training[]; club: ClubId; today: number; age: number; actif: boolean; onToggle: (id: string) => void }) {
-  const groups: { jour: number; club: ClubId; debut: number; fin: number; items: Training[] }[] = [];
+function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainings: Training[]; clubs: ClubId[]; today: number; age: number; actif: boolean; onToggle: (id: string) => void }) {
+  const groups: { jour: number; club: ClubId; debut: number; fin: number; items: Training[]; source: 'planning' | 'ouverture' }[] = [];
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
     for (const c of CLUBS) {
-      for (const slot of accesLibreFor(c.id, jour)) {
-        const items = trainings.filter((t) => t.club === c.id && t.jour === jour && t.debut >= slot.debut && t.debut < slot.fin);
-        if (items.length || (c.id === club && offset === 0)) groups.push({ jour, club: c.id, debut: slot.debut, fin: slot.fin, items });
+      for (const plage of plagesLibres(c.id, jour)) {
+        const items = trainings.filter((t) => t.club === c.id && t.jour === jour && t.debut >= plage.debut && t.debut < plage.fin);
+        if (items.length || (clubs.includes(c.id) && offset <= 1)) groups.push({ jour, club: c.id, debut: plage.debut, fin: plage.fin, items, source: plage.source });
       }
     }
   }
-  const visible = groups.slice(0, 5);
+  const visible = groups.slice(0, 6);
   if (!visible.length) {
     return (
       <View style={styles.groups}>
         <Body size="bodySmall" tone="dim">
-          Aucun créneau d’accès libre dans les sept prochains jours pour ton club. Les propositions s’écrivent dans ces créneaux.
+          Aucune plage d’accès libre dans les sept prochains jours pour tes clubs.
         </Body>
       </View>
     );
@@ -188,7 +189,7 @@ function SlotGroups({ trainings, club, today, age, actif, onToggle }: { training
                 {JOURS_COURTS[g.jour].toUpperCase()} {heure(g.debut)}–{heure(g.fin)}
               </Display>
               <Mono size="micro">
-                {c.court.toUpperCase()} · ACCÈS LIBRE · {g.items.length ? `${g.items.length} PROPOSITION${g.items.length > 1 ? 'S' : ''}` : 'LIBRE'}
+                {c.court.toUpperCase()} · {g.source === 'ouverture' ? 'OUVERT, ACCÈS LIBRE' : 'ACCÈS LIBRE'} · {g.items.length ? `${g.items.length} PROPOSITION${g.items.length > 1 ? 'S' : ''}` : 'LIBRE'}
               </Mono>
             </View>
             {g.items.length ? (
@@ -242,9 +243,14 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
   const [club, setClub] = useState<ClubId>(clubDefault);
   const [jour, setJour] = useState(jourFr(new Date()));
   const [niveau, setNiveau] = useState<Niveau>('Intermédiaire');
-  const slots = accesLibreFor(club, jour);
+  const plages = plagesLibres(club, jour);
+  const heures: { id: string; debut: number }[] = plages.flatMap((p) => {
+    const out: { id: string; debut: number }[] = [];
+    for (let m = p.debut; m + 60 <= p.fin; m += 60) out.push({ id: `${p.id}-${m}`, debut: m });
+    return out;
+  });
   const [slotIndex, setSlotIndex] = useState(0);
-  const slot = slots[Math.min(slotIndex, Math.max(0, slots.length - 1))];
+  const slot = heures[Math.min(slotIndex, Math.max(0, heures.length - 1))];
   const types = TRAINING_TYPES.filter((t) => age >= 18 || !t.sparring);
 
   return (
@@ -265,8 +271,8 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
           <Choice key={j} on={i === jour} onPress={() => { setJour(i); setSlotIndex(0); }} label={JOURS_COURTS[i]} />
         ))}
       </Row>
-      <Row label="Créneau libre">
-        {slots.length ? slots.map((s, i) => <Choice key={s.id} on={i === slotIndex} onPress={() => setSlotIndex(i)} label={`${heure(s.debut)}–${heure(s.fin)}`} />) : <Mono size="micro">AUCUN ACCÈS LIBRE CE JOUR-LÀ</Mono>}
+      <Row label="Heure">
+        {heures.length ? heures.map((s, i) => <Choice key={s.id} on={i === slotIndex} onPress={() => setSlotIndex(i)} label={heure(s.debut)} />) : <Mono size="micro">CLUB FERMÉ CE JOUR-LÀ</Mono>}
       </Row>
       <Row label="Niveau">
         {(['Débutant', 'Intermédiaire', 'Confirmé'] as Niveau[]).map((n) => (
@@ -280,7 +286,7 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
               « {TRAINING_TYPES.find((t) => t.id === type)!.label} · {clubById(club).court} · {JOURS[jour].toLowerCase()} {heure(slot.debut)} · {niveau.toLowerCase()} »
             </>
           ) : (
-            'Choisis un jour avec un créneau d’accès libre.'
+            'Choisis un jour où le club est ouvert.'
           )}
         </Body>
       </View>

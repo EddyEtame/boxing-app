@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { clubById } from '@/data/clubs';
+import { CLUBS, clubById } from '@/data/clubs';
 import { INVOICES, type MemberStatus } from '@/data/member';
 import { auClub } from '@/features/planning/model';
 import { computeStats } from '@/features/stats/model';
@@ -23,6 +23,8 @@ const LU_A = '06:12';
 export function Screen() {
   const member = useSession((s) => s.member);
   const setStatut = useSession((s) => s.setStatut);
+  const clubsChoisis = useSession((s) => s.clubsChoisis);
+  const setClubs = useSession((s) => s.setClubs);
   const locale = useI18nStore((s) => s.locale);
   const setLocale = useI18nStore((s) => s.setLocale);
   const now = new Date();
@@ -197,6 +199,30 @@ export function Screen() {
           <Mono size="micro">RÉGLAGES</Mono>
           <Mono size="micro">v0.1</Mono>
         </View>
+        <View style={styles.clubsSetting}>
+          <Body weight="medium">Mes clubs</Body>
+          <Body size="caption" tone="muted">
+            Ceux que tu veux voir en premier : accueil, planning, propositions.
+          </Body>
+          <View style={styles.clubsPick}>
+            {CLUBS.map((c) => {
+              const on = clubsChoisis.includes(c.id);
+              return (
+                <Pressable
+                  key={c.id}
+                  onPress={() => setClubs(on ? clubsChoisis.filter((x) => x !== c.id) : [...clubsChoisis, c.id])}
+                  style={[styles.clubPick, on && styles.clubPickOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={c.court}>
+                  <Body size="caption" weight="bold" caps tone={on ? 'inverse' : 'muted'}>
+                    {c.court}
+                  </Body>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
         <SettingRow label="Langue">
           <Segment<Locale> value={locale} onChange={setLocale} options={[{ value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]} />
         </SettingRow>
@@ -318,6 +344,10 @@ const styles = StyleSheet.create({
   passageDate: { width: 78 },
   chevron: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
   setting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3], paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
+  clubsSetting: { gap: 6, paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
+  clubsPick: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[1] },
+  clubPick: { paddingHorizontal: space[3], paddingVertical: 8, borderRadius: radius.sm, borderWidth: stroke.thin, borderColor: ink[300] },
+  clubPickOn: { backgroundColor: color.text, borderColor: color.text },
   segment: { flexDirection: 'row', backgroundColor: ink[150], borderRadius: radius.sm, padding: 3 },
   segmentBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.xs },
   segmentOn: { backgroundColor: color.text },

@@ -1,3 +1,4 @@
+import { clubById } from '@/data/clubs';
 import { SLOTS, type Slot } from '@/data/planning';
 import { discipline, type ClubId } from '@/ui/theme';
 
@@ -158,4 +159,19 @@ export function momentDuJour(now = new Date()): string {
   if (h < 12) return 'Ce matin';
   if (h < 18) return 'Cet après-midi';
   return 'Ce soir';
+}
+
+export type Plage = { id: string; club: ClubId; jour: number; debut: number; fin: number; source: 'planning' | 'ouverture' };
+
+/**
+ * Les plages d’accès libre d’un jour : celles du planning quand la direction les
+ * a écrites, sinon les heures d’ouverture du club (« l’accès libre suit
+ * l’ouverture de la salle »). C’est là que vivent les propositions entre membres.
+ */
+export function plagesLibres(club: ClubId, jour: number): Plage[] {
+  const explicites = accesLibreFor(club, jour);
+  if (explicites.length) return explicites.map((s) => ({ id: s.id, club, jour, debut: s.debut, fin: s.fin, source: 'planning' as const }));
+  const o = clubById(club).ouverture;
+  if (!o.jours.includes(jour)) return [];
+  return [{ id: `ouv-${club}-${jour}`, club, jour, debut: o.debut, fin: o.fin, source: 'ouverture' as const }];
 }

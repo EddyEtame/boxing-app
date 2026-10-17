@@ -20,9 +20,9 @@ const HOUR_PX = 46;
 
 export function Screen() {
   const t = useT();
-  const member = useSession((s) => s.member);
+  const clubActif = useSession((s) => s.clubActif);
   const today = jourFr(new Date());
-  const [club, setClub] = useState<ClubId>(member.clubPrincipal);
+  const [club, setClub] = useState<ClubId>(clubActif);
   const [espace, setEspace] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>('jour');
   const [jour, setJour] = useState(today);
@@ -224,12 +224,12 @@ function WeekGrid({ club, espace, today, onPick }: { club: ClubId; espace?: stri
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: space[4], gap: space[3], marginBottom: space[3] },
-  segmented: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: ink[150], borderRadius: radius.pill, padding: 3 },
-  segment: { paddingHorizontal: space[4], paddingVertical: 7, borderRadius: radius.pill },
+  segmented: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: ink[150], borderRadius: radius.sm, padding: 3 },
+  segment: { paddingHorizontal: space[4], paddingVertical: 7, borderRadius: radius.xs },
   segmentOn: { backgroundColor: color.text },
   chipsScroll: { flexGrow: 0 },
   chips: { paddingHorizontal: space[4], gap: space[2], paddingBottom: space[2], alignItems: 'center' },
-  chip: { paddingHorizontal: space[4], paddingVertical: 10, borderRadius: radius.pill, borderWidth: stroke.thin, borderColor: ink[300] },
+  chip: { paddingHorizontal: space[4], paddingVertical: 10, borderRadius: radius.sm, borderWidth: stroke.thin, borderColor: ink[300] },
   chipSmall: { paddingHorizontal: space[3], paddingVertical: 6 },
   chipOn: { backgroundColor: color.text, borderColor: color.text },
   espaces: { flexDirection: 'row', gap: space[2], paddingHorizontal: space[4], paddingBottom: space[2] },

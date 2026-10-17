@@ -2,8 +2,8 @@ import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui';
 import { StyleSheet, View } from 'react-native';
 
 import { useT } from '@/i18n';
-import { DirectionSwitch } from '@/ui/DirectionSwitch';
 import { IconBadge, IconBag, IconMe, IconPlanning, IconRing } from '@/ui/icons';
+import { ProfileSwitch } from '@/ui/ProfileSwitch';
 import { TabBarFrame, TabItem } from '@/ui/TabBar';
 import { color } from '@/ui/theme';
 
@@ -33,7 +33,7 @@ export default function TabsLayout() {
           </TabBarFrame>
         </TabList>
       </Tabs>
-      <DirectionSwitch />
+      <ProfileSwitch />
     </View>
   );
 }

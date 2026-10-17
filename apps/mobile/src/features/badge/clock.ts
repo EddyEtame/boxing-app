@@ -1,41 +1,38 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 
-import { useDirection } from '@/state/direction';
-
 /**
- * L’horloge du jeton, partagée par toute l’app (barre d’onglets, accueil, badge).
- * Direction A : le jeton vit un round (180 s) ; B et C : 30 s.
+ * L’horloge du jeton, partagée par toute l’app (poignée de la barre, accueil,
+ * badge). Le code change toutes les 60 s ; le lecteur accepte aussi la fenêtre
+ * précédente, donc jamais de code refusé à la seconde près.
  */
+export const WINDOW_SECONDS = 60;
+
 type ClockState = {
   windowSeconds: number;
   secondsLeft: number;
   window: number;
-  tick: (windowSeconds: number) => void;
+  tick: () => void;
 };
 
-export const WINDOW_BY_DIRECTION = { A: 180, B: 30, C: 30 } as const;
-
 export const useBadgeClock = create<ClockState>((set) => ({
-  windowSeconds: 30,
-  secondsLeft: 30,
+  windowSeconds: WINDOW_SECONDS,
+  secondsLeft: WINDOW_SECONDS,
   window: 0,
-  tick: (windowSeconds) => {
+  tick: () => {
     const s = Math.floor(Date.now() / 1000);
-    set({ windowSeconds, secondsLeft: windowSeconds - (s % windowSeconds), window: Math.floor(s / windowSeconds) });
+    set({ windowSeconds: WINDOW_SECONDS, secondsLeft: WINDOW_SECONDS - (s % WINDOW_SECONDS), window: Math.floor(s / WINDOW_SECONDS) });
   },
 }));
 
 /** À monter une fois, à la racine. */
 export function useBadgeClockTicker() {
-  const direction = useDirection((s) => s.direction);
   const tick = useBadgeClock((s) => s.tick);
   useEffect(() => {
-    const w = WINDOW_BY_DIRECTION[direction];
-    tick(w);
-    const id = setInterval(() => tick(w), 1000);
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [direction, tick]);
+  }, [tick]);
 }
 
 export function formatClock(seconds: number): string {

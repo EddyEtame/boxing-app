@@ -4,7 +4,17 @@ import type { ClubId } from '@/ui/theme';
 /**
  * Les cinq clubs. Adresses relevées sur boxingcenter.fr le 27/09/2026 (registre
  * de vérité de la plateforme coachs). Balma a été vendue : elle n’existe plus.
+ *
+ * Horaires : les quatre sites de club publient « du lundi au samedi, de 10h00
+ * à 21h30, fermé le dimanche » ; l’accès libre suit l’ouverture de la salle.
+ * États-Unis : même règle du réseau, à confirmer sur place.
+ *
+ * Photos : chaque club porte ses propres photos quand un shooting existe
+ * (États-Unis, Minimes, Ramonville, Portet) ; Saint-Cyprien, sans shooting,
+ * est représenté par des vues du réseau.
  */
+export type Ouverture = { jours: number[]; debut: number; fin: number };
+
 export type Club = {
   id: ClubId;
   nom: string;
@@ -15,9 +25,15 @@ export type Club = {
   acces?: string;
   equipement: string;
   photo: PhotoSource;
-  /** Espaces distincts (États-Unis : boxe et fitness ont leurs propres plannings). */
+  galerie: PhotoSource[];
+  ouverture: Ouverture;
+  /** Espaces distincts (États-Unis : boxe, MMA et fitness ont leurs propres plannings). */
   espaces?: string[];
+  /** Vrai quand les photos ne viennent pas de ce club. */
+  photosReseau?: boolean;
 };
+
+const SEMAINE: Ouverture = { jours: [0, 1, 2, 3, 4, 5], debut: 10 * 60, fin: 21 * 60 + 30 };
 
 export const CLUBS: Club[] = [
   {
@@ -29,7 +45,9 @@ export const CLUBS: Club[] = [
     ville: 'Toulouse',
     acces: 'À 5 minutes du métro B, Barrière de Paris',
     equipement: '3 rings et des sacs de frappe',
-    photo: require('@/assets/photos/ring-tapis-bc.jpg'),
+    photo: require('@/assets/photos/minimes-ring-drapeau.jpg'),
+    galerie: [require('@/assets/photos/minimes-ring-drapeau.jpg'), require('@/assets/photos/minimes-pattes-ring.jpg'), require('@/assets/photos/minimes-cross-groupe.jpg'), require('@/assets/photos/minimes-sacs.jpg')],
+    ouverture: SEMAINE,
   },
   {
     id: 'saint-cyprien',
@@ -39,7 +57,10 @@ export const CLUBS: Club[] = [
     codePostal: '31300',
     ville: 'Toulouse',
     equipement: 'Un ring, des sacs de frappe et un espace de tatamis',
-    photo: require('@/assets/photos/ring-gants.jpg'),
+    photo: require('@/assets/photos/minimes-sacs.jpg'),
+    galerie: [require('@/assets/photos/minimes-sacs.jpg'), require('@/assets/photos/ring-gants.jpg')],
+    ouverture: SEMAINE,
+    photosReseau: true,
   },
   {
     id: 'etats-unis',
@@ -50,7 +71,9 @@ export const CLUBS: Club[] = [
     ville: 'Toulouse',
     equipement: '2 rings de compétition, une cage surélevée, 400 m² de tapis et 16 sacs',
     photo: require('@/assets/photos/kick-drapeaux.jpg'),
-    espaces: ['Boxe', 'Fitness'],
+    galerie: [require('@/assets/photos/kick-drapeaux.jpg'), require('@/assets/photos/ring-tapis-bc.jpg'), require('@/assets/photos/cage-kick.jpg'), require('@/assets/photos/groupe-garde.jpg')],
+    ouverture: SEMAINE,
+    espaces: ['Boxe', 'MMA', 'Fitness'],
   },
   {
     id: 'ramonville',
@@ -60,7 +83,9 @@ export const CLUBS: Club[] = [
     codePostal: '31520',
     ville: 'Ramonville-Saint-Agne',
     equipement: 'Un ring de boxe anglaise et un octogone de 7 m',
-    photo: require('@/assets/photos/cage-kick.jpg'),
+    photo: require('@/assets/photos/ramonville-cage-ring.jpg'),
+    galerie: [require('@/assets/photos/ramonville-cage-ring.jpg'), require('@/assets/photos/ramonville-kick-bresil.jpg'), require('@/assets/photos/ramonville-cross-pneus.jpg'), require('@/assets/photos/ramonville-mma-cours.jpg')],
+    ouverture: SEMAINE,
   },
   {
     id: 'portet',
@@ -69,9 +94,19 @@ export const CLUBS: Club[] = [
     rue: "61 route d’Espagne",
     codePostal: '31120',
     ville: 'Portet-sur-Garonne',
-    equipement: 'Une salle de boxe, un ring de boxe anglaise, des tatamis et 24 sacs',
-    photo: require('@/assets/photos/ring-drapeaux-vide.jpg'),
+    equipement: 'Une salle de combat de 160 m², une cage MMA de 7 × 7 m sur podium, un ring neuf, des tatamis et 24 sacs',
+    photo: require('@/assets/photos/portet-ring-neuf.jpg'),
+    galerie: [require('@/assets/photos/portet-ring-neuf.jpg'), require('@/assets/photos/portet-cage-podium.jpg'), require('@/assets/photos/portet-rig-rouge.jpg'), require('@/assets/photos/portet-sacs-fresque.jpg')],
+    ouverture: SEMAINE,
+    espaces: ['Combat', 'MMA'],
   },
 ];
 
 export const clubById = (id: ClubId) => CLUBS.find((c) => c.id === id)!;
+
+/** Le club est-il ouvert à cet instant ? */
+export function estOuvert(club: Club, now = new Date()): boolean {
+  const jour = (now.getDay() + 6) % 7;
+  const min = now.getHours() * 60 + now.getMinutes();
+  return club.ouverture.jours.includes(jour) && min >= club.ouverture.debut && min < club.ouverture.fin;
+}

@@ -15,6 +15,8 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import '@/global.css';
+
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { color } from '@/ui/theme';
 
@@ -52,6 +54,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="contact" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -6,7 +6,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, typ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBadgeClock } from '@/features/badge/clock';
-import { useDirection } from '@/state/direction';
 import { type IconProps } from '@/ui/icons';
 import { LifeLine } from '@/ui/LifeLine';
 import { Body } from '@/ui/Text';
@@ -14,8 +13,7 @@ import { color, duration, ink, MAX_CONTENT_WIDTH, radius, space, spring, stroke,
 
 /**
  * La barre d’onglets. Une seule pour toute l’app ; ce qui change entre les
- * directions est la façon dont elle se tient : en A, le badge est une poignée
- * au centre, avec la ligne de vie du jeton.
+ * onglets, le badge est une poignée au centre, avec la ligne de vie du jeton.
  */
 export function TabBarFrame({ children, style, ...rest }: TabListProps) {
   const insets = useSafeAreaInsets();
@@ -36,7 +34,6 @@ type TabItemProps = TabTriggerSlotProps & {
 
 export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _style, ref, ...rest }: TabItemProps) {
   const pressed = useSharedValue(0);
-  const direction = useDirection((s) => s.direction);
   const focus = useSharedValue(isFocused ? 1 : 0);
   useEffect(() => {
     focus.value = withTiming(isFocused ? 1 : 0, { duration: duration.cross });
@@ -50,7 +47,7 @@ export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _sty
     transform: [{ scaleX: 0.3 + focus.value * 0.7 }],
   }));
 
-  const handle = direction === 'A' && id === 'badge';
+  const handle = id === 'badge';
   const tint = isFocused ? color.text : color.textDim;
   const { width } = useWindowDimensions();
   const itemWidth = Math.floor((Math.min(width, MAX_CONTENT_WIDTH) - space[2] * 2) / 5);
@@ -90,7 +87,7 @@ export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _sty
   );
 }
 
-/** Direction A : la poignée du coin — le badge, et la vie du jeton sous lui. */
+/** La poignée du coin — le badge, et la vie du jeton sous lui. */
 function HandleA({ focused, pressed, icon: Icon }: { focused: boolean; pressed: SharedValue<number>; icon: ComponentType<IconProps> }) {
   const secondsLeft = useBadgeClock((s) => s.secondsLeft);
   const windowSeconds = useBadgeClock((s) => s.windowSeconds);
