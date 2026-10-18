@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { clubById } from '@/data/clubs';
 import { ageOf } from '@/data/member';
@@ -43,16 +43,18 @@ export function BadgeMembre() {
   const last = member.passages[0];
   const next = nextSession(clubActif, now, ageOf(member, now));
 
+  const reduced = useReducedMotion();
   const rise = useSharedValue(0);
   useEffect(() => {
     if (locked !== 'ok') return;
-    rise.value = 0;
-    rise.value = withDelay(80, withTiming(1, { duration: duration.bell, easing: ARRIVE }));
+    // Mouvement réduit : la montée sur le ring devient une coupe de 120 ms, la cloche reste.
+    rise.value = reduced ? 1 : 0;
+    rise.value = reduced ? withTiming(1, { duration: duration.jab }) : withDelay(80, withTiming(1, { duration: duration.bell, easing: ARRIVE }));
     const bell = setTimeout(() => {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }, duration.bell + 80);
     return () => clearTimeout(bell);
-  }, [locked, rise]);
+  }, [locked, rise, reduced]);
   const plateStyle = useAnimatedStyle(() => ({
     opacity: rise.value,
     transform: [{ translateY: (1 - rise.value) * 24 }, { scale: 0.96 + rise.value * 0.04 }],
@@ -67,16 +69,35 @@ export function BadgeMembre() {
           <Mono size="micro">MON BADGE · {club.court.toUpperCase()}</Mono>
           <Mono size="micro">{clock}</Mono>
         </View>
-        <Display size="display1" tabular upper={false} tone="accent" tight>
+        <Display size="display1" tabular upper={false} tight>
           {formatClock(secondsLeft)}
         </Display>
         <LifeLine secondsLeft={secondsLeft} windowSeconds={windowSeconds} height={3} />
         <Body size="caption" tone="muted">
-          Présente le code au lecteur, ou donne les six chiffres au comptoir. Il change à la cloche ; une capture ne sert à rien après.
+          Au lecteur, ou les six chiffres au comptoir. Le code change à la cloche.
         </Body>
       </View>
 
       <Animated.View style={[styles.plate, { borderColor: hidden ? whiteAlpha[8] : color.accent }, plateStyle]}>
+        <View style={styles.who}>
+          <View style={styles.initials}>
+            <Display size="display5" tight>
+              {member.prenom[0]}
+              {member.nom[0]}
+            </Display>
+          </View>
+          <View style={styles.whoText}>
+            <Body weight="bold" numberOfLines={1}>
+              {member.prenom} {member.nom}
+            </Body>
+            <Mono size="micro">
+              Nº {member.deciplusId} · {club.court.toUpperCase()}
+            </Mono>
+          </View>
+          <Mono size="micro" tone={hidden ? 'muted' : 'accent'}>
+            {hidden ? 'MASQUÉ' : 'VALIDE'}
+          </Mono>
+        </View>
         <View style={styles.qrWrap}>
           {code && !hidden ? (
             <QR value={code.payload} size={232} />
@@ -103,13 +124,10 @@ export function BadgeMembre() {
       </Animated.View>
 
       <View style={styles.identity}>
-        <Body weight="semi">
-          {member.prenom} {member.nom}
-        </Body>
         <Body size="caption" tone="muted">
           {member.abonnement.libelle} · prochain prélèvement le {member.abonnement.prochainPrelevement ? dateLong(member.abonnement.prochainPrelevement) : '—'}
         </Body>
-        <Mono size="micro">CODE CALCULÉ SUR CET APPAREIL · VALABLE HORS CONNEXION</Mono>
+        <Mono size="micro">CODE CALCULÉ SUR CET APPAREIL · VALABLE HORS CONNEXION · UNE CAPTURE NE SERT À RIEN APRÈS LA CLOCHE</Mono>
       </View>
 
       {captured ? (
@@ -174,6 +192,9 @@ const styles = StyleSheet.create({
   head: { gap: space[2] },
   headRow: { flexDirection: 'row', justifyContent: 'space-between' },
   plate: { backgroundColor: ink[150], borderRadius: radius.sm, borderWidth: 2, padding: space[4], gap: space[4], alignSelf: 'center', width: '100%', maxWidth: 360 },
+  who: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingBottom: space[3], borderBottomWidth: stroke.hair, borderBottomColor: whiteAlpha[8] },
+  initials: { width: 40, height: 40, borderRadius: 20, backgroundColor: ink[300], alignItems: 'center', justifyContent: 'center' },
+  whoText: { flex: 1, gap: 1 },
   qrWrap: { alignItems: 'center' },
   qrHidden: { width: 232, height: 232, borderRadius: radius.sm, backgroundColor: ink[0], alignItems: 'center', justifyContent: 'center' },
   plateMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', borderTopWidth: stroke.hair, borderTopColor: whiteAlpha[8], paddingTop: space[3] },

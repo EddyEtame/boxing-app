@@ -37,6 +37,7 @@ export function Screen() {
   const [filtre, setFiltre] = useState<Filtre>('tous');
   const [trainings, setTrainings] = useState<Training[]>(TRAININGS);
   const [composer, setComposer] = useState(false);
+  const [vue, setVue] = useState<'videos' | 'membres'>('videos');
 
   const videos = orderVideos(filtre, next?.activite.famille);
 
@@ -44,12 +45,26 @@ export function Screen() {
     <Page padded={false}>
       <View style={styles.head}>
         <Body size="caption" eyebrow tone="muted">
-          Le coin du coach
+          {vue === 'videos' ? 'Le coin du coach' : 'Entre membres'}
         </Body>
         <Display size="display2">S’entraîner</Display>
+        <View style={styles.switch}>
+          {(['videos', 'membres'] as const).map((v) => {
+            const on = v === vue;
+            return (
+              <Pressable key={v} onPress={() => setVue(v)} style={[styles.switchBtn, on && styles.switchOn]} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                <Body size="caption" weight="bold" caps tone={on ? 'inverse' : 'muted'}>
+                  {v === 'videos' ? 'Vidéos' : 'Entre membres'}
+                </Body>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <SectionHead left="VIDÉOS ET TUTORIELS" right={actif ? `${VIDEOS.length} VIDÉOS` : `${VIDEOS.filter((v) => v.gratuite).length} GRATUITES`} />
+      {vue === 'videos' ? (
+        <>
+          <SectionHead left="VIDÉOS ET TUTORIELS" right={actif ? `${VIDEOS.length} VIDÉOS` : `${VIDEOS.filter((v) => v.gratuite).length} GRATUITES`} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filters}>
         {FILTRES.map((f) => (
           <Tap key={f.id} onPress={() => setFiltre(f.id)} scaleTo={0.95} haptic="selection" style={[styles.filter, filtre === f.id && styles.filterOn]} accessibilityRole="button" accessibilityState={{ selected: filtre === f.id }}>
@@ -59,13 +74,15 @@ export function Screen() {
           </Tap>
         ))}
       </ScrollView>
-      <Animated.View layout={LinearTransition.duration(duration.cross)} style={styles.videos}>
-        {videos.map((v, i) => (
-          <VideoCard key={v.id} video={v} index={i} locked={!actif && !v.gratuite} first={i === 0 && !!next && v.famille === next.activite.famille} />
-        ))}
-      </Animated.View>
-
-      <SectionHead left="ENTRE MEMBRES" right="ACCÈS LIBRE" style={styles.sectionGap} />
+          <Animated.View layout={LinearTransition.duration(duration.cross)} style={styles.videos}>
+            {videos.map((v, i) => (
+              <VideoCard key={v.id} video={v} index={i} locked={!actif && !v.gratuite} first={i === 0 && !!next && v.famille === next.activite.famille} hero={i === 0} />
+            ))}
+          </Animated.View>
+        </>
+      ) : (
+        <>
+          <SectionHead left="ENTRE MEMBRES" right="ACCÈS LIBRE" />
       <Body size="bodySmall" tone="muted" style={styles.intro}>
         Une proposition vit dans un créneau d’accès libre. Pas de messagerie : on s’inscrit, on se retrouve sur place.
       </Body>
@@ -97,7 +114,9 @@ export function Screen() {
         </View>
       )}
 
-      <SlotGroups trainings={trainings} clubs={clubsChoisis} today={jourFr(now)} age={age} actif={actif} onToggle={(id) => setTrainings((list) => list.map((t) => (t.id === id ? { ...t, jeParticipe: !t.jeParticipe, participants: t.participants + (t.jeParticipe ? -1 : 1) } : t)))} />
+          <SlotGroups trainings={trainings} clubs={clubsChoisis} today={jourFr(now)} age={age} actif={actif} onToggle={(id) => setTrainings((list) => list.map((t) => (t.id === id ? { ...t, jeParticipe: !t.jeParticipe, participants: t.participants + (t.jeParticipe ? -1 : 1) } : t)))} />
+        </>
+      )}
     </Page>
   );
 }
@@ -120,12 +139,15 @@ function SectionHead({ left, right, style }: { left: string; right: string; styl
   );
 }
 
-function VideoCard({ video, index, locked, first }: { video: Video; index: number; locked: boolean; first: boolean }) {
+function VideoCard({ video, index, locked, first, hero }: { video: Video; index: number; locked: boolean; first: boolean; hero: boolean }) {
   const tint = familleColor(video.famille);
   return (
     <Animated.View entering={FadeIn.delay(Math.min(index, stagger.max) * stagger.step).duration(duration.cross)}>
       <Tap style={styles.video} accessibilityRole="button" accessibilityLabel={video.titre}>
-        <Photo source={video.photo} style={styles.videoPhoto} darken={locked ? 0.6 : 0.3} scrim={0.5} grain={false}>
+        <Photo source={video.photo} style={[styles.videoPhoto, hero && styles.videoHero]} darken={locked ? 0.6 : 0.3} scrim={0.5} grain={false}>
+          <View style={styles.play} pointerEvents="none">
+            <View style={styles.playTriangle} />
+          </View>
           <View style={styles.videoTop}>
             <Mono size="micro" tone="text" numberOfLines={1} style={styles.videoTopLeft}>
               Nº {String(video.numero).padStart(2, '0')} · {video.dureeMin} MIN
@@ -139,7 +161,7 @@ function VideoCard({ video, index, locked, first }: { video: Video; index: numbe
             ) : null}
           </View>
           <View style={styles.videoBottom}>
-            <Display size="display4" tight numberOfLines={2}>
+            <Display size={hero ? 'display3' : 'display4'} tight numberOfLines={2}>
               {video.titre}
             </Display>
           </View>
@@ -189,7 +211,7 @@ function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainin
                 {JOURS_COURTS[g.jour].toUpperCase()} {heure(g.debut)}–{heure(g.fin)}
               </Display>
               <Mono size="micro">
-                {c.court.toUpperCase()} · {g.source === 'ouverture' ? 'OUVERT, ACCÈS LIBRE' : 'ACCÈS LIBRE'} · {g.items.length ? `${g.items.length} PROPOSITION${g.items.length > 1 ? 'S' : ''}` : 'LIBRE'}
+                {c.court.toUpperCase()} · {g.source === 'ouverture' ? 'OUVERT, ACCÈS LIBRE' : 'ACCÈS LIBRE'} · {g.items.length ? `${g.items.length} PROPOSITION${g.items.length > 1 ? 'S' : ''}` : 'AUCUNE PROPOSITION'}
               </Mono>
             </View>
             {g.items.length ? (
@@ -340,8 +362,13 @@ function Pill({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   head: { paddingHorizontal: space[4], gap: space[1], marginBottom: space[4] },
+  switch: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: ink[150], borderRadius: radius.sm, padding: 3, marginTop: space[2] },
+  switchBtn: { paddingHorizontal: space[3], paddingVertical: 7, borderRadius: radius.xs },
+  switchOn: { backgroundColor: color.text },
+  play: { position: 'absolute', right: space[3], bottom: space[3], width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(8,8,8,0.62)', borderWidth: stroke.thin, borderColor: whiteAlpha[20], alignItems: 'center', justifyContent: 'center' },
+  playTriangle: { width: 0, height: 0, marginLeft: 3, borderTopWidth: 6, borderBottomWidth: 6, borderLeftWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: color.text },
+  videoHero: { height: 280 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: space[4], paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
-  sectionGap: { marginTop: space[7] },
   filtersScroll: { flexGrow: 0, marginTop: space[3] },
   filters: { paddingHorizontal: space[4], gap: space[2], alignItems: 'center' },
   filter: { paddingHorizontal: space[3], paddingVertical: 8, borderRadius: radius.sm, borderWidth: stroke.thin, borderColor: ink[300] },

@@ -43,10 +43,10 @@ export function Screen() {
           Moi
         </Body>
         <Display size="display2" tight>
-          {member.prenom} {member.nom}
+          {invite ? 'Invité' : `${member.prenom} ${member.nom}`}
         </Display>
         <Mono size="micro">
-          {invite ? 'MODE INVITÉ' : `Nº ${member.deciplusId} · ${club.court.toUpperCase()}`}
+          {invite ? 'PAS ENCORE DE COMPTE · SALLES, PLANNINGS ET OFFRES SONT OUVERTS' : `Nº ${member.deciplusId} · ${club.court.toUpperCase()}`}
         </Mono>
       </View>
 
@@ -55,7 +55,8 @@ export function Screen() {
           <Display size="display4" tight>
             Rejoindre Boxing Center
           </Display>
-          <Body tone="muted">Un abonnement se prend en ligne, en quelques minutes. Le badge d’accès s’achète à l’accueil du club.</Body>
+          <Body tone="muted">Un abonnement se prend en ligne, en quelques minutes. Le badge d’accès s’achète à l’accueil du club ; ton compte le retrouve ensuite ici.</Body>
+          <ArrowLink label="Créer mon compte" onPress={() => router.push('/connexion')} />
           <ArrowLink label="Voir les offres" onPress={() => void Linking.openURL(BOUTIQUE)} />
         </View>
       ) : (

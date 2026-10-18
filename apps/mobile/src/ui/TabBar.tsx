@@ -2,14 +2,14 @@ import type { TabListProps, TabTriggerSlotProps } from 'expo-router/ui';
 import * as Haptics from 'expo-haptics';
 import { useEffect, type ComponentProps, type ComponentType } from 'react';
 import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBadgeClock } from '@/features/badge/clock';
 import { type IconProps } from '@/ui/icons';
 import { LifeLine } from '@/ui/LifeLine';
 import { Body } from '@/ui/Text';
-import { color, duration, ink, MAX_CONTENT_WIDTH, radius, space, spring, stroke, TAB_BAR_HEIGHT, whiteAlpha } from '@/ui/theme';
+import { color, duration, ink, MAX_CONTENT_WIDTH, radius, space, stroke, TAB_BAR_HEIGHT, whiteAlpha } from '@/ui/theme';
 
 /**
  * La barre d’onglets. Une seule pour toute l’app ; ce qui change entre les
@@ -40,12 +40,14 @@ export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _sty
   }, [isFocused, focus]);
 
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.08 }, { translateY: -focus.value * 1.5 }],
+    transform: [{ scale: 1 - pressed.value * 0.06 }, { translateY: -focus.value * 1.5 }],
   }));
   const barStyle = useAnimatedStyle(() => ({
     opacity: focus.value,
     transform: [{ scaleX: 0.3 + focus.value * 0.7 }],
   }));
+  // L’état pressé est une surface (Raycast, Linear) : pleine à l’instant, qui s’efface en 120 ms.
+  const fillStyle = useAnimatedStyle(() => ({ opacity: pressed.value }));
 
   const handle = id === 'badge';
   const tint = isFocused ? color.text : color.textDim;
@@ -56,12 +58,8 @@ export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _sty
     <Pressable
       ref={ref}
       {...rest}
-      onPressIn={() => {
-        pressed.value = withTiming(1, { duration: duration.pressIn });
-      }}
-      onPressOut={() => {
-        pressed.value = withSpring(0, spring.settle);
-      }}
+      onPressIn={() => pressed.set(withTiming(1, { duration: duration.pressIn }))}
+      onPressOut={() => pressed.set(withTiming(0, { duration: duration.pressOut }))}
       onPress={(e) => {
         if (Platform.OS !== 'web') void Haptics.selectionAsync();
         onPress?.(e);
@@ -74,11 +72,12 @@ export function TabItem({ id, icon: Icon, label, isFocused, onPress, style: _sty
         <HandleA focused={!!isFocused} pressed={pressed} icon={Icon} />
       ) : (
         <>
+          <Animated.View pointerEvents="none" style={[styles.fill, fillStyle]} />
           <Animated.View style={[styles.accent, barStyle]} />
           <Animated.View style={iconStyle}>
             <Icon size={22} color={tint} strokeWidth={isFocused ? 2 : 1.6} />
           </Animated.View>
-          <Body size="micro" weight={isFocused ? 'bold' : 'medium'} caps numberOfLines={1} style={[styles.label, { color: tint }]}>
+          <Body size="micro" weight="bold" caps numberOfLines={1} style={[styles.label, { color: tint }]}>
             {label}
           </Body>
         </>
@@ -140,6 +139,15 @@ const styles = StyleSheet.create({
     height: 2,
     width: 28,
     backgroundColor: color.accent,
+  },
+  fill: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    left: 4,
+    right: 4,
+    borderRadius: radius.sm,
+    backgroundColor: color.surfaceActive,
   },
   handle: {
     width: 56,
