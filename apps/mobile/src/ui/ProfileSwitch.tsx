@@ -3,14 +3,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSession } from '@/state/session';
 import { Mono } from '@/ui/Text';
-import { color, ink, radius, space, TAB_BAR_HEIGHT } from '@/ui/theme';
+import { radius, space, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
 
 /**
- * Interrupteur de démonstration : voir l’app comme un invité (sans compte) ou
- * comme un adhérent. Visible en développement seulement ; en production, c’est
+ * Interrupteur de démonstration : voir l'app comme un invité (sans compte) ou
+ * comme un adhérent. Visible en développement seulement ; en production, c'est
  * la session qui décide.
  */
 export function ProfileSwitch() {
+  const t = useTheme();
   const insets = useSafeAreaInsets();
   const statut = useSession((s) => s.member.statut);
   const setStatut = useSession((s) => s.setStatut);
@@ -19,14 +20,15 @@ export function ProfileSwitch() {
     { id: 'invite', label: 'INVITÉ' },
     { id: 'actif', label: 'ADHÉRENT' },
   ] as const;
+  const bottom = (insets.bottom > 0 ? Math.max(insets.bottom - 6, 10) : 14) + TAB_BAR_HEIGHT + space[3];
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: TAB_BAR_HEIGHT + Math.max(insets.bottom, 12) + space[3] }]}>
-      <View style={styles.pill}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
+      <View style={[styles.pill, { backgroundColor: t.bgElevated, borderColor: t.lineStrong, boxShadow: t.shadowFloat }]}>
         {options.map((o) => {
           const on = o.id === 'invite' ? statut === 'invite' : statut !== 'invite';
           return (
-            <Pressable key={o.id} onPress={() => setStatut(o.id)} style={[styles.btn, on && styles.btnOn]} accessibilityRole="button" accessibilityLabel={`Voir comme ${o.label.toLowerCase()}`}>
-              <Mono size="micro" tone={on ? 'inverse' : 'muted'} style={on ? styles.txtOn : undefined}>
+            <Pressable key={o.id} onPress={() => setStatut(o.id)} style={[styles.btn, on && { backgroundColor: t.primary }]} accessibilityRole="button" accessibilityLabel={`Voir comme ${o.label.toLowerCase()}`}>
+              <Mono size="micro" tone={on ? 'onPrimary' : 'muted'}>
                 {o.label}
               </Mono>
             </Pressable>
@@ -38,9 +40,7 @@ export function ProfileSwitch() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', right: space[3], zIndex: 50 },
-  pill: { flexDirection: 'row', backgroundColor: 'rgba(8,8,8,0.78)', borderRadius: radius.pill, borderWidth: 1, borderColor: ink[400], padding: 3, gap: 2 },
+  wrap: { position: 'absolute', right: space[4], zIndex: 50 },
+  pill: { flexDirection: 'row', borderRadius: radius.pill, borderWidth: 1, padding: 3, gap: 2, opacity: 0.92 },
   btn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-  btnOn: { backgroundColor: color.text },
-  txtOn: { color: color.textInverse },
 });

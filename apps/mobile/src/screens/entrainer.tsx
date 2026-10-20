@@ -1,22 +1,31 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import { ScrollView, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { ageOf } from '@/data/member';
 import { TRAINING_TYPES, TRAININGS, type Niveau, type Training, type TrainingType } from '@/data/trainings';
 import { SECURITE_LABEL, VIDEOS, type Video } from '@/data/videos';
-import { familleColor, heure, JOURS, JOURS_COURTS, jourFr, nextSession, plagesLibres, type Famille } from '@/features/planning/model';
+import { familleColor, heure, jourFr, nextSession, plagesLibres, type Famille } from '@/features/planning/model';
+import { weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
+import { useLocale, useT, type Locale, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
-import { IconLock } from '@/ui/icons';
+import { IconLock, IconPlay, IconUsers } from '@/ui/icons';
+import { Button, Card, Chip, Section, Segmented } from '@/ui/kit';
 import { LowerThird } from '@/ui/LowerThird';
-import { Page } from '@/ui/Page';
+import { Page, Reveal } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
-import { Body, Display, Mono } from '@/ui/Text';
-import { color, duration, ink, radius, space, stagger, stroke, whiteAlpha, type ClubId } from '@/ui/theme';
+import { Body, Heading } from '@/ui/Text';
+import { duration, GUTTER, makeStyles, radius, space, stagger, stroke, useTheme, type ClubId } from '@/ui/theme';
 
 type Filtre = 'tous' | Famille;
+type Vue = 'videos' | 'membres';
+
+const LEVEL_KEY: Record<Niveau, MessageKey> = { Débutant: 'train.levels.debutant', Intermédiaire: 'train.levels.intermediaire', Confirmé: 'train.levels.confirme' };
+
+/** Les guillemets de la langue : « … » avec espaces insécables en français, “…” en anglais. */
+const quote = (x: string, lang: Locale) => (lang === 'fr' ? `« ${x} »` : `“${x}”`);
 
 const FILTRES: { id: Filtre; label: string }[] = [
   { id: 'tous', label: 'Tout' },
@@ -27,54 +36,53 @@ const FILTRES: { id: Filtre; label: string }[] = [
   { id: 'crossTraining', label: 'Prépa' },
 ];
 
+/**
+ * S'entraîner (CDC §9 et §11) : les vidéos des coachs, et les séances entre
+ * membres sur les créneaux d'accès libre. Deux vues, un commutateur en tête :
+ * la rubrique membres n'est plus enterrée sous huit vidéos.
+ */
 export function Screen() {
-  const member = useSession((s) => s.member);
-  const clubsChoisis = useSession((s) => s.clubsChoisis);
+  const T = useT();
+  const s = useStyles();
+  const member = useSession((st) => st.member);
+  const clubsChoisis = useSession((st) => st.clubsChoisis);
   const now = new Date();
   const age = ageOf(member, now);
   const actif = member.statut === 'actif';
   const next = nextSession(member.clubPrincipal, now, age);
+  const [vue, setVue] = useState<Vue>('videos');
   const [filtre, setFiltre] = useState<Filtre>('tous');
   const [trainings, setTrainings] = useState<Training[]>(TRAININGS);
   const [composer, setComposer] = useState(false);
-  const [vue, setVue] = useState<'videos' | 'membres'>('videos');
-
   const videos = orderVideos(filtre, next?.activite.famille);
 
   return (
-    <Page padded={false}>
-      <View style={styles.head}>
-        <Body size="caption" eyebrow tone="muted">
-          {vue === 'videos' ? 'Le coin du coach' : 'Entre membres'}
-        </Body>
-        <Display size="display2">S’entraîner</Display>
-        <View style={styles.switch}>
-          {(['videos', 'membres'] as const).map((v) => {
-            const on = v === vue;
-            return (
-              <Pressable key={v} onPress={() => setVue(v)} style={[styles.switchBtn, on && styles.switchOn]} accessibilityRole="button" accessibilityState={{ selected: on }}>
-                <Body size="caption" weight="bold" caps tone={on ? 'inverse' : 'muted'}>
-                  {v === 'videos' ? 'Vidéos' : 'Entre membres'}
-                </Body>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+    <Page title={T('train.title')} subtitle={vue === 'videos' ? T('train.subVideos') : T('train.subMembers')}>
+      <Reveal>
+        <Segmented<Vue>
+          full
+          value={vue}
+          onChange={setVue}
+          options={[
+            { value: 'videos', label: T('train.videos'), icon: IconPlay },
+            { value: 'membres', label: T('train.members'), icon: IconUsers },
+          ]}
+        />
+      </Reveal>
 
       {vue === 'videos' ? (
         <>
-          <SectionHead left="VIDÉOS ET TUTORIELS" right={actif ? `${VIDEOS.length} VIDÉOS` : `${VIDEOS.filter((v) => v.gratuite).length} GRATUITES`} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll} contentContainerStyle={styles.filters}>
-        {FILTRES.map((f) => (
-          <Tap key={f.id} onPress={() => setFiltre(f.id)} scaleTo={0.95} haptic="selection" style={[styles.filter, filtre === f.id && styles.filterOn]} accessibilityRole="button" accessibilityState={{ selected: filtre === f.id }}>
-            <Body size="caption" weight="bold" caps tone={filtre === f.id ? 'inverse' : 'muted'}>
-              {f.label}
+          <Reveal delay={60}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filtersScroll} contentContainerStyle={s.filters}>
+              {FILTRES.map((f) => (
+                <Chip key={f.id} label={f.id === 'tous' ? T('train.all') : f.label} selected={filtre === f.id} onPress={() => setFiltre(f.id)} />
+              ))}
+            </ScrollView>
+            <Body size="caption" weight="semi" tone="muted" style={s.count}>
+              {actif ? T('train.countAll', { n: VIDEOS.length }) : T('train.countFree', { n: VIDEOS.filter((v) => v.gratuite).length })}
             </Body>
-          </Tap>
-        ))}
-      </ScrollView>
-          <Animated.View layout={LinearTransition.duration(duration.cross)} style={styles.videos}>
+          </Reveal>
+          <Animated.View layout={LinearTransition.duration(duration.cross)} style={s.videos}>
             {videos.map((v, i) => (
               <VideoCard key={v.id} video={v} index={i} locked={!actif && !v.gratuite} first={i === 0 && !!next && v.famille === next.activite.famille} hero={i === 0} />
             ))}
@@ -82,39 +90,41 @@ export function Screen() {
         </>
       ) : (
         <>
-          <SectionHead left="ENTRE MEMBRES" right="ACCÈS LIBRE" />
-      <Body size="bodySmall" tone="muted" style={styles.intro}>
-        Une proposition vit dans un créneau d’accès libre. Pas de messagerie : on s’inscrit, on se retrouve sur place.
-      </Body>
-
-      {actif ? (
-        <>
-          <Tap onPress={() => setComposer((c) => !c)} style={styles.propose} accessibilityRole="button" accessibilityLabel="Proposer un entraînement">
-            <Body weight="bold" tone="inverse">
-              {composer ? 'Fermer' : 'Proposer un entraînement'}
-            </Body>
-          </Tap>
-          {composer ? (
+          <Reveal delay={60}>
+            <Card style={s.rules}>
+              <Body size="bodySmall" tone="muted">
+                {T('train.rules')}
+              </Body>
+            </Card>
+            {actif ? (
+              <Button label={composer ? T('common.close') : T('train.propose')} variant={composer ? 'secondary' : 'primary'} onPress={() => setComposer((c) => !c)} style={s.propose} />
+            ) : (
+              <Card style={s.locked}>
+                <IconLock size={20} />
+                <Body size="bodySmall" tone="muted" style={{ flex: 1 }}>
+                  {T('train.membersOnly')}
+                </Body>
+              </Card>
+            )}
+          </Reveal>
+          {composer && actif ? (
             <Composer
               age={age}
               clubDefault={member.clubPrincipal}
-              onPublish={(t) => {
-                setTrainings((list) => [t, ...list]);
+              onPublish={(tr) => {
+                setTrainings((list) => [tr, ...list]);
                 setComposer(false);
               }}
             />
           ) : null}
-        </>
-      ) : (
-        <View style={styles.lockedBox}>
-          <IconLock size={18} color={color.textMuted} />
-          <Body size="bodySmall" tone="muted" style={{ flex: 1 }}>
-            Réservé aux adhérents actifs. Les créneaux d’accès libre restent visibles dans le planning.
-          </Body>
-        </View>
-      )}
-
-          <SlotGroups trainings={trainings} clubs={clubsChoisis} today={jourFr(now)} age={age} actif={actif} onToggle={(id) => setTrainings((list) => list.map((t) => (t.id === id ? { ...t, jeParticipe: !t.jeParticipe, participants: t.participants + (t.jeParticipe ? -1 : 1) } : t)))} />
+          <SlotGroups
+            trainings={trainings}
+            clubs={clubsChoisis}
+            today={jourFr(now)}
+            age={age}
+            actif={actif}
+            onToggle={(id) => setTrainings((list) => list.map((tr) => (tr.id === id ? { ...tr, jeParticipe: !tr.jeParticipe, participants: tr.participants + (tr.jeParticipe ? -1 : 1) } : tr)))}
+          />
         </>
       )}
     </Page>
@@ -130,62 +140,58 @@ function orderVideos(filtre: Filtre, famille?: Famille): Video[] {
   return [list[i], ...list.slice(0, i), ...list.slice(i + 1)];
 }
 
-function SectionHead({ left, right, style }: { left: string; right: string; style?: object }) {
-  return (
-    <View style={[styles.sectionHead, style]}>
-      <Mono size="micro">{left}</Mono>
-      <Mono size="micro">{right}</Mono>
-    </View>
-  );
-}
-
 function VideoCard({ video, index, locked, first, hero }: { video: Video; index: number; locked: boolean; first: boolean; hero: boolean }) {
+  const T = useT();
+  const s = useStyles();
+  const t = useTheme();
   const tint = familleColor(video.famille);
   return (
-    <Animated.View entering={FadeIn.delay(Math.min(index, stagger.max) * stagger.step).duration(duration.cross)}>
-      <Tap style={styles.video} accessibilityRole="button" accessibilityLabel={video.titre}>
-        <Photo source={video.photo} style={[styles.videoPhoto, hero && styles.videoHero]} darken={locked ? 0.6 : 0.3} scrim={0.5} grain={false}>
-          <View style={styles.play} pointerEvents="none">
-            <View style={styles.playTriangle} />
-          </View>
-          <View style={styles.videoTop}>
-            <Mono size="micro" tone="text" numberOfLines={1} style={styles.videoTopLeft}>
-              Nº {String(video.numero).padStart(2, '0')} · {video.dureeMin} MIN
-            </Mono>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, stagger.max) * stagger.step).duration(420)}>
+      <Tap style={s.video} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={video.titre}>
+        <Photo source={video.photo} style={[s.videoPhoto, hero && s.videoHero]} darken={locked ? 0.58 : 0.28} scrim={0.6} grain={false}>
+          <View style={s.videoTop}>
+            <View style={s.badge}>
+              <Body size="caption" weight="bold">
+                {video.dureeMin} min
+              </Body>
+            </View>
             {first ? (
-              <Mono size="micro" tone="accent" numberOfLines={1}>
-                PROCHAINE SÉANCE
-              </Mono>
+              <View style={[s.badge, { backgroundColor: 'rgba(232,0,28,0.85)' }]}>
+                <Body size="caption" weight="bold">
+                  {T('train.nextSession')}
+                </Body>
+              </View>
             ) : locked ? (
-              <IconLock size={16} color={color.text} />
+              <View style={s.badge}>
+                <IconLock size={14} />
+              </View>
             ) : null}
           </View>
-          <View style={styles.videoBottom}>
-            <Display size={hero ? 'display3' : 'display4'} tight numberOfLines={2}>
+          <View style={s.videoBottom}>
+            <Heading level={hero ? 'section' : 'card'} numberOfLines={2} style={{ flex: 1 }}>
               {video.titre}
-            </Display>
+            </Heading>
+            <View style={s.play}>
+              <IconPlay size={22} />
+            </View>
           </View>
         </Photo>
-        <View style={styles.videoMeta}>
-          <LowerThird meta={`${video.disciplineLabel.toUpperCase()} · ${video.niveau.toUpperCase()} · ${video.objectif.toUpperCase()}${video.securite !== 'seul' ? ' · ' + SECURITE_LABEL[video.securite] : ''}`} bar={video.securite === 'seul' ? tint : color.accent} compact />
-          {locked ? (
-            <Body size="caption" tone="muted">
-              Réservé aux adhérents
-            </Body>
-          ) : null}
-        </View>
+        <LowerThird meta={`${video.disciplineLabel.toUpperCase()} · ${video.niveau.toUpperCase()} · ${video.objectif.toUpperCase()}${video.securite !== 'seul' ? ' · ' + SECURITE_LABEL[video.securite] : ''}`} bar={video.securite === 'seul' ? tint : t.accent} compact style={s.videoMeta} />
       </Tap>
     </Animated.View>
   );
 }
 
 function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainings: Training[]; clubs: ClubId[]; today: number; age: number; actif: boolean; onToggle: (id: string) => void }) {
+  const T = useT();
+  const s = useStyles();
+  const lang = useLocale();
   const groups: { jour: number; club: ClubId; debut: number; fin: number; items: Training[]; source: 'planning' | 'ouverture' }[] = [];
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
     for (const c of CLUBS) {
       for (const plage of plagesLibres(c.id, jour)) {
-        const items = trainings.filter((t) => t.club === c.id && t.jour === jour && t.debut >= plage.debut && t.debut < plage.fin);
+        const items = trainings.filter((tr) => tr.club === c.id && tr.jour === jour && tr.debut >= plage.debut && tr.debut < plage.fin);
         if (items.length || (clubs.includes(c.id) && offset <= 1)) groups.push({ jour, club: c.id, debut: plage.debut, fin: plage.fin, items, source: plage.source });
       }
     }
@@ -193,74 +199,63 @@ function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainin
   const visible = groups.slice(0, 6);
   if (!visible.length) {
     return (
-      <View style={styles.groups}>
-        <Body size="bodySmall" tone="dim">
-          Aucune plage d’accès libre dans les sept prochains jours pour tes clubs.
-        </Body>
-      </View>
+      <Body size="bodySmall" tone="dim" style={s.groups}>
+        {T('train.noSlots')}
+      </Body>
     );
   }
   return (
-    <View style={styles.groups}>
+    <View style={s.groups}>
       {visible.map((g) => {
         const c = clubById(g.club);
         return (
-          <View key={`${g.club}-${g.jour}-${g.debut}`} style={styles.group}>
-            <View style={styles.groupHead}>
-              <Display size="display5" tight upper={false}>
-                {JOURS_COURTS[g.jour].toUpperCase()} {heure(g.debut)}–{heure(g.fin)}
-              </Display>
-              <Mono size="micro">
-                {c.court.toUpperCase()} · {g.source === 'ouverture' ? 'OUVERT, ACCÈS LIBRE' : 'ACCÈS LIBRE'} · {g.items.length ? `${g.items.length} PROPOSITION${g.items.length > 1 ? 'S' : ''}` : 'AUCUNE PROPOSITION'}
-              </Mono>
-            </View>
-            {g.items.length ? (
-              g.items.map((t) => {
-                const type = TRAINING_TYPES.find((x) => x.id === t.type)!;
-                const minor = age < 18 && type.sparring;
-                return (
-                  <View key={t.id} style={styles.proposal}>
-                    <View style={styles.pills}>
-                      <Pill>{type.label}</Pill>
-                      <Pill>{heure(t.debut)}</Pill>
-                      <Pill>{t.niveau}</Pill>
-                    </View>
-                    {t.observation ? (
-                      <Body size="bodySmall" tone="muted">
-                        {t.observation}
-                      </Body>
-                    ) : null}
-                    <View style={styles.proposalFoot}>
-                      <Mono size="micro">
-                        {t.organisateur.toUpperCase()} · {t.participants} {t.participants > 1 ? 'MEMBRES' : 'MEMBRE'}
-                      </Mono>
-                      {actif && !minor ? (
-                        <Tap onPress={() => onToggle(t.id)} scaleTo={0.95} style={[styles.join, t.jeParticipe && styles.joinOn]} accessibilityRole="button" accessibilityLabel={t.jeParticipe ? 'Annuler ma participation' : 'Je participe'}>
-                          <Body size="caption" weight="bold" caps tone={t.jeParticipe ? 'inverse' : 'text'}>
-                            {t.jeParticipe ? 'Inscrit' : 'Je participe'}
+          <Reveal key={`${g.club}-${g.jour}-${g.debut}`}>
+            <Section title={`${WEEKDAYS[lang][g.jour]} · ${heure(g.debut)}–${heure(g.fin)}`} note={`${c.court} · ${g.source === 'ouverture' ? T('train.openFree') : T('train.free')} · ${g.items.length ? T('train.proposals', { n: g.items.length }) : T('train.noProposal')}`} style={s.groupSection}>
+              {g.items.length ? (
+                g.items.map((tr) => {
+                  const type = TRAINING_TYPES.find((x) => x.id === tr.type)!;
+                  const minor = age < 18 && type.sparring;
+                  return (
+                    <Card key={tr.id} style={s.proposal}>
+                      <View style={s.pills}>
+                        <Pill>{type.label}</Pill>
+                        <Pill>{heure(tr.debut)}</Pill>
+                        <Pill>{T(LEVEL_KEY[tr.niveau])}</Pill>
+                      </View>
+                      {tr.observation ? <Body tone="muted">{tr.observation}</Body> : null}
+                      <View style={s.foot}>
+                        <Body size="caption" weight="semi" tone="dim" style={{ flex: 1 }}>
+                          {tr.organisateur} · {T('train.participants', { n: tr.participants })}
+                        </Body>
+                        {actif && !minor ? (
+                          <Button small label={tr.jeParticipe ? T('train.joined') : T('train.join')} variant={tr.jeParticipe ? 'primary' : 'secondary'} onPress={() => onToggle(tr.id)} />
+                        ) : minor ? (
+                          <Body size="caption" weight="bold" tone="negative">
+                            {T('train.adults')}
                           </Body>
-                        </Tap>
-                      ) : minor ? (
-                        <Mono size="micro">SPARRING : 18 ANS ET PLUS</Mono>
-                      ) : null}
-                    </View>
-                    {type.sparring ? <LowerThird meta="MISE DE GANTS : CASQUE, PROTÈGE-DENTS, GANTS 16 OZ · UN COACH PRÉSENT DANS LA SALLE" compact style={styles.rule} /> : null}
-                  </View>
-                );
-              })
-            ) : (
-              <Body size="bodySmall" tone="dim">
-                Personne n’a encore proposé de séance sur ce créneau. Ta proposition s’écrira ici.
-              </Body>
-            )}
-          </View>
+                        ) : null}
+                      </View>
+                      {type.sparring ? <LowerThird meta={T('train.sparringRule')} compact style={s.rule} /> : null}
+                    </Card>
+                  );
+                })
+              ) : (
+                <Body size="bodySmall" tone="dim">
+                  {T('train.emptySlot')}
+                </Body>
+              )}
+            </Section>
+          </Reveal>
         );
       })}
     </View>
   );
 }
 
-function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: ClubId; onPublish: (t: Training) => void }) {
+function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: ClubId; onPublish: (tr: Training) => void }) {
+  const T = useT();
+  const s = useStyles();
+  const lang = useLocale();
   const [type, setType] = useState<TrainingType>('training-collectif');
   const [club, setClub] = useState<ClubId>(clubDefault);
   const [jour, setJour] = useState(jourFr(new Date()));
@@ -273,133 +268,123 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
   });
   const [slotIndex, setSlotIndex] = useState(0);
   const slot = heures[Math.min(slotIndex, Math.max(0, heures.length - 1))];
-  const types = TRAINING_TYPES.filter((t) => age >= 18 || !t.sparring);
+  const types = TRAINING_TYPES.filter((x) => age >= 18 || !x.sparring);
 
   return (
-    <Animated.View entering={FadeIn.duration(duration.cross)} style={styles.composer}>
-      <Mono size="micro">COMPOSE TA PROPOSITION</Mono>
-      <Row label="Type">
-        {types.map((t) => (
-          <Choice key={t.id} on={t.id === type} onPress={() => setType(t.id)} label={t.label} />
-        ))}
-      </Row>
-      <Row label="Club">
-        {CLUBS.map((c) => (
-          <Choice key={c.id} on={c.id === club} onPress={() => { setClub(c.id); setSlotIndex(0); }} label={c.court} />
-        ))}
-      </Row>
-      <Row label="Jour">
-        {JOURS.map((j, i) => (
-          <Choice key={j} on={i === jour} onPress={() => { setJour(i); setSlotIndex(0); }} label={JOURS_COURTS[i]} />
-        ))}
-      </Row>
-      <Row label="Heure">
-        {heures.length ? heures.map((s, i) => <Choice key={s.id} on={i === slotIndex} onPress={() => setSlotIndex(i)} label={heure(s.debut)} />) : <Mono size="micro">CLUB FERMÉ CE JOUR-LÀ</Mono>}
-      </Row>
-      <Row label="Niveau">
-        {(['Débutant', 'Intermédiaire', 'Confirmé'] as Niveau[]).map((n) => (
-          <Choice key={n} on={n === niveau} onPress={() => setNiveau(n)} label={n} />
-        ))}
-      </Row>
-      <View style={styles.sentence}>
-        <Body size="bodySmall" tone="muted">
-          {slot ? (
-            <>
-              « {TRAINING_TYPES.find((t) => t.id === type)!.label} · {clubById(club).court} · {JOURS[jour].toLowerCase()} {heure(slot.debut)} · {niveau.toLowerCase()} »
-            </>
+    <Animated.View entering={FadeIn.duration(duration.cross)}>
+      <Card style={s.composer}>
+        <Heading level="card">{T('train.compose')}</Heading>
+        <ChoiceRow label={T('train.type')}>
+          {types.map((x) => (
+            <Chip key={x.id} label={x.label} selected={x.id === type} onPress={() => setType(x.id)} />
+          ))}
+        </ChoiceRow>
+        <ChoiceRow label={T('train.club')}>
+          {CLUBS.map((c) => (
+            <Chip
+              key={c.id}
+              label={c.court}
+              selected={c.id === club}
+              onPress={() => {
+                setClub(c.id);
+                setSlotIndex(0);
+              }}
+            />
+          ))}
+        </ChoiceRow>
+        <ChoiceRow label={T('train.day')}>
+          {WEEKDAYS_SHORT[lang].map((j, i) => (
+            <Chip
+              key={j}
+              label={j}
+              selected={i === jour}
+              onPress={() => {
+                setJour(i);
+                setSlotIndex(0);
+              }}
+            />
+          ))}
+        </ChoiceRow>
+        <ChoiceRow label={T('train.time')}>
+          {heures.length ? (
+            heures.map((h, i) => <Chip key={h.id} label={heure(h.debut)} selected={i === slotIndex} onPress={() => setSlotIndex(i)} />)
           ) : (
-            'Choisis un jour où le club est ouvert.'
+            <Body size="bodySmall" tone="muted">
+              {T('train.closedDay')}
+            </Body>
           )}
+        </ChoiceRow>
+        <ChoiceRow label={T('train.level')}>
+          {(['Débutant', 'Intermédiaire', 'Confirmé'] as Niveau[]).map((n) => (
+            <Chip key={n} label={T(LEVEL_KEY[n])} selected={n === niveau} onPress={() => setNiveau(n)} />
+          ))}
+        </ChoiceRow>
+        <Body tone="muted" style={s.sentence}>
+          {slot ? quote(`${TRAINING_TYPES.find((x) => x.id === type)!.label} · ${clubById(club).court} · ${weekdayIn(jour, lang)} ${heure(slot.debut)} · ${T(LEVEL_KEY[niveau]).toLowerCase()}`, lang) : T('train.pickOpenDay')}
         </Body>
-      </View>
-      <Tap
-        disabled={!slot}
-        onPress={() => slot && onPublish({ id: `t-${Date.now()}`, type, club, jour, debut: slot.debut, niveau, organisateur: 'Toi', participants: 1, jeParticipe: true })}
-        style={[styles.publish, !slot && styles.publishOff]}
-        accessibilityRole="button"
-        accessibilityLabel="Publier la proposition">
-        <Body weight="bold" tone="inverse">
-          Publier
+        <Button
+          label={T('train.publish')}
+          disabled={!slot}
+          onPress={() => slot && onPublish({ id: `t-${Date.now()}`, type, club, jour, debut: slot.debut, niveau, organisateur: T('train.you'), participants: 1, jeParticipe: true })}
+        />
+        <Body size="caption" tone="dim">
+          {T('train.moderated')}
         </Body>
-      </Tap>
-      <Mono size="micro">SOUMIS À MODÉRATION · RÈGLES DE SÉCURITÉ ET D’ASSURANCE DU CLUB</Mono>
+      </Card>
     </Animated.View>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function ChoiceRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const s = useStyles();
   return (
-    <View style={styles.row}>
-      <Mono size="micro" style={styles.rowLabel}>
-        {label.toUpperCase()}
-      </Mono>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowChoices}>
+    <View style={s.choiceRow}>
+      <Body size="caption" weight="bold" tone="muted">
+        {label}
+      </Body>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.choices}>
         {children}
       </ScrollView>
     </View>
   );
 }
 
-function Choice({ on, onPress, label }: { on: boolean; onPress: () => void; label: string }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.choice, on && styles.choiceOn]} accessibilityRole="button" accessibilityState={{ selected: on }}>
-      <Body size="caption" weight="semi" tone={on ? 'inverse' : 'text'}>
-        {label}
-      </Body>
-    </Pressable>
-  );
-}
-
 function Pill({ children }: { children: React.ReactNode }) {
+  const s = useStyles();
   return (
-    <View style={styles.pill}>
-      <Body size="caption" weight="semi">
+    <View style={s.pill}>
+      <Body size="caption" weight="bold">
         {children}
       </Body>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  head: { paddingHorizontal: space[4], gap: space[1], marginBottom: space[4] },
-  switch: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: ink[150], borderRadius: radius.sm, padding: 3, marginTop: space[2] },
-  switchBtn: { paddingHorizontal: space[3], paddingVertical: 7, borderRadius: radius.xs },
-  switchOn: { backgroundColor: color.text },
-  play: { position: 'absolute', right: space[3], bottom: space[3], width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(8,8,8,0.62)', borderWidth: stroke.thin, borderColor: whiteAlpha[20], alignItems: 'center', justifyContent: 'center' },
-  playTriangle: { width: 0, height: 0, marginLeft: 3, borderTopWidth: 6, borderBottomWidth: 6, borderLeftWidth: 10, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: color.text },
-  videoHero: { height: 280 },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: space[4], paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
-  filtersScroll: { flexGrow: 0, marginTop: space[3] },
-  filters: { paddingHorizontal: space[4], gap: space[2], alignItems: 'center' },
-  filter: { paddingHorizontal: space[3], paddingVertical: 8, borderRadius: radius.sm, borderWidth: stroke.thin, borderColor: ink[300] },
-  filterOn: { backgroundColor: color.text, borderColor: color.text },
-  videos: { paddingHorizontal: space[4], marginTop: space[3], gap: space[4] },
+const useStyles = makeStyles((t) => ({
+  filtersScroll: { flexGrow: 0, marginHorizontal: -GUTTER, marginTop: space[5] },
+  filters: { paddingHorizontal: GUTTER, gap: space[2] },
+  count: { marginTop: space[3] },
+  videos: { marginTop: space[3], gap: space[5] },
   video: { gap: space[2] },
-  videoPhoto: { height: 200, borderRadius: radius.sm, justifyContent: 'space-between' },
-  videoTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: space[3], gap: space[2] },
-  videoTopLeft: { flexShrink: 1 },
-  videoBottom: { padding: space[3] },
-  videoMeta: { gap: 4 },
-  intro: { marginHorizontal: space[4], marginTop: space[2] },
-  propose: { marginHorizontal: space[4], marginTop: space[4], backgroundColor: color.text, borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center' },
-  lockedBox: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginHorizontal: space[4], marginTop: space[4], padding: space[3], backgroundColor: ink[150], borderRadius: radius.sm },
-  groups: { paddingHorizontal: space[4], marginTop: space[5], gap: space[5] },
-  group: { gap: space[3] },
-  groupHead: { gap: 2, paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
-  proposal: { backgroundColor: ink[150], borderRadius: radius.sm, padding: space[3], gap: space[2], borderWidth: stroke.hair, borderColor: whiteAlpha[6] },
+  videoPhoto: { height: 200, borderRadius: radius.card, justifyContent: 'space-between' },
+  videoHero: { height: 280 },
+  videoTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: space[4] },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: 'rgba(8,8,8,0.55)' },
+  videoBottom: { flexDirection: 'row', alignItems: 'flex-end', gap: space[3], padding: space[4] },
+  play: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,245,245,0.18)', borderWidth: 1, borderColor: 'rgba(245,245,245,0.35)' },
+  videoMeta: { marginHorizontal: space[1] },
+  rules: { marginTop: space[5] },
+  propose: { marginTop: space[4] },
+  locked: { marginTop: space[4], flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  groups: { marginTop: space[2] },
+  groupSection: { marginTop: space[7] },
+  proposal: { gap: space[3], marginBottom: space[3] },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  pill: { backgroundColor: whiteAlpha[8], borderRadius: radius.xs, paddingHorizontal: 8, paddingVertical: 4 },
-  proposalFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space[1] },
-  join: { borderWidth: stroke.thin, borderColor: color.text, borderRadius: radius.sm, paddingHorizontal: space[3], paddingVertical: 8 },
-  joinOn: { backgroundColor: color.text },
+  pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: t.chip },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   rule: { marginTop: space[1] },
-  composer: { marginHorizontal: space[4], marginTop: space[3], backgroundColor: ink[150], borderRadius: radius.sm, padding: space[3], gap: space[3], borderWidth: stroke.hair, borderColor: whiteAlpha[6] },
-  row: { gap: 6 },
-  rowLabel: {},
-  rowChoices: { gap: 6 },
-  choice: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.xs, borderWidth: stroke.hair, borderColor: whiteAlpha[12] },
-  choiceOn: { backgroundColor: color.text, borderColor: color.text },
-  sentence: { paddingTop: space[2], borderTopWidth: stroke.hair, borderTopColor: whiteAlpha[8] },
-  publish: { backgroundColor: color.text, borderRadius: radius.sm, paddingVertical: 12, alignItems: 'center' },
-  publishOff: { opacity: 0.4 },
-});
+  composer: { marginTop: space[4], gap: space[4] },
+  choiceRow: { gap: space[2] },
+  choices: { gap: space[2] },
+  sentence: { paddingTop: space[3], borderTopWidth: stroke.hair, borderTopColor: t.line },
+}));

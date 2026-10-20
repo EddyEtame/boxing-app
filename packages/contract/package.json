@@ -1,0 +1,9 @@
+{
+  "name": "@bc/contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Le contrat partagé entre l'app, l'admin et le serveur : passages, calcul des statistiques, démonstration, événements d'usage anonymes.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false
+}

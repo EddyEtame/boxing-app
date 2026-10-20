@@ -122,7 +122,7 @@ export function accesLibreFor(club: ClubId, jour: number): Slot[] {
   return slotsFor(club, jour).filter((s) => normaliseActivite(s.activite).famille === 'accesLibre');
 }
 
-export type NextSession = { slot: Slot; activite: Activite; dansMinutes: number; jourLabel: string };
+export type NextSession = { slot: Slot; activite: Activite; dansMinutes: number; jourLabel: string; offset: number; jour: number };
 
 /**
  * La prochaine séance dans le club principal, hors accès libre, qui convient à
@@ -141,7 +141,7 @@ export function nextSession(club: ClubId, now = new Date(), age = 30): NextSessi
       if (offset === 0 && slot.debut <= nowMin) continue;
       const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;
       const jourLabel = offset === 0 ? "Aujourd’hui" : offset === 1 ? 'Demain' : JOURS[jour];
-      return { slot, activite: normaliseActivite(slot.activite), dansMinutes, jourLabel };
+      return { slot, activite: normaliseActivite(slot.activite), dansMinutes, jourLabel, offset, jour };
     }
   }
   return null;

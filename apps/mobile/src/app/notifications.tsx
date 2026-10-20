@@ -1,77 +1,68 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { View } from 'react-native';
 
-import { IconClose } from '@/ui/icons';
-import { Page } from '@/ui/Page';
-import { Body, Display, Mono } from '@/ui/Text';
-import { color, ink, radius, space, stroke, whiteAlpha } from '@/ui/theme';
+import { useT, type MessageKey } from '@/i18n';
+import { Card, Toggle } from '@/ui/kit';
+import { Page, Reveal } from '@/ui/Page';
+import { Body } from '@/ui/Text';
+import { makeStyles, radius, space, stroke, useTheme } from '@/ui/theme';
 
 /**
  * Préférences de notifications (CDC §14). Les messages de la direction sont
  * essentiels et ne se coupent pas ; tout le reste se règle.
  */
-type Pref = { id: string; label: string; sub: string; essential?: boolean };
+type Pref = { id: string; label: MessageKey; sub: MessageKey; essential?: boolean };
 
 const PREFS: Pref[] = [
-  { id: 'direction', label: 'Messages de la direction', sub: 'Réponses à tes demandes, informations importantes', essential: true },
-  { id: 'coach', label: 'Messages des coachs', sub: 'Un coach ou un membre du staff t’écrit' },
-  { id: 'events', label: 'Événements et galas', sub: 'Annonces, résultats, billetterie' },
-  { id: 'promos', label: 'Offres', sub: 'Promotions ponctuelles du club' },
-  { id: 'videos', label: 'Nouvelles vidéos', sub: 'Tutoriels et séances des coachs' },
-  { id: 'trainings', label: 'Entraînements entre membres', sub: 'Rappels, modifications, annulations' },
-  { id: 'billing', label: 'Échéances', sub: 'Prélèvement à venir, impayé à régulariser' },
-  { id: 'clubs', label: 'Mon club', sub: 'Fermeture exceptionnelle, planning modifié' },
+  { id: 'direction', label: 'notif.direction', sub: 'notif.directionSub', essential: true },
+  { id: 'coach', label: 'notif.coach', sub: 'notif.coachSub' },
+  { id: 'events', label: 'notif.events', sub: 'notif.eventsSub' },
+  { id: 'promos', label: 'notif.promos', sub: 'notif.promosSub' },
+  { id: 'videos', label: 'notif.videos', sub: 'notif.videosSub' },
+  { id: 'trainings', label: 'notif.trainings', sub: 'notif.trainingsSub' },
+  { id: 'billing', label: 'notif.billing', sub: 'notif.billingSub' },
+  { id: 'clubs', label: 'notif.clubs', sub: 'notif.clubsSub' },
 ];
 
 export default function NotificationsScreen() {
+  const T = useT();
+  const s = useStyles();
+  const t = useTheme();
   const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(PREFS.map((p) => [p.id, true])));
   return (
-    <Page contentStyle={styles.content}>
-      <View style={styles.head}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Body size="caption" eyebrow tone="muted">
-            Notifications
-          </Body>
-          <Display size="display3" tight>
-            Ce qui te prévient
-          </Display>
-        </View>
-        <Pressable onPress={() => router.back()} style={styles.close} accessibilityRole="button" accessibilityLabel="Fermer">
-          <IconClose size={20} color={color.text} />
-        </Pressable>
-      </View>
-      {PREFS.map((p) => (
-        <View key={p.id} style={styles.row}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Body weight="semi">{p.label}</Body>
-            <Body size="caption" tone="muted">
-              {p.sub}
-            </Body>
-            {p.essential ? <Mono size="micro">ESSENTIEL · TOUJOURS ACTIF</Mono> : null}
-          </View>
-          <Switch
-            value={p.essential ? true : on[p.id]}
-            disabled={p.essential}
-            onValueChange={(v) => setOn((s) => ({ ...s, [p.id]: v }))}
-            trackColor={{ false: ink[300], true: color.text }}
-            thumbColor={p.essential || on[p.id] ? ink[0] : ink[700]}
-            {...(Platform.OS === 'web' ? ({ activeTrackColor: color.text, activeThumbColor: ink[0] } as object) : null)}
-            accessibilityLabel={p.label}
-          />
-        </View>
-      ))}
-      <Body size="caption" tone="dim" style={styles.note}>
-        Android demande l’autorisation à la première notification ; iOS avant. Tu peux tout changer ici, à tout moment.
+    <Page title={T('notif.title')} subtitle={T('notif.sub')} leading="back" tabBar={false}>
+      <Reveal>
+        <Card padded={false} style={s.list}>
+          {PREFS.map((p, i) => (
+            <View key={p.id} style={[s.row, i < PREFS.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Body weight="semi">{T(p.label)}</Body>
+                <Body size="caption" tone="muted">
+                  {T(p.sub)}
+                </Body>
+                {p.essential ? (
+                  <View style={[s.essential, { backgroundColor: t.tint }]}>
+                    <Body size="caption" weight="bold" tone="muted">
+                      {T('notif.essential')}
+                    </Body>
+                  </View>
+                ) : null}
+              </View>
+              <Toggle value={p.essential ? true : on[p.id]} disabled={p.essential} onChange={(v) => setOn((st) => ({ ...st, [p.id]: v }))} label={T(p.label)} />
+            </View>
+          ))}
+        </Card>
+      </Reveal>
+      <Body size="caption" tone="dim" style={s.note}>
+        {T('notif.note')}
       </Body>
     </Page>
   );
 }
 
-const styles = StyleSheet.create({
-  content: { gap: 0 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3], marginBottom: space[4] },
-  close: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: whiteAlpha[8], alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
+const useStyles = makeStyles((t) => ({
+  list: { paddingHorizontal: space[4], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 72, paddingVertical: space[4] },
+  essential: { alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   note: { marginTop: space[4] },
-});
+}));

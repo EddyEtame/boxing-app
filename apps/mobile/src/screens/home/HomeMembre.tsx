@@ -1,224 +1,203 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { View } from 'react-native';
 
-import { clubById, estOuvert } from '@/data/clubs';
+import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
-import { ageOf, INVOICES } from '@/data/member';
+import { ageOf } from '@/data/member';
 import { NEWS } from '@/data/news';
-import { auClub, heure, nextSession } from '@/features/planning/model';
-import { computeStats } from '@/features/stats/model';
-import { dateLine, formatIn, isoWeek } from '@/features/time';
+import { formatClock, useBadgeClock } from '@/features/badge/clock';
+import { auClub, jourFr, nextSession, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { useStats } from '@/features/stats/model';
+import { clock, dayLabel, daysUntil, fullDay, monthName } from '@/features/time';
+import { useLocale, useT } from '@/i18n';
+import { useMessages } from '@/state/messages';
 import { useSession } from '@/state/session';
-import { IconArrow } from '@/ui/icons';
-import { Page } from '@/ui/Page';
-import { Photo } from '@/ui/Photo';
+import { IconBadge, IconBell, IconCard, IconChart, IconChevron, IconPlanning } from '@/ui/icons';
+import { Card, Section } from '@/ui/kit';
+import { Page, Reveal, RoundButton } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
-import { Body, Display, Mono } from '@/ui/Text';
-import { color, duration, ink, radius, space, stroke } from '@/ui/theme';
+import { Body, Display, Heading } from '@/ui/Text';
+import { makeStyles, space, stroke, useTheme } from '@/ui/theme';
 
-import { ClubChips, LedgerRow, NewsRow, StatsFigure, TokenCard, type Entry } from './parts';
+import { ClubChips, Faces, NewsRow, NextSessionCard, QuickTile } from './parts';
 
 /**
- * L’accueil de l’adhérent : le coin entre deux rounds et le carnet, fondus.
- * Le temps en rouge (ce qui compte à rebours), tes chiffres en blanc, le passé
- * en gris. Tout suit le club actif, que l’adhérent choisit.
+ * L'accueil de l'adhérent (refonte du 20/10) : il respire. Bonjour, la
+ * prochaine séance, quatre tuiles qui portent chacune un chiffre vrai, le
+ * dernier mot du club, les coachs, les actualités. Le carnet et les
+ * statistiques ont leur écran (Mes stats).
  */
 export function HomeMembre() {
-  const member = useSession((s) => s.member);
-  const clubsChoisis = useSession((s) => s.clubsChoisis);
-  const clubActif = useSession((s) => s.clubActif);
-  const setClubActif = useSession((s) => s.setClubActif);
-  const club = clubById(clubActif);
+  const T = useT();
+  const lang = useLocale();
+  const t = useTheme();
+  const s = useStyles();
+  const member = useSession((st) => st.member);
+  const clubsChoisis = useSession((st) => st.clubsChoisis);
+  const clubActif = useSession((st) => st.clubActif);
+  const setClubActif = useSession((st) => st.setClubActif);
+  const threads = useMessages((st) => st.threads);
+  const secondsLeft = useBadgeClock((st) => st.secondsLeft);
   const now = new Date();
+  const club = clubById(clubActif);
   const next = nextSession(clubActif, now, ageOf(member, now));
-  const stats = computeStats(member, now);
-  const topClub = stats.parClub[0] ? clubById(stats.parClub[0].club) : club;
+  const stats = useStats();
+  const topClub = stats.byClub[0] ? clubById(stats.byClub[0].club) : club;
   const ouvert = estOuvert(club, now);
+  const coursToday = slotsFor(clubActif, jourFr(now)).filter((sl) => normaliseActivite(sl.activite).famille !== 'accesLibre').length;
+  const jours = member.abonnement.prochainPrelevement ? daysUntil(member.abonnement.prochainPrelevement, now) : null;
+  const actif = member.statut === 'actif';
   const coachs = PERSONNES.filter((p) => p.type === 'coach' && p.clubs.includes(clubActif));
-  const entries: Entry[] = [
-    ...member.passages.map((p) => ({ kind: 'passage' as const, date: p.date, club: p.club, heure: p.heure })),
-    ...INVOICES.filter((f) => f.origine === 'Deciplus').map((f) => ({ kind: 'facture' as const, date: f.date, numero: f.numero, montant: f.montant, origine: f.origine })),
-  ]
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-    .slice(0, 4);
+  const unreadThread = threads.find((th) => th.unread > 0) ?? threads[0];
+  const lastMsg = unreadThread.messages[unreadThread.messages.length - 1];
 
   return (
-    <Page padded={false}>
-      <Animated.View entering={FadeIn.duration(duration.jab)} style={styles.head}>
-        <Mono size="micro">
-          {dateLine(now)} · SEMAINE {isoWeek(now)}
-        </Mono>
-        <Display size="display3">Salut {member.prenom}</Display>
-        <Body size="title" weight="medium" tone="muted">
-          <Body size="title" weight="bold" tabular>
-            {stats.semaine} {stats.semaine > 1 ? 'séances' : 'séance'}
-          </Body>{' '}
-          cette semaine,{' '}
-          <Body size="title" weight="bold" tabular>
-            {stats.mois}
-          </Body>{' '}
-          en {stats.moisLabel}, surtout{' '}
-          <Body size="title" weight="bold">
-            {auClub(topClub.id, topClub.court)}
-          </Body>
-          .
-        </Body>
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(83)} style={styles.chipsWrap}>
-        <Mono size="micro" style={styles.chipsLabel}>
-          TES CLUBS
-        </Mono>
-        <ClubChips clubs={clubsChoisis} actif={clubActif} onPick={setClubActif} onMore={() => router.push('/moi')} />
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(166)}>
-        <Photo source={club.photo} style={styles.plate} darken={0.45} scrim={0.72} scrimTop={0.25}>
-          <View style={styles.plateTop}>
-            <Mono size="micro" tone="text">
-              {String(clubsChoisis.indexOf(clubActif) + 1).padStart(2, '0')} — {clubActif === member.clubPrincipal ? 'TON CLUB' : 'TES CLUBS'}
-            </Mono>
-            <Mono size="micro" tone={ouvert ? 'text' : 'muted'}>
-              {ouvert ? `OUVERT · JUSQU’À ${heure(club.ouverture.fin).toUpperCase()}` : 'FERMÉ'}
-            </Mono>
-          </View>
-          <View style={styles.plateBottom}>
-            <Display size="display4" tight>
-              {club.court}
-            </Display>
-            {next ? (
-              <View style={styles.next}>
-                <Display size="display1" tabular upper={false} tight style={styles.nextHour}>
-                  {heure(next.slot.debut)}
-                </Display>
-                <View style={styles.nextText}>
-                  <Body weight="semi">{next.activite.libelle}</Body>
-                  <Body size="caption" tone="muted">
-                    {next.jourLabel}
-                    {next.activite.public ? ` · ${next.activite.public}` : next.activite.niveau ? ` · ${next.activite.niveau}` : ''}
-                    {' · '}
-                    {next.slot.fin - next.slot.debut} min
-                  </Body>
-                  <Mono size="caption" tone="accent">
-                    DANS {formatIn(next.dansMinutes).toUpperCase()}
-                  </Mono>
-                </View>
-              </View>
-            ) : (
-              <Body tone="muted">Pas de cours à venir cette semaine dans ce club.</Body>
-            )}
-          </View>
-        </Photo>
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(249)} style={styles.tokenWrap}>
-        <TokenCard clubCourt={club.court} />
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(332)} style={styles.section}>
-        <View style={styles.hero}>
-          <Display size="display1" tabular tight>
-            {stats.mois}
-          </Display>
-          <View style={styles.heroText}>
-            <Body size="title" weight="semi">
-              {stats.mois > 1 ? 'séances' : 'séance'} en {stats.moisLabel}
-            </Body>
-            <Body size="bodySmall" tone="muted">
-              {stats.total} depuis la rentrée · {stats.moyenneParSemaine} par semaine
-            </Body>
-          </View>
-        </View>
-        <StatsFigure stats={stats} />
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(415)} style={styles.section}>
-        <View style={styles.sectionHead}>
-          <Mono size="micro">TON CARNET</Mono>
-          <Mono size="micro">LE LECTEUR DE LA PORTE L’ÉCRIT</Mono>
-        </View>
-        {entries.map((e, i) => (
-          <LedgerRow key={`${e.kind}-${e.date}-${i}`} entry={e} index={i} numero={member.passages.length + 4 - i} latest={i === 0} />
-        ))}
-      </Animated.View>
-
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(498)} style={styles.section}>
-        <View style={styles.sectionHead}>
-          <Mono size="micro">LES COACHS {auClub(club.id, club.court).toUpperCase()}</Mono>
-          <Mono size="micro">{coachs.length ? `${coachs.length}` : 'À VENIR'}</Mono>
-        </View>
-        <Tap onPress={() => router.push('/equipe')} style={styles.coachRow} accessibilityRole="button" accessibilityLabel="Les coachs et les boxeurs">
-          {coachs.length ? (
-            <View style={styles.faces}>
-              {coachs.slice(0, 4).map((p, i) => (
-                <View key={p.id} style={[styles.face, i > 0 && styles.faceOverlap]}>
-                  {p.photo ? (
-                    <Image source={p.photo} style={styles.faceImg} contentFit="cover" contentPosition="top" cachePolicy="memory-disk" />
-                  ) : (
-                    <Mono size="micro" tone="text">
-                      {p.initiales}
-                    </Mono>
-                  )}
-                </View>
-              ))}
+    <Page
+      trailing={
+        <>
+          <RoundButton label={T('home.alerts')} onPress={() => router.push('/alertes')} badge>
+            <IconBell size={21} />
+          </RoundButton>
+          <Tap onPress={() => router.navigate('/plus')} scaleTo={0.9} accessibilityRole="button" accessibilityLabel={T('tabs.plus')}>
+            <View style={[s.avatar, { backgroundColor: t.primary }]}>
+              <Body weight="black" tone="onPrimary">
+                {member.prenom[0]}
+                {member.nom[0]}
+              </Body>
             </View>
-          ) : null}
-          <View style={styles.coachText}>
-            <Body size="bodySmall" weight="semi" numberOfLines={2}>
-              {coachs.length ? coachs.map((p) => p.nom).join(', ') : 'Les portraits de ce club arrivent'}
+          </Tap>
+        </>
+      }>
+      <Reveal style={s.head}>
+        <Body size="bodySmall" weight="semi" tone="muted">
+          {fullDay(now, lang)}
+        </Body>
+        <Display size="display3" tight>
+          {T('home.hello', { prenom: member.prenom })}
+        </Display>
+        {stats.week > 0 ? (
+          <Body size="title" weight="medium" tone="muted" style={s.phrase}>
+            <Body size="title" weight="black" tabular>
+              {T('home.sessionsWeek', { n: stats.week })}
             </Body>
-            <Body size="caption" tone="muted" numberOfLines={1}>
-              {coachs.length ? 'Qui enseigne quoi, et où.' : 'Toute l’équipe, club par club.'}
+            {T('home.thisWeekMostly')}
+            <Body size="title" weight="black">
+              {lang === 'en' ? topClub.court : auClub(topClub.id, topClub.court)}
             </Body>
-          </View>
-          <IconArrow size={18} color={color.textDim} />
-        </Tap>
-      </Animated.View>
+            .
+          </Body>
+        ) : (
+          <Body size="title" weight="medium" tone="muted" style={s.phrase}>
+            <Body size="title" weight="black" tabular>
+              {T('home.sessionsWeek', { n: 0 })}
+            </Body>
+            {T('home.thisWeekEnd')}
+          </Body>
+        )}
+      </Reveal>
 
-      <Animated.View entering={FadeIn.duration(duration.jab).delay(581)} style={styles.section}>
-        <View style={styles.sectionHead}>
-          <Mono size="micro">ACTUALITÉS</Mono>
-          <Mono size="micro">{NEWS.length} ENTRÉES</Mono>
-        </View>
-        {NEWS.map((n, i) => (
-          <NewsRow key={n.id} item={n} index={i} total={NEWS.length} now={now} />
-        ))}
-        <Tap onPress={() => router.push('/combats')} style={styles.combatsRow} accessibilityRole="button" accessibilityLabel="Actualité des combats">
-          <View style={styles.coachText}>
-            <Mono size="micro">BOXE · MMA</Mono>
-            <Body size="bodySmall" weight="semi">
-              L’actualité des combats
-            </Body>
-          </View>
-          <IconArrow size={18} color={color.textDim} />
-        </Tap>
-      </Animated.View>
+      {clubsChoisis.length > 1 ? (
+        <Reveal delay={60} style={s.block}>
+          <ClubChips clubs={clubsChoisis.map((id) => CLUBS.find((c) => c.id === id)!)} actif={clubActif} onPick={setClubActif} label={T('home.myClubs')} />
+        </Reveal>
+      ) : null}
+
+      <Reveal delay={120} style={s.block}>
+        <NextSessionCard club={club} next={next} ouvert={ouvert} onPress={() => router.navigate('/planning')} />
+      </Reveal>
+
+      <Reveal delay={180} style={s.tiles}>
+        <QuickTile
+          index={0}
+          icon={IconBadge}
+          tone="accent"
+          title={T('home.tileBadge')}
+          sub={actif && member.badge.enregistre ? T('home.tileBadgeLive', { t: formatClock(secondsLeft) }) : T('home.tileBadgeOff')}
+          subTone={actif && member.badge.enregistre ? 'accent' : 'muted'}
+          live={actif && member.badge.enregistre}
+          onPress={() => router.navigate('/badge')}
+        />
+        <QuickTile index={1} icon={IconPlanning} title={T('home.tilePlanning')} sub={coursToday ? T('home.tilePlanningToday', { n: coursToday, club: club.court }) : T('home.tilePlanningNone', { club: club.court })} onPress={() => router.navigate('/planning')} />
+        <QuickTile index={2} icon={IconChart} title={T('home.tileStats')} sub={T('home.tileStatsSub', { n: stats.month, mois: monthName(now, lang) })} onPress={() => router.navigate('/stats')} />
+        <QuickTile
+          index={3}
+          icon={IconCard}
+          tone={member.abonnement.impaye > 0 ? 'accent' : 'positive'}
+          title={T('home.tileSub')}
+          sub={member.abonnement.impaye > 0 ? T('home.tileSubUnpaid') : jours !== null ? T('home.tileSubOk', { n: jours }) : T('home.tileSubOkNoDate')}
+          subTone={member.abonnement.impaye > 0 ? 'negative' : 'positive'}
+          onPress={() => router.navigate('/abonnement')}
+        />
+      </Reveal>
+
+      <Reveal>
+        <Section title={T('home.fromClub')} action={{ label: T('common.seeAll'), onPress: () => router.navigate('/messages') }}>
+          <Card padded={false} onPress={() => router.push(`/fil/${unreadThread.id}`)} accessibilityLabel={unreadThread.title}>
+            <View style={s.msg}>
+              <View style={[s.msgDot, { backgroundColor: unreadThread.unread ? t.accent : 'transparent' }]} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <View style={s.msgHead}>
+                  <Heading level="card" numberOfLines={1} style={{ flex: 1 }}>
+                    {unreadThread.title}
+                  </Heading>
+                  <Body size="caption" tone="dim">
+                    {dayLabel(lastMsg.at, now, lang)} · {clock(lastMsg.at)}
+                  </Body>
+                </View>
+                <Body size="bodySmall" tone="muted" numberOfLines={2}>
+                  {lastMsg.text}
+                </Body>
+              </View>
+              <IconChevron size={18} color={t.textDim} />
+            </View>
+          </Card>
+        </Section>
+      </Reveal>
+
+      {coachs.length ? (
+        <Reveal>
+          <Section title={T('home.coaches', { club: lang === 'en' ? club.court : auClub(club.id, club.court) })}>
+            <Card onPress={() => router.push('/equipe')} accessibilityLabel={T('sections.team')}>
+              <View style={s.coachRow}>
+                <Faces people={coachs} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Body weight="bold" numberOfLines={2}>
+                    {coachs.map((p) => p.nom).join(', ')}
+                  </Body>
+                  <Body size="caption" tone="muted">
+                    {T('home.coachesSub')}
+                  </Body>
+                </View>
+                <IconChevron size={18} color={t.textDim} />
+              </View>
+            </Card>
+          </Section>
+        </Reveal>
+      ) : null}
+
+      <Reveal>
+        <Section title={T('home.news')} action={{ label: T('common.seeAll'), onPress: () => router.navigate('/actualites') }}>
+          <Card padded={false} style={s.listCard}>
+            {NEWS.slice(0, 3).map((n, i, arr) => (
+              <NewsRow key={n.id} item={n} last={i === arr.length - 1} onPress={() => router.navigate('/actualites')} />
+            ))}
+          </Card>
+        </Section>
+      </Reveal>
     </Page>
   );
 }
 
-const styles = StyleSheet.create({
-  head: { paddingHorizontal: space[4], gap: space[2], marginBottom: space[4] },
-  chipsWrap: { gap: space[2], marginBottom: space[3] },
-  chipsLabel: { paddingHorizontal: space[4] },
-  plate: { marginHorizontal: space[4], height: 360, borderRadius: radius.sm, justifyContent: 'space-between' },
-  plateTop: { flexDirection: 'row', justifyContent: 'space-between', padding: space[4] },
-  plateBottom: { padding: space[4], gap: space[2] },
-  next: { flexDirection: 'row', alignItems: 'flex-end', gap: space[3], marginTop: space[1] },
-  nextHour: { marginBottom: -4 },
-  nextText: { flex: 1, gap: 2, paddingBottom: 4 },
-  tokenWrap: { marginTop: space[4] },
-  section: { paddingHorizontal: space[4], marginTop: space[6] },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
-  hero: { flexDirection: 'row', alignItems: 'flex-end', gap: space[3], marginBottom: space[3] },
-  heroText: { paddingBottom: 6, gap: 2, flex: 1 },
-  coachRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
-  faces: { flexDirection: 'row' },
-  face: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', backgroundColor: ink[150], borderWidth: 2, borderColor: color.bg, alignItems: 'center', justifyContent: 'center' },
-  faceOverlap: { marginLeft: -14 },
-  faceImg: { width: '100%', height: '100%' },
-  coachText: { flex: 1, gap: 2 },
-  combatsRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], borderTopWidth: stroke.hair, borderTopColor: ink[200] },
-});
+const useStyles = makeStyles((t) => ({
+  head: { gap: space[1] },
+  phrase: { marginTop: space[2] },
+  block: { marginTop: space[6] },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space[3], marginTop: space[3] },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  msg: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[5] },
+  msgDot: { width: 10, height: 10, borderRadius: 5 },
+  msgHead: { flexDirection: 'row', alignItems: 'baseline', gap: space[2] },
+  coachRow: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  listCard: { paddingHorizontal: space[5], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
+}));
+

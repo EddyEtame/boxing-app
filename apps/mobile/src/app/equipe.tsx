@@ -1,151 +1,124 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { PERSONNES, type Personne } from '@/data/coachs';
-import { IconClose } from '@/ui/icons';
-import { Page } from '@/ui/Page';
+import { useT } from '@/i18n';
+import { Button, Card, Chip, Section } from '@/ui/kit';
+import { Page, Reveal } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
-import { Tap } from '@/ui/Tap';
-import { Body, Display, Mono } from '@/ui/Text';
-import { color, ink, radius, space, stroke, whiteAlpha, type ClubId } from '@/ui/theme';
+import { Body, Display, Heading } from '@/ui/Text';
+import { GUTTER, makeStyles, radius, space, stroke, useTheme, type ClubId } from '@/ui/theme';
 
 /**
  * Les coachs et les boxeurs (CDC §3A « portraits et reportages »). Un portrait,
- * ce qu’il enseigne ou ce qu’il a gagné, le club. Jamais son emploi du temps.
+ * ce qu'il enseigne ou ce qu'il a gagné, le club. Jamais son emploi du temps.
  */
 export default function EquipeScreen() {
+  const T = useT();
+  const s = useStyles();
   const [club, setClub] = useState<ClubId | 'tous'>('tous');
   const liste = PERSONNES.filter((p) => club === 'tous' || p.clubs.includes(club));
   const coachs = liste.filter((p) => p.type === 'coach');
   const boxeurs = liste.filter((p) => p.type === 'boxeur');
   return (
-    <Page padded={false}>
-      <View style={styles.head}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Body size="caption" eyebrow tone="muted">
-            Les coachs et les boxeurs
-          </Body>
-          <Display size="display3" tight>
-            Ceux qui tiennent la salle
-          </Display>
-        </View>
-        <Pressable onPress={() => router.back()} style={styles.close} accessibilityRole="button" accessibilityLabel="Fermer">
-          <IconClose size={20} color={color.text} />
-        </Pressable>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips}>
-        {(['tous', ...CLUBS.map((c) => c.id)] as const).map((id) => {
-          const on = id === club;
-          return (
-            <Tap key={id} onPress={() => setClub(id)} scaleTo={0.95} haptic="selection" style={[styles.chip, on && styles.chipOn]} accessibilityRole="button" accessibilityState={{ selected: on }}>
-              <Body size="caption" weight="bold" caps tone={on ? 'inverse' : 'muted'}>
-                {id === 'tous' ? 'Tous' : clubById(id).court}
-              </Body>
-            </Tap>
-          );
-        })}
+    <Page title={T('team.title')} subtitle={T('team.sub')} leading="back" tabBar={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chips}>
+        {(['tous', ...CLUBS.map((c) => c.id)] as const).map((id) => (
+          <Chip key={id} label={id === 'tous' ? T('team.all') : clubById(id).court} selected={id === club} onPress={() => setClub(id)} />
+        ))}
       </ScrollView>
 
       {boxeurs.length ? (
-        <>
-          <SectionHead left="LES BOXEURS" right={`${boxeurs.length}`} />
-          {boxeurs.map((p) => (
-            <Portrait key={p.id} p={p} />
-          ))}
-        </>
+        <Section title={T('team.boxers', { n: boxeurs.length })}>
+          <Card padded={false} style={s.list}>
+            {boxeurs.map((p, i) => (
+              <Portrait key={p.id} p={p} last={i === boxeurs.length - 1} />
+            ))}
+          </Card>
+        </Section>
       ) : null}
       {coachs.length ? (
-        <>
-          <SectionHead left="LES COACHS" right={`${coachs.length}`} />
-          {coachs.map((p) => (
-            <Portrait key={p.id} p={p} />
-          ))}
-        </>
+        <Section title={T('team.coaches', { n: coachs.length })}>
+          <Card padded={false} style={s.list}>
+            {coachs.map((p, i) => (
+              <Portrait key={p.id} p={p} last={i === coachs.length - 1} />
+            ))}
+          </Card>
+        </Section>
       ) : null}
       {liste.length === 0 ? (
-        <View style={styles.empty}>
+        <Card style={s.empty}>
           <Display size="display4" tight tone="dim">
-            Portraits en cours
+            {T('team.soon')}
           </Display>
-          <Body size="bodySmall" tone="muted">
-            Les coachs de ce club arrivent ici avec leur photo. Leurs cours, eux, sont déjà dans le planning.
-          </Body>
-          <Tap onPress={() => router.push('/planning')} style={styles.emptyCta} accessibilityRole="button" accessibilityLabel="Voir le planning">
-            <Body size="caption" weight="bold" caps tone="inverse">
-              Voir le planning
-            </Body>
-          </Tap>
-        </View>
+          <Body tone="muted">{T('team.soonBody')}</Body>
+          <Button small label={T('team.planning')} onPress={() => router.navigate('/planning')} style={s.emptyCta} />
+        </Card>
       ) : (
-        <Body size="caption" tone="dim" style={styles.note}>
-          Qui enseigne quoi, et où. Quand : dans le planning. Les emplois du temps des coachs restent au club.
+        <Body size="caption" tone="dim" style={s.note}>
+          {T('team.note')}
         </Body>
       )}
     </Page>
   );
 }
 
-function SectionHead({ left, right }: { left: string; right: string }) {
+function Portrait({ p, last }: { p: Personne; last: boolean }) {
+  const s = useStyles();
+  const t = useTheme();
+  const clubs = p.clubs.map((c) => clubById(c).court).join(' · ');
   return (
-    <View style={styles.sectionHead}>
-      <Mono size="micro">{left}</Mono>
-      <Mono size="micro">{right}</Mono>
-    </View>
-  );
-}
-
-function Portrait({ p }: { p: Personne }) {
-  const clubs = p.clubs.map((c) => clubById(c).court.toUpperCase()).join(' · ');
-  return (
-    <View style={styles.card}>
-      {p.photo ? (
-        <Photo source={p.photo} style={styles.photo} darken={0.15} scrim={0} vignette={false} grain={false} contentPosition="top" />
-      ) : (
-        <View style={[styles.photo, styles.initials]}>
-          <Display size="display2" tight tone="dim">
-            {p.initiales}
-          </Display>
-        </View>
-      )}
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Display size="display5" tight>
+    <Reveal>
+      <View style={[s.card, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
+        {p.photo ? (
+          <Photo source={p.photo} style={s.photo} darken={0.08} scrim={0} vignette={false} grain={false} contentPosition="top" />
+        ) : (
+          <View style={[s.photo, s.initials, { backgroundColor: t.cardAlt }]}>
+            <Display size="display3" tight tone="dim">
+              {p.initiales}
+            </Display>
+          </View>
+        )}
+        <View style={s.body}>
+          {p.tag ? (
+            <View style={[s.tag, { backgroundColor: t.accentSoft }]}>
+              <Body size="caption" weight="bold" tone="accent" numberOfLines={1}>
+                {p.tag}
+              </Body>
+            </View>
+          ) : null}
+          <Heading level="section" numberOfLines={2}>
             {p.nom}
-          </Display>
-          {p.tag ? <Mono size="micro">{p.tag.toUpperCase()}</Mono> : null}
-        </View>
-        <Body size="bodySmall" weight="semi">
-          {p.role}
-        </Body>
-        {p.note ? (
-          <Body size="caption" tone="muted">
-            {p.note}
+          </Heading>
+          <Body size="bodySmall" weight="semi">
+            {p.role}
           </Body>
-        ) : null}
-        <Mono size="micro" tone="dim">
-          {clubs}
-        </Mono>
+          {p.note ? (
+            <Body size="caption" tone="muted">
+              {p.note}
+            </Body>
+          ) : null}
+          <Body size="caption" weight="bold" tone="dim">
+            {clubs}
+          </Body>
+        </View>
       </View>
-    </View>
+    </Reveal>
   );
 }
 
-const styles = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3], paddingHorizontal: space[4], marginBottom: space[3] },
-  close: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: whiteAlpha[8], alignItems: 'center', justifyContent: 'center' },
-  chipsScroll: { flexGrow: 0 },
-  chips: { paddingHorizontal: space[4], gap: space[2], paddingBottom: space[2], alignItems: 'center' },
-  chip: { paddingHorizontal: space[3], paddingVertical: 8, borderRadius: radius.sm, borderWidth: stroke.thin, borderColor: ink[300] },
-  chipOn: { backgroundColor: color.text, borderColor: color.text },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: space[4], marginTop: space[5], paddingBottom: space[2], borderBottomWidth: stroke.hair, borderBottomColor: ink[300] },
-  card: { flexDirection: 'row', gap: space[3], marginHorizontal: space[4], paddingVertical: space[3], borderBottomWidth: stroke.hair, borderBottomColor: ink[200] },
-  photo: { width: 96, height: 128, borderRadius: radius.xs },
-  initials: { backgroundColor: ink[150], alignItems: 'center', justifyContent: 'center', borderWidth: stroke.hair, borderColor: whiteAlpha[6] },
-  body: { flex: 1, gap: 3, justifyContent: 'center' },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: space[2] },
-  note: { marginHorizontal: space[4], marginTop: space[4] },
-  empty: { marginHorizontal: space[4], marginTop: space[6], gap: space[2], alignItems: 'flex-start' },
-  emptyCta: { marginTop: space[2], backgroundColor: color.text, borderRadius: radius.sm, paddingHorizontal: space[4], paddingVertical: 12 },
-});
+const useStyles = makeStyles((t) => ({
+  chipsScroll: { flexGrow: 0, marginHorizontal: -GUTTER },
+  chips: { paddingHorizontal: GUTTER, gap: space[2] },
+  list: { paddingHorizontal: space[4], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
+  card: { flexDirection: 'row', gap: space[4], paddingVertical: space[4] },
+  photo: { width: 104, height: 136, borderRadius: radius.tile },
+  initials: { alignItems: 'center', justifyContent: 'center' },
+  body: { flex: 1, gap: 4, justifyContent: 'center' },
+  tag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  empty: { marginTop: space[6], gap: space[2] },
+  emptyCta: { alignSelf: 'flex-start', marginTop: space[2] },
+  note: { marginTop: space[5] },
+}));

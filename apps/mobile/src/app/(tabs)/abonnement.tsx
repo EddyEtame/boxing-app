@@ -1,4 +1,4 @@
-import { Screen } from '@/screens/moi';
+import { Screen } from '@/screens/abonnement';
 
 export default function Route() {
   return <Screen />;

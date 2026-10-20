@@ -1,7 +1,7 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Body, Mono } from '@/ui/Text';
-import { color, space, stroke } from '@/ui/theme';
+import { space, stroke, useTheme } from '@/ui/theme';
 
 type Props = {
   /** Ligne principale, Montserrat 600. */
@@ -15,13 +15,14 @@ type Props = {
 };
 
 /**
- * Le lower-third de la charte : une barre verticale de 6 px et deux lignes.
- * C’est l’habillage de diffusion, pas une carte.
+ * Le lower-third de la charte : une barre verticale et deux lignes.
+ * C'est l'habillage de diffusion, pas une carte.
  */
-export function LowerThird({ title, meta, bar = color.accent, style, compact }: Props) {
+export function LowerThird({ title, meta, bar, style, compact }: Props) {
+  const t = useTheme();
   return (
     <View style={[styles.row, style]}>
-      <View style={[styles.bar, { backgroundColor: bar }, compact && styles.barCompact]} />
+      <View style={[styles.bar, { backgroundColor: bar ?? t.accent }, compact && styles.barCompact]} />
       <View style={styles.text}>
         {title ? (
           <Body size={compact ? 'bodySmall' : 'body'} weight="semi" numberOfLines={1}>
@@ -38,7 +39,7 @@ export function LowerThird({ title, meta, bar = color.accent, style, compact }: 
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'stretch', gap: space[3] },
-  bar: { width: stroke.accentBar },
+  bar: { width: stroke.accentBar, borderRadius: 2 },
   barCompact: { width: 3 },
   text: { flex: 1, justifyContent: 'center', gap: 2 },
 });

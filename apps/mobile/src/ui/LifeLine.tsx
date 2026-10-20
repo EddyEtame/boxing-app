@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { color, whiteAlpha } from '@/ui/theme';
+import { useTheme } from '@/ui/theme';
 
 type Props = {
   secondsLeft: number;
@@ -14,9 +14,10 @@ type Props = {
 
 /**
  * La ligne de vie du jeton : un filet qui se vide, linéaire, continu. Rouge tant
- * que le jeton vit. Pas d’anneau, pas de cadran : une ligne, comme sur un ring.
+ * que le jeton vit. Pas d'anneau, pas de cadran : une ligne, comme sur un ring.
  */
-export function LifeLine({ secondsLeft, windowSeconds, height = 2, track = whiteAlpha[8], tint = color.accent }: Props) {
+export function LifeLine({ secondsLeft, windowSeconds, height = 2, track, tint }: Props) {
+  const t = useTheme();
   const progress = useSharedValue(secondsLeft / windowSeconds);
   useEffect(() => {
     progress.value = secondsLeft / windowSeconds;
@@ -24,8 +25,8 @@ export function LifeLine({ secondsLeft, windowSeconds, height = 2, track = white
   }, [secondsLeft, windowSeconds, progress]);
   const style = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   return (
-    <View style={[styles.track, { height, backgroundColor: track }]}>
-      <Animated.View style={[styles.fill, { backgroundColor: tint }, style]} />
+    <View style={[styles.track, { height, borderRadius: height, backgroundColor: track ?? t.line }]}>
+      <Animated.View style={[styles.fill, { backgroundColor: tint ?? t.accent, borderRadius: height }, style]} />
     </View>
   );
 }

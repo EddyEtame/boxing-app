@@ -3,6 +3,9 @@
  * L'app est verrouillée sur la fenêtre : la page ne défile jamais, seuls les
  * ScrollView internes défilent. Sans ça, la barre d'onglets (absolue, en bas de
  * la racine) remonte au milieu de l'écran dès que la page déborde.
+ *
+ * Le fond suit l'ambiance du téléphone avant que l'app ne prenne la main
+ * (« le tapis » en clair, « la salle » en sombre) : pas de flash noir.
  */
 html,
 body,
@@ -11,9 +14,18 @@ body,
   height: 100dvh;
   margin: 0;
   padding: 0;
-  background: #080808;
+  background: #f4f2ee;
+  color-scheme: light dark;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body,
+  #root {
+    background: #0d1120;
+  }
 }
 
 #root {

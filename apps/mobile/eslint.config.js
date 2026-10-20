@@ -5,6 +5,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    // Fichiers générés : types d'expo-router, projets natifs du prebuild (CI).
+    ignores: ['dist/*', '.expo/*', 'android/*', 'ios/*'],
   },
 ]);

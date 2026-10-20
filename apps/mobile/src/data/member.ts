@@ -1,3 +1,5 @@
+import { DEFAULT_DEMO, generatePassages, type Passage } from '@bc/contract';
+
 import type { ClubId } from '@/ui/theme';
 
 /**
@@ -27,7 +29,7 @@ export type Member = {
     enregistre: boolean;
     numero: string;
   };
-  passages: { date: string; club: ClubId; heure: string }[];
+  passages: Passage[];
 };
 
 export const MEMBER: Member = {
@@ -49,20 +51,8 @@ export const MEMBER: Member = {
     enregistre: true,
     numero: '0048213',
   },
-  passages: [
-    { date: '2026-10-16', club: 'minimes', heure: '19:02' },
-    { date: '2026-10-14', club: 'minimes', heure: '18:48' },
-    { date: '2026-10-12', club: 'saint-cyprien', heure: '11:10' },
-    { date: '2026-10-09', club: 'minimes', heure: '19:05' },
-    { date: '2026-10-07', club: 'minimes', heure: '18:51' },
-    { date: '2026-10-05', club: 'saint-cyprien', heure: '10:58' },
-    { date: '2026-10-02', club: 'minimes', heure: '19:11' },
-    { date: '2026-09-30', club: 'etats-unis', heure: '12:20' },
-    { date: '2026-09-28', club: 'minimes', heure: '18:57' },
-    { date: '2026-09-25', club: 'minimes', heure: '19:00' },
-    { date: '2026-09-23', club: 'saint-cyprien', heure: '11:03' },
-    { date: '2026-09-21', club: 'minimes', heure: '19:08' },
-  ],
+  // 26 semaines fabriquées par le générateur partagé avec l’admin (même graine, même historique).
+  passages: generatePassages(DEFAULT_DEMO),
 };
 
 export const INVOICES = [

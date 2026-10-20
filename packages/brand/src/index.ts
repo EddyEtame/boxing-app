@@ -148,9 +148,10 @@ export const fontSize = {
   display5: 26,
   title: 20,
   body: 16,
-  bodySmall: 14,
-  caption: 12,
-  micro: 11,
+  bodySmall: 15,
+  /** Plancher de lisibilité (20/10/2026) : rien sous 13 pt hors barre d'onglets et codes. */
+  caption: 13,
+  micro: 12,
 } as const;
 
 export const lineHeight = {
@@ -189,13 +190,19 @@ export const space = {
   12: 96,
 } as const;
 
-/** Les angles sont nets : le ring est carré. Les rayons restent petits. */
+/**
+ * Rayons concentriques (20/10/2026, Liquid Glass) : la carte enveloppe ses
+ * éléments, chaque niveau intérieur perd 4 à 8 points. La capsule est pleine.
+ */
 export const radius = {
   none: 0,
   xs: 2,
   sm: 6,
   md: 10,
+  control: 12,
   lg: 16,
+  tile: 16,
+  card: 22,
   xl: 24,
   pill: 999,
 } as const;
@@ -288,8 +295,137 @@ export const clubs = [
 
 export type ClubId = (typeof clubs)[number]['id'];
 
+/* ------------------------------------------------------------------ */
+/* Les deux ambiances (20/10/2026) — l'utilisateur choisit à l'entrée   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Jetons sémantiques par ambiance. Contrastes WCAG calculés le 20/10/2026
+ * (.research/12-ANALYSE-PROTOTYPE-ET-REFONTE-2026-10-20.md §7) : tout texte
+ * secondaire ou tertiaire passe 4,5:1 sur son fond, dans les deux thèmes.
+ *  - Clair « le tapis » : la toile du ring à midi, l'encre navy des affiches.
+ *  - Sombre « la salle » : la salle le soir, navy-nuit, des cartes qui se détachent.
+ * Ce qui est posé sur une photo reste clair dans les deux (voile sombre).
+ */
+export type Scheme = 'light' | 'dark';
+
+export type Theme = {
+  scheme: Scheme;
+  bg: string;
+  bgElevated: string;
+  card: string;
+  cardAlt: string;
+  cardPressed: string;
+  line: string;
+  lineStrong: string;
+  text: string;
+  textMuted: string;
+  textDim: string;
+  textInverse: string;
+  primary: string;
+  onPrimary: string;
+  accent: string;
+  accentText: string;
+  onAccent: string;
+  accentSoft: string;
+  positive: string;
+  positiveSoft: string;
+  negative: string;
+  negativeSoft: string;
+  warning: string;
+  brand: string;
+  tint: string;
+  chip: string;
+  glass: string;
+  glassBorder: string;
+  glassPill: string;
+  overlay: string;
+  shadowCard: string;
+  shadowFloat: string;
+  statusBar: 'light' | 'dark';
+  photo: { text: string; muted: string; dim: string };
+};
+
+const onPhoto = { text: '#F5F5F5', muted: 'rgba(245,245,245,0.86)', dim: 'rgba(245,245,245,0.72)' } as const;
+
+export const themes: Record<Scheme, Theme> = {
+  light: {
+    scheme: 'light',
+    bg: '#F4F2EE',
+    bgElevated: '#FFFFFF',
+    card: '#FFFFFF',
+    cardAlt: '#ECE9E3',
+    cardPressed: '#E4E0D8',
+    line: 'rgba(32,37,75,0.10)',
+    lineStrong: 'rgba(32,37,75,0.18)',
+    text: '#10132A',
+    textMuted: '#454A66',
+    textDim: '#62677F',
+    textInverse: '#FFFFFF',
+    primary: primitives.navy,
+    onPrimary: '#FFFFFF',
+    accent: primitives.red,
+    accentText: '#D10019',
+    onAccent: '#FFFFFF',
+    accentSoft: 'rgba(232,0,28,0.09)',
+    positive: '#0A7342',
+    positiveSoft: 'rgba(10,115,66,0.10)',
+    negative: '#C8001A',
+    negativeSoft: 'rgba(200,0,26,0.09)',
+    warning: '#9A5B00',
+    brand: primitives.navy,
+    tint: 'rgba(32,37,75,0.07)',
+    chip: 'rgba(32,37,75,0.06)',
+    glass: 'rgba(255,255,255,0.74)',
+    glassBorder: 'rgba(32,37,75,0.09)',
+    glassPill: 'rgba(32,37,75,0.08)',
+    overlay: 'rgba(16,19,42,0.32)',
+    shadowCard: '0px 1px 2px rgba(16,19,42,0.05), 0px 6px 20px rgba(16,19,42,0.06)',
+    shadowFloat: '0px 10px 30px rgba(16,19,42,0.14), 0px 2px 6px rgba(16,19,42,0.06)',
+    statusBar: 'dark',
+    photo: onPhoto,
+  },
+  dark: {
+    scheme: 'dark',
+    bg: '#0D1120',
+    bgElevated: '#141933',
+    card: '#171C30',
+    cardAlt: '#1F2540',
+    cardPressed: '#262D4C',
+    line: 'rgba(245,245,245,0.09)',
+    lineStrong: 'rgba(245,245,245,0.16)',
+    text: primitives.white,
+    textMuted: '#BCC0D4',
+    textDim: '#9398B2',
+    textInverse: '#10132A',
+    primary: primitives.white,
+    onPrimary: '#10132A',
+    accent: primitives.red,
+    accentText: '#FF4D5E',
+    onAccent: '#FFFFFF',
+    accentSoft: 'rgba(255,77,94,0.14)',
+    positive: '#3DDC84',
+    positiveSoft: 'rgba(61,220,132,0.14)',
+    negative: '#FF4D5E',
+    negativeSoft: 'rgba(255,77,94,0.14)',
+    warning: '#FFB347',
+    brand: primitives.navy,
+    tint: 'rgba(245,245,245,0.08)',
+    chip: 'rgba(245,245,245,0.08)',
+    glass: 'rgba(23,28,48,0.72)',
+    glassBorder: 'rgba(245,245,245,0.10)',
+    glassPill: 'rgba(245,245,245,0.13)',
+    overlay: 'rgba(4,6,14,0.55)',
+    shadowCard: '0px 0px 0px rgba(0,0,0,0)',
+    shadowFloat: '0px 12px 34px rgba(0,0,0,0.45)',
+    statusBar: 'light',
+    photo: onPhoto,
+  },
+};
+
 export const brand = {
   primitives,
+  themes,
   ink,
   whiteAlpha,
   blackAlpha,

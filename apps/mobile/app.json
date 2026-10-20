@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "boxingcenter",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#080808",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F4F2EE",
     "primaryColor": "#E8001C",
     "ios": {
       "supportsTablet": false,
@@ -23,7 +23,7 @@
     "android": {
       "package": "fr.boxingcenter.app",
       "adaptiveIcon": {
-        "backgroundColor": "#080808",
+        "backgroundColor": "#20254B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -31,7 +31,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro"
     },
@@ -40,14 +40,19 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#080808",
+          "backgroundColor": "#F4F2EE",
           "image": "./assets/brand/logo-transparent-600.png",
           "imageWidth": 220,
-          "resizeMode": "contain"
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0D1120",
+            "image": "./assets/brand/logo-plaque-750.png"
+          }
         }
       ],
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-system-ui"
     ],
     "experiments": {
       "typedRoutes": true,
