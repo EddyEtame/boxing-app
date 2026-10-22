@@ -4,6 +4,7 @@ import { Linking, View } from 'react-native';
 import { clubById } from '@/data/clubs';
 import type { Member } from '@/data/member';
 import { BOUTIQUE_URL } from '@/features/sections';
+import { track } from '@/features/analytics';
 import { useT, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
 import { IconCheck } from '@/ui/icons';
@@ -94,7 +95,10 @@ export function BadgeLockedView({ reason, member }: { reason: Reason; member: Me
         <Reveal style={s.actions}>
           {reason === 'invite' ? (
             <>
-              <Button label={T('guest.create')} onPress={() => router.push('/connexion')} />
+              <Button label={T('guest.create')} onPress={() => {
+              track('cta_create_account', { from: 'badge' });
+              router.push('/connexion');
+            }} />
               <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
             </>
           ) : reason === 'restreint' ? (

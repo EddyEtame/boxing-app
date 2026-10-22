@@ -122,6 +122,11 @@ export function monthName(d: Date, lang: Lang): string {
   return MONTHS[lang][d.getMonth()];
 }
 
+/** « sept. » · « Sep » */
+export function monthShort(d: Date, lang: Lang): string {
+  return MONTHS_SHORT[lang][d.getMonth()];
+}
+
 /** « 2 h 10 », « 42 min », « 3 j » — la langue ne change que l'unité des jours. */
 export function duree(minutes: number, lang: Lang): string {
   if (minutes < 60) return `${minutes} min`;

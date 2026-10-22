@@ -5,12 +5,14 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { SECTIONS, PLUS_GRID, type SectionId } from '@/features/sections';
+import { track } from '@/features/analytics';
 import { useI18nStore, useT, type Locale } from '@/i18n';
 import { usePrefs, type Appearance } from '@/state/prefs';
+import { useUsage } from '@/state/usage';
 import { useSession } from '@/state/session';
 import { GlassSurface } from '@/ui/Glass';
-import { IconBell, IconGlobe, IconLock, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
-import { Button, Card, Chip, IconTile, Row, Section, Segmented } from '@/ui/kit';
+import { IconBell, IconChart, IconGlobe, IconLock, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
+import { Button, Card, Chip, IconTile, Row, Section, Segmented, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body, Heading, Mono } from '@/ui/Text';
@@ -68,7 +70,8 @@ export function Screen() {
           <Card padded={false} style={s.list}>
             <Row icon={IconBell} title={T('plus.notifications')} subtitle={T('plus.notificationsSub')} onPress={() => router.push('/notifications')} />
             <MyClubs />
-            <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} last />
+            <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} />
+            <AnalyticsRow />
           </Card>
         </Section>
       </Reveal>
@@ -142,8 +145,14 @@ function GuestCard() {
       <Body tone="muted" style={s.guestBody}>
         {T('plus.guestBody')}
       </Body>
-      <Button label={T('guest.create')} onPress={() => router.push('/connexion')} />
-      <Button label={T('guest.signIn')} variant="secondary" onPress={() => router.push('/connexion?mode=connexion')} style={s.second} />
+      <Button label={T('guest.create')} onPress={() => {
+              track('cta_create_account', { from: 'plus' });
+              router.push('/connexion');
+            }} />
+      <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
+              track('cta_sign_in', { from: 'plus' });
+              router.push('/connexion?mode=connexion');
+            }} style={s.second} />
     </Card>
   );
 }
@@ -247,6 +256,13 @@ function LanguagePicker() {
       />
     </View>
   );
+}
+
+function AnalyticsRow() {
+  const T = useT();
+  const on = useUsage((st) => st.analytics);
+  const setAnalytics = useUsage((st) => st.setAnalytics);
+  return <Row icon={IconChart} title={T('plus.analytics')} subtitle={T('plus.analyticsSub')} right={<Toggle value={on} onChange={setAnalytics} label={T('plus.analytics')} />} last />;
 }
 
 function MyClubs() {

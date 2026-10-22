@@ -9,6 +9,7 @@ import { clubById } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
 import { SUJETS, type Message, type Sujet, type Thread } from '@/data/messages';
 import { clock, dayLabel, shortDay } from '@/features/time';
+import { track } from '@/features/analytics';
 import { useLocale, useT } from '@/i18n';
 import { useMessages } from '@/state/messages';
 import { useSession } from '@/state/session';
@@ -250,6 +251,7 @@ function Composer({ initialLabel, bottom }: { initialLabel?: string; bottom: num
           disabled={!ok}
           onPress={() => {
             send({ text: text.trim(), label, ack: T('messages.ack') });
+            track('message_send', { channel: 'direction', value: sujet });
             setText('');
           }}
           scaleTo={0.88}

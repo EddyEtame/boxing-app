@@ -9,6 +9,7 @@ import { NEWS, OFFRES } from '@/data/news';
 import { useCombats } from '@/features/combats/useCombats';
 import { clubsProposant, heure } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
+import { track } from '@/features/analytics';
 import { useI18nStore, useLocale, useT } from '@/i18n';
 import { GlassSurface } from '@/ui/Glass';
 import { IconChevron, IconGlobe } from '@/ui/icons';
@@ -66,8 +67,14 @@ export function HomeInvite() {
           <Body tone="muted" style={s.ctaBody}>
             {T('guest.ctaBody')}
           </Body>
-          <Button label={T('guest.create')} onPress={() => router.push('/connexion')} />
-          <Button label={T('guest.signIn')} variant="secondary" onPress={() => router.push('/connexion?mode=connexion')} style={s.ctaSecond} />
+          <Button label={T('guest.create')} onPress={() => {
+              track('cta_create_account', { from: 'home' });
+              router.push('/connexion');
+            }} />
+          <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
+              track('cta_sign_in', { from: 'home' });
+              router.push('/connexion?mode=connexion');
+            }} style={s.ctaSecond} />
         </Card>
       </Reveal>
 

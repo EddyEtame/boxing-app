@@ -1,25 +1,27 @@
 import { useRef, useState, type ComponentRef } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
+import { track } from '@/features/analytics';
 import { espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { shareWeek } from '@/features/planning/share';
 import { duree, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
+import { SessionSheet, useSessionSheet } from '@/screens/planning/SessionSheet';
+import { WeekPoster } from '@/screens/planning/WeekPoster';
 import { useSession } from '@/state/session';
+import { topKeys, useUsage } from '@/state/usage';
+import { IconShare, IconStar } from '@/ui/icons';
 import { Button, Card, Chip, Segmented } from '@/ui/kit';
-import { Page, Reveal } from '@/ui/Page';
+import { Page, Reveal, RoundButton } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
 import { Body, Display, Heading, Mono } from '@/ui/Text';
 import { duration, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke, useTheme, type ClubId } from '@/ui/theme';
 
 type Mode = 'jour' | 'semaine';
-
-const GRID_START = 7 * 60;
-const GRID_END = 22 * 60 + 30;
-const HOUR_PX = 46;
 
 /** Les cours d'un jour, sans les plages d'accès libre. */
 function coursesOn(club: ClubId, jour: number, espace?: string): Slot[] {
@@ -57,6 +59,12 @@ export function Screen() {
   const s = useStyles();
   const lang = useLocale();
   const clubActif = useSession((st) => st.clubActif);
+  const statut = useSession((st) => st.member.statut);
+  const usedClubs = useUsage((st) => st.clubs);
+  const favorites = useUsage((st) => st.favorites);
+  const bump = useUsage((st) => st.bump);
+  // L'invité retrouve le club qu'il regarde le plus ; l'adhérent, son club actif.
+  const startClub = (statut === 'invite' ? (topKeys(usedClubs, 1, 2)[0] as ClubId | undefined) : undefined) ?? clubActif;
   const now = new Date();
   const today = jourFr(now);
   const dates = weekDates(now);
@@ -66,11 +74,20 @@ export function Screen() {
   const plateW = Math.round((colWidth - GUTTER * 2) * 0.8);
   const step = plateW + space[3];
 
-  const ordered = [clubById(clubActif), ...CLUBS.filter((c) => c.id !== clubActif)];
-  const [club, setClub] = useState<ClubId>(clubActif);
+  const ordered = [clubById(startClub), ...CLUBS.filter((c) => c.id !== startClub)];
+  const [club, setClub] = useState<ClubId>(startClub);
   const [espace, setEspace] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>('jour');
-  const [jour, setJour] = useState(() => firstDayWithCourses(clubActif, today));
+  const [jour, setJour] = useState(() => firstDayWithCourses(startClub, today));
+  const sheet = useSessionSheet();
+  const [copied, setCopied] = useState(false);
+  const openSession = (slot: Slot, j: number) => {
+    const fam = normaliseActivite(slot.activite).famille;
+    bump('familles', fam);
+    bump('clubs', slot.club);
+    track('planning_session_open', { club: slot.club, famille: fam });
+    sheet.show(slot, j);
+  };
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const espaces = espacesFor(club);
@@ -83,6 +100,8 @@ export function Screen() {
 
   const pick = (id: ClubId, scrollTo?: number) => {
     setClub(id);
+    bump('clubs', id);
+    track('planning_view', { club: id, mode });
     setEspace(undefined);
     if (coursesOn(id, jour).length === 0) setJour(firstDayWithCourses(id, today));
     if (scrollTo !== undefined) scroller.current?.scrollTo({ x: scrollTo * step, animated: true });
@@ -92,8 +111,25 @@ export function Screen() {
     if (ordered[i].id !== club) pick(ordered[i].id);
   };
 
+  const share = async () => {
+    const ok = await shareWeek(club, lang, espaceActif);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
+    track('planning_share', { club, mode });
+  };
+  const favCount = slotsFor(club, jour).filter((sl) => favorites.includes(sl.id)).length;
+
   return (
-    <Page title={T('planning.title')} subtitle={T('planning.sub')}>
+    <Page
+      title={T('planning.title')}
+      subtitle={T('planning.sub')}
+      trailing={
+        <RoundButton label={copied ? T('planning.copied') : T('planning.shareWeek')} onPress={share}>
+          <IconShare size={20} />
+        </RoundButton>
+      }>
       <Reveal>
         <View style={s.rule}>
           <Heading level="card" style={{ flex: 1 }}>
@@ -145,7 +181,14 @@ export function Screen() {
       </Reveal>
 
       <Reveal delay={60} style={s.controls}>
-        <Segmented<Mode> value={mode} onChange={setMode} options={[{ value: 'jour', label: T('planning.day') }, { value: 'semaine', label: T('planning.week') }]} />
+        <Segmented<Mode>
+          value={mode}
+          onChange={(m) => {
+            setMode(m);
+            track('planning_view', { club, mode: m });
+          }}
+          options={[{ value: 'jour', label: T('planning.day') }, { value: 'semaine', label: T('planning.week') }]}
+        />
         {espaces.length ? (
           <Animated.View entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)} style={s.espaces}>
             {espaces.map((e) => (
@@ -182,23 +225,38 @@ export function Screen() {
             ) : (
               <Card padded={false} style={s.list}>
                 {slots.map((sl, i) => (
-                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} />
+                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} favorite={favorites.includes(sl.id)} onPress={() => openSession(sl, jour)} />
                 ))}
               </Card>
             )}
           </Animated.View>
         </>
       ) : (
-        <WeekGrid
-          club={club}
-          espace={espaceActif}
-          today={today}
-          onPick={(j) => {
-            setJour(j);
-            setMode('jour');
-          }}
-        />
+        <Reveal delay={100} style={s.posterWrap}>
+          <WeekPoster club={club} espace={espaceActif} today={today} nowMin={nowMin} favorites={favorites} onOpen={openSession} onPickDay={(j) => setJour(j)} />
+          <Body size="caption" tone="dim" style={s.gridHint}>
+            {T('planning.swipeHint')}
+          </Body>
+          <Button label={copied ? T('planning.copied') : T('planning.shareWeek')} icon={IconShare} variant="secondary" onPress={share} style={s.shareBtn} />
+        </Reveal>
       )}
+      {favCount > 0 && mode === 'jour' ? (
+        <Body size="caption" tone="dim" style={s.favHint}>
+          {T('planning.favHint', { n: favCount })}
+        </Body>
+      ) : null}
+      <SessionSheet
+        key={sheet.target?.slot.id}
+        target={sheet.target}
+        open={sheet.open}
+        onClose={sheet.close}
+        onClosed={sheet.closed}
+        onSeeDay={(j) => {
+          sheet.close();
+          setJour(j);
+          setMode('jour');
+        }}
+      />
     </Page>
   );
 }
@@ -238,7 +296,7 @@ function EmptyDay({ club, jour, today, onJump }: { club: ClubId; jour: number; t
   );
 }
 
-function SlotRow({ slot, last, isToday, nowMin, next }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean }) {
+function SlotRow({ slot, last, isToday, nowMin, next, favorite, onPress }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean; favorite: boolean; onPress: () => void }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
@@ -250,7 +308,7 @@ function SlotRow({ slot, last, isToday, nowMin, next }: { slot: Slot; last: bool
   const passe = isToday && nowMin >= slot.fin;
   const meta = [a.public, a.niveau, slot.espace].filter(Boolean).join(' · ');
   return (
-    <View style={[s.row, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }, passe && s.rowPast]}>
+    <Tap onPress={libre ? undefined : onPress} disabled={libre} scaleTo={0.985} style={[s.row, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }, passe && s.rowPast]} accessibilityRole={libre ? undefined : 'button'} accessibilityLabel={`${a.libelle} ${heure(slot.debut)}`}>
       <View style={s.time}>
         <Display size="display5" tone={passe ? 'dim' : 'text'} tight upper={false} tabular>
           {heure(slot.debut)}
@@ -261,9 +319,12 @@ function SlotRow({ slot, last, isToday, nowMin, next }: { slot: Slot; last: bool
       </View>
       <View style={[s.bar, { backgroundColor: libre ? t.lineStrong : tint }, (enCours || next) && { backgroundColor: t.accent, width: stroke.accentBar }]} />
       <View style={s.body}>
-        <Body weight="bold" tone={libre || passe ? 'muted' : 'text'}>
-          {a.libelle}
-        </Body>
+        <View style={s.titleRow}>
+          <Body weight="bold" tone={libre || passe ? 'muted' : 'text'} numberOfLines={1} style={{ flexShrink: 1 }}>
+            {a.libelle}
+          </Body>
+          {favorite ? <IconStar size={14} color={t.accent} fill={t.accent} /> : null}
+        </View>
         {meta ? (
           <Body size="caption" tone="muted">
             {meta}
@@ -285,69 +346,7 @@ function SlotRow({ slot, last, isToday, nowMin, next }: { slot: Slot; last: bool
           </Body>
         )}
       </View>
-    </View>
-  );
-}
-
-function WeekGrid({ club, espace, today, onPick }: { club: ClubId; espace?: string; today: number; onPick: (jour: number) => void }) {
-  const T = useT();
-  const s = useStyles();
-  const t = useTheme();
-  const lang = useLocale();
-  const hours: number[] = [];
-  for (let m = GRID_START; m < GRID_END; m += 60) hours.push(m);
-  const height = ((GRID_END - GRID_START) / 60) * HOUR_PX;
-  return (
-    <Card style={s.grid}>
-      <View style={s.gridHead}>
-        <View style={s.gridGutter} />
-        {WEEKDAYS_SHORT[lang].map((d, i) => (
-          <Pressable key={d} style={s.gridCol} onPress={() => onPick(i)} accessibilityRole="button" accessibilityLabel={WEEKDAYS[lang][i]}>
-            <Body size="caption" weight="bold" tone={i === today ? 'accent' : 'muted'} style={{ textAlign: 'center' }}>
-              {d}
-            </Body>
-          </Pressable>
-        ))}
-      </View>
-      <View style={[s.gridBody, { height, borderTopColor: t.line }]}>
-        <View style={s.gridGutter}>
-          {hours.map((m) => (
-            <Body key={m} size="caption" tone="dim" style={[s.gridHour, { top: ((m - GRID_START) / 60) * HOUR_PX - 8 }]}>
-              {heure(m)}
-            </Body>
-          ))}
-        </View>
-        {WEEKDAYS_SHORT[lang].map((_, i) => {
-          const daySlots = slotsFor(club, i, espace);
-          return (
-            <Pressable key={i} style={[s.gridCol, { borderLeftWidth: stroke.hair, borderLeftColor: t.line }, i === today && { backgroundColor: t.tint }]} onPress={() => onPick(i)} accessibilityRole="button" accessibilityLabel={WEEKDAYS[lang][i]}>
-              {hours.map((m) => (
-                <View key={m} style={[s.gridLine, { top: ((m - GRID_START) / 60) * HOUR_PX, backgroundColor: t.line }]} />
-              ))}
-              {daySlots.map((sl) => {
-                const a = normaliseActivite(sl.activite);
-                const libre = a.famille === 'accesLibre';
-                const top = Math.max(0, ((sl.debut - GRID_START) / 60) * HOUR_PX);
-                const h = Math.max(10, ((sl.fin - sl.debut) / 60) * HOUR_PX - 2);
-                const tint = familleColor(a.famille);
-                return (
-                  <View key={sl.id} style={[s.block, { top, height: h, backgroundColor: libre ? t.chip : `${tint}33`, borderLeftColor: libre ? t.lineStrong : tint }]}>
-                    {h >= 26 ? (
-                      <Body size="micro" weight="bold" tone={libre ? 'dim' : 'text'} numberOfLines={h >= 40 ? 2 : 1} style={s.blockText}>
-                        {libre ? T('planning.free') : a.libelle}
-                      </Body>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </Pressable>
-          );
-        })}
-      </View>
-      <Body size="caption" tone="dim" style={s.gridHint}>
-        {T('planning.tapDay')}
-      </Body>
-    </Card>
+    </Tap>
   );
 }
 
@@ -380,14 +379,9 @@ const useStyles = makeStyles((t) => ({
   body: { flex: 1, gap: 2 },
   right: { alignItems: 'flex-end', minWidth: 64 },
   rightText: { textAlign: 'right' },
-  grid: { marginTop: space[4], paddingHorizontal: space[2] },
-  gridHead: { flexDirection: 'row', paddingBottom: space[2] },
-  gridGutter: { width: 40 },
-  gridCol: { flex: 1 },
-  gridBody: { flexDirection: 'row', borderTopWidth: stroke.hair },
-  gridHour: { position: 'absolute', left: 0, fontSize: 11 },
-  gridLine: { position: 'absolute', left: 0, right: 0, height: stroke.hair },
-  block: { position: 'absolute', left: 2, right: 2, borderLeftWidth: 3, borderRadius: 4, paddingHorizontal: 3, paddingTop: 2, overflow: 'hidden' },
-  blockText: { fontSize: 10, lineHeight: 12 },
-  gridHint: { textAlign: 'center', marginTop: space[3] },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  posterWrap: { marginTop: space[4], marginHorizontal: -space[2] },
+  gridHint: { textAlign: 'center', marginTop: space[3], paddingHorizontal: space[4] },
+  shareBtn: { marginTop: space[3], marginHorizontal: space[2] },
+  favHint: { textAlign: 'center', marginTop: space[3] },
 }));

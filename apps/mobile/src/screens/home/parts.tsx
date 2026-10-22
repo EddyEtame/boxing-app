@@ -187,16 +187,18 @@ export const CLUB_HUE: Record<ClubId, string> = {
   portet: '#F97316',
 };
 
-export function WeekBars({ stats, weekLabel }: { stats: Stats; weekLabel: (start: string) => string }) {
+export function WeekBars({ stats, weekLabel, goal }: { stats: Stats; weekLabel: (start: string) => string; goal?: number }) {
   const s = useStyles();
+  const t = useTheme();
   const [week, setWeek] = useState(stats.weeks.length - 1);
-  const maxWeek = Math.max(1, ...stats.weeks.map((w) => w.count));
+  const maxWeek = Math.max(1, goal ?? 0, ...stats.weeks.map((w) => w.count));
   return (
     <View>
       <View style={s.bars}>
         {stats.weeks.map((w, i) => (
-          <Bar key={w.start} index={i} value={w.count} max={maxWeek} selected={i === week} onPress={() => setWeek(i)} label={weekLabel(w.start)} />
+          <Bar key={w.start} index={i} value={w.count} max={maxWeek} selected={i === week} met={!!goal && w.goalMet} onPress={() => setWeek(i)} label={weekLabel(w.start)} />
         ))}
+        {goal ? <View pointerEvents="none" style={[s.goalLine, { bottom: `${(goal / maxWeek) * 100}%`, borderColor: t.accent }]} /> : null}
       </View>
       <View style={s.barsCaption}>
         <Body size="caption" weight="semi" tone="muted">
@@ -210,7 +212,7 @@ export function WeekBars({ stats, weekLabel }: { stats: Stats; weekLabel: (start
   );
 }
 
-function Bar({ index, value, max, selected, onPress, label }: { index: number; value: number; max: number; selected: boolean; onPress: () => void; label: string }) {
+function Bar({ index, value, max, selected, met, onPress, label }: { index: number; value: number; max: number; selected: boolean; met?: boolean; onPress: () => void; label: string }) {
   const s = useStyles();
   const t = useTheme();
   const h = useSharedValue(0);
@@ -221,7 +223,7 @@ function Bar({ index, value, max, selected, onPress, label }: { index: number; v
   return (
     <Tap onPress={onPress} haptic="selection" scaleTo={0.94} style={s.barHit} accessibilityRole="button" accessibilityLabel={`${label} : ${value}`}>
       <View style={s.barTrack}>
-        <Animated.View style={[s.bar, { backgroundColor: selected ? t.accent : t.lineStrong }, style]} />
+        <Animated.View style={[s.bar, { backgroundColor: selected ? t.accent : met ? t.accentText : t.lineStrong }, style]} />
       </View>
     </Tap>
   );
@@ -385,6 +387,7 @@ const useStyles = makeStyles((t) => ({
   faceOverlap: { marginLeft: -12 },
   faceImg: { width: '100%', height: '100%' },
   bars: { flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 8 },
+  goalLine: { position: 'absolute', left: 0, right: 0, borderTopWidth: 1.5, borderStyle: 'dashed', opacity: 0.7 },
   barHit: { flex: 1, height: '100%', justifyContent: 'flex-end' },
   barTrack: { flex: 1, justifyContent: 'flex-end', backgroundColor: t.chip, borderRadius: 8, overflow: 'hidden' },
   bar: { width: '100%', borderRadius: 8 },

@@ -8,7 +8,7 @@ import {
   Montserrat_800ExtraBold,
 } from '@expo-google-fonts/montserrat';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -22,7 +22,9 @@ import '@/global.css';
 
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { useI18nStore } from '@/i18n';
+import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { usePrefs } from '@/state/prefs';
+import { useUsage } from '@/state/usage';
 import { useTheme } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -50,8 +52,26 @@ function ThemeFade() {
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]} />;
 }
 
+/** La mesure d'usage : l'écran vu, l'ouverture de l'app, l'envoi par lots. */
+function useAnalyticsWiring() {
+  const path = usePathname();
+  const t = useTheme();
+  const usageReady = useUsage((s) => s.hydrated);
+  useEffect(() => setAnalyticsScheme(t.scheme), [t.scheme]);
+  useEffect(() => {
+    if (!usageReady) return undefined;
+    useUsage.getState().noteOpen();
+    track('app_open');
+    return startAnalytics();
+  }, [usageReady]);
+  useEffect(() => {
+    if (usageReady && path) trackScreen(path);
+  }, [path, usageReady]);
+}
+
 export default function RootLayout() {
   useBadgeClockTicker();
+  useAnalyticsWiring();
   const t = useTheme();
   const prefsReady = usePrefs((s) => s.hydrated);
   const localeReady = useI18nStore((s) => s.hydrated);

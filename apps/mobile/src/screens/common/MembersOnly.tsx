@@ -4,6 +4,7 @@ import { Linking, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { BOUTIQUE_URL } from '@/features/sections';
+import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
 import { IconLock } from '@/ui/icons';
 import { Button, Card } from '@/ui/kit';
@@ -30,8 +31,14 @@ export function MembersOnly({ title, body, restricted }: { title: string; body: 
           <Button label={T('messages.renew')} onPress={() => void Linking.openURL(BOUTIQUE_URL)} style={s.cta} />
         ) : (
           <>
-            <Button label={T('guest.create')} onPress={() => router.push('/connexion')} style={s.cta} />
-            <Button label={T('guest.signIn')} variant="secondary" onPress={() => router.push('/connexion?mode=connexion')} />
+            <Button label={T('guest.create')} onPress={() => {
+              track('cta_create_account', { from: 'locked' });
+              router.push('/connexion');
+            }} style={s.cta} />
+            <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
+              track('cta_sign_in', { from: 'locked' });
+              router.push('/connexion?mode=connexion');
+            }} />
           </>
         )}
       </Card>

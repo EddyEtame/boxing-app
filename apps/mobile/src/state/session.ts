@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import type { Passage } from '@bc/contract';
+
 import { MEMBER, type Member } from '@/data/member';
 import type { ClubId } from '@/ui/theme';
 
@@ -21,6 +23,8 @@ type SessionState = {
   setStatut: (statut: Member['statut']) => void;
   setClubs: (clubs: ClubId[]) => void;
   setClubActif: (club: ClubId) => void;
+  /** Démonstration : rejoue un historique de passages fabriqué. */
+  setPassages: (passages: Passage[]) => void;
 };
 
 function demoSecret(): string {
@@ -39,6 +43,7 @@ export const useSession = create<SessionState>((set, get) => ({
     set({ clubsChoisis: list, clubActif: list.includes(get().clubActif) ? get().clubActif : list[0] });
   },
   setClubActif: (clubActif) => set({ clubActif }),
+  setPassages: (passages) => set((s) => ({ member: { ...s.member, passages } })),
 }));
 
 /** Invité = pas de compte : la vitrine. Adhérent (actif ou restreint) = l’espace personnel. */

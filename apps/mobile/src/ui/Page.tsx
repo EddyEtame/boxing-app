@@ -89,15 +89,17 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
   const hasBarItems = !!leading || !!trailing;
   const contentTop = bleedTop ? 0 : top + (hasBarItems ? BAR : space[4]);
 
+  // Jamais de titre compact à y = 0 : un titre court (sans sous-titre) donnait un
+  // seuil sous zéro, et le compact apparaissait en filigrane sous le grand (22/10).
   const barStyle = useAnimatedStyle(() => {
-    const start = Math.max(0, titleBottom.value - (top + BAR) - 24);
+    const start = Math.max(12, titleBottom.value - (top + BAR) - 24);
     return { opacity: interpolate(y.value, [start, start + 24], [0, 1], 'clamp') };
   });
   const compactTitleStyle = useAnimatedStyle(() => {
-    const start = Math.max(0, titleBottom.value - (top + BAR));
+    const start = Math.max(24, titleBottom.value - (top + BAR));
     return {
-      opacity: interpolate(y.value, [start - 10, start + 10], [0, 1], 'clamp'),
-      transform: [{ translateY: interpolate(y.value, [start - 10, start + 10], [6, 0], 'clamp') }],
+      opacity: interpolate(y.value, [start - 8, start + 12], [0, 1], 'clamp'),
+      transform: [{ translateY: interpolate(y.value, [start - 8, start + 12], [6, 0], 'clamp') }],
     };
   });
 

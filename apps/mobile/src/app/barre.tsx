@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { SECTIONS } from '@/features/sections';
+import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
 import { BAR_SIZE, BAR_SLOTS, DEFAULT_BAR, usePrefs, type BarSlot } from '@/state/prefs';
 import { IconArrow, IconCheck } from '@/ui/icons';
@@ -74,6 +75,7 @@ export default function BarreScreen() {
         disabled={draft.length !== BAR_SIZE}
         onPress={() => {
           setBar(draft);
+          track('bar_save', { value: draft.join(',') });
           router.back();
         }}
         style={s.save}

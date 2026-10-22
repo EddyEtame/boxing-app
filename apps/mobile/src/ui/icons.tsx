@@ -374,3 +374,34 @@ export function IconShield({ size = 24, color, strokeWidth = SW }: IconProps) {
     </Svg>
   );
 }
+
+export function IconStar({ size = 24, color, strokeWidth = SW, fill }: IconProps & { fill?: string }) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8L12 3.5z" stroke={c} strokeWidth={strokeWidth} strokeLinejoin="round" fill={fill ?? 'none'} />
+    </Svg>
+  );
+}
+
+export function IconShare({ size = 24, color, strokeWidth = SW }: IconProps) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3.5v11" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M8 7.5l4-4 4 4" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 11.5H5a1.5 1.5 0 00-1.5 1.5v6A1.5 1.5 0 005 20.5h14a1.5 1.5 0 001.5-1.5v-6a1.5 1.5 0 00-1.5-1.5h-1" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconCalendarPlus({ size = 24, color, strokeWidth = SW }: IconProps) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={3.5} y={5} width={17} height={15.5} rx={2.5} stroke={c} strokeWidth={strokeWidth} />
+      <Path d="M3.5 9.5h17M8 3v4M16 3v4" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M12 12v5M9.5 14.5h5" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}

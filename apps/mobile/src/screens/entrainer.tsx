@@ -8,6 +8,7 @@ import { TRAINING_TYPES, TRAININGS, type Niveau, type Training, type TrainingTyp
 import { SECURITE_LABEL, VIDEOS, type Video } from '@/data/videos';
 import { familleColor, heure, jourFr, nextSession, plagesLibres, type Famille } from '@/features/planning/model';
 import { weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
+import { track } from '@/features/analytics';
 import { useLocale, useT, type Locale, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
 import { IconLock, IconPlay, IconUsers } from '@/ui/icons';
@@ -228,7 +229,10 @@ function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainin
                           {tr.organisateur} · {T('train.participants', { n: tr.participants })}
                         </Body>
                         {actif && !minor ? (
-                          <Button small label={tr.jeParticipe ? T('train.joined') : T('train.join')} variant={tr.jeParticipe ? 'primary' : 'secondary'} onPress={() => onToggle(tr.id)} />
+                          <Button small label={tr.jeParticipe ? T('train.joined') : T('train.join')} variant={tr.jeParticipe ? 'primary' : 'secondary'} onPress={() => {
+                              onToggle(tr.id);
+                              track('training_join', { club: tr.club, value: !tr.jeParticipe });
+                            }} />
                         ) : minor ? (
                           <Body size="caption" weight="bold" tone="negative">
                             {T('train.adults')}
@@ -325,7 +329,11 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
         <Button
           label={T('train.publish')}
           disabled={!slot}
-          onPress={() => slot && onPublish({ id: `t-${Date.now()}`, type, club, jour, debut: slot.debut, niveau, organisateur: T('train.you'), participants: 1, jeParticipe: true })}
+          onPress={() => {
+            if (!slot) return;
+            track('training_publish', { club, choice: type });
+            onPublish({ id: `t-${Date.now()}`, type, club, jour, debut: slot.debut, niveau, organisateur: T('train.you'), participants: 1, jeParticipe: true });
+          }}
         />
         <Body size="caption" tone="dim">
           {T('train.moderated')}

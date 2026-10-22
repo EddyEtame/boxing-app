@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View, useColorScheme, useWindowDimen
 import Animated, { Easing, FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { track } from '@/features/analytics';
 import { useI18nStore, useT, type Locale } from '@/i18n';
 import { usePrefs } from '@/state/prefs';
 import { useSession } from '@/state/session';
@@ -34,7 +35,12 @@ export default function Preface() {
   const setOnboarded = usePrefs((st) => st.setOnboarded);
   const setStatut = useSession((st) => st.setStatut);
 
+  const go = (n: number) => {
+    track('preface_step', { step: n + 1 });
+    setStep(n);
+  };
   const finish = (who: 'member' | 'guest') => {
+    track('preface_done', { choice: who });
     // Les deux entrent sans session ; l'adhérent se connecte juste après (CDC §2).
     setStatut('invite');
     setOnboarded(true);
@@ -67,7 +73,7 @@ export default function Preface() {
 
       <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 16) + space[6] }]} showsVerticalScrollIndicator={false}>
         <Animated.View key={step} entering={FadeInDown.duration(420).easing(ARRIVE)} exiting={FadeOut.duration(120)} style={s.stepBox}>
-          {step === 0 ? <StepLangue onNext={() => setStep(1)} /> : step === 1 ? <StepAmbiance onNext={() => setStep(2)} /> : <StepProfil onPick={finish} />}
+          {step === 0 ? <StepLangue onNext={() => go(1)} /> : step === 1 ? <StepAmbiance onNext={() => go(2)} /> : <StepProfil onPick={finish} />}
         </Animated.View>
       </ScrollView>
     </View>
@@ -125,7 +131,10 @@ function StepLangue({ onNext }: { onNext: () => void }) {
       <View style={s.choices}>
         {options.map((o, i) => (
           <Animated.View key={o.value} entering={FadeInDown.delay(160 + i * 83).duration(420).easing(ARRIVE)}>
-            <Choice label={o.label} sub={o.sub} selected={locale === o.value} onPress={() => setLocale(o.value)} />
+            <Choice label={o.label} sub={o.sub} selected={locale === o.value} onPress={() => {
+              setLocale(o.value);
+              track('locale_change', { value: o.value, step: 1 });
+            }} />
           </Animated.View>
         ))}
       </View>
@@ -162,7 +171,10 @@ function StepAmbiance({ onNext }: { onNext: () => void }) {
       <View style={s.previews}>
         {(['light', 'dark'] as const).map((scheme, i) => (
           <Animated.View key={scheme} entering={FadeInDown.delay(120 + i * 83).duration(440).easing(ARRIVE)}>
-            <ThemePreview scheme={scheme} width={cardW} selected={current === scheme} onPress={() => setAppearance(scheme)} label={scheme === 'light' ? T('preface.light') : T('preface.dark')} sub={scheme === 'light' ? T('preface.lightSub') : T('preface.darkSub')} />
+            <ThemePreview scheme={scheme} width={cardW} selected={current === scheme} onPress={() => {
+              setAppearance(scheme);
+              track('theme_change', { value: scheme, step: 2 });
+            }} label={scheme === 'light' ? T('preface.light') : T('preface.dark')} sub={scheme === 'light' ? T('preface.lightSub') : T('preface.darkSub')} />
           </Animated.View>
         ))}
       </View>

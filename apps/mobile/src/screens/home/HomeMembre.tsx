@@ -6,12 +6,13 @@ import { PERSONNES } from '@/data/coachs';
 import { ageOf } from '@/data/member';
 import { NEWS } from '@/data/news';
 import { formatClock, useBadgeClock } from '@/features/badge/clock';
-import { auClub, jourFr, nextSession, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor } from '@/features/planning/model';
 import { useStats } from '@/features/stats/model';
 import { clock, dayLabel, daysUntil, fullDay, monthName } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { useMessages } from '@/state/messages';
 import { useSession } from '@/state/session';
+import { useUsage } from '@/state/usage';
 import { IconBadge, IconBell, IconCard, IconChart, IconChevron, IconPlanning } from '@/ui/icons';
 import { Card, Section } from '@/ui/kit';
 import { Page, Reveal, RoundButton } from '@/ui/Page';
@@ -40,7 +41,11 @@ export function HomeMembre() {
   const secondsLeft = useBadgeClock((st) => st.secondsLeft);
   const now = new Date();
   const club = clubById(clubActif);
-  const next = nextSession(clubActif, now, ageOf(member, now));
+  const favorites = useUsage((st) => st.favorites);
+  // Un cours suivi passe devant le prochain cours du club : l'app apprend ce qu'on aime.
+  const fav = nextFavorite(favorites, now);
+  const next = fav && fav.dansMinutes <= 7 * 24 * 60 ? fav : nextSession(clubActif, now, ageOf(member, now));
+  const nextClub = next ? clubById(next.slot.club) : club;
   const stats = useStats();
   const topClub = stats.byClub[0] ? clubById(stats.byClub[0].club) : club;
   const ouvert = estOuvert(club, now);
@@ -103,7 +108,7 @@ export function HomeMembre() {
       ) : null}
 
       <Reveal delay={120} style={s.block}>
-        <NextSessionCard club={club} next={next} ouvert={ouvert} onPress={() => router.navigate('/planning')} />
+        <NextSessionCard club={nextClub} next={next} ouvert={nextClub.id === club.id ? ouvert : estOuvert(nextClub, now)} onPress={() => router.navigate('/planning')} />
       </Reveal>
 
       <Reveal delay={180} style={s.tiles}>

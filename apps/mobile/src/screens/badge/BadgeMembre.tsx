@@ -10,6 +10,7 @@ import { useBadgeProtection } from '@/features/badge/useBadgeProtection';
 import { useRotatingCode } from '@/features/badge/useRotatingCode';
 import { heure, nextSession } from '@/features/planning/model';
 import { relativeDay, shortDay } from '@/features/time';
+import { track } from '@/features/analytics';
 import { useLocale, useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { IconShield } from '@/ui/icons';
@@ -32,6 +33,9 @@ const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2
  * blanc pour les lecteurs, et le carnet qu'il écrit.
  */
 export function BadgeMembre() {
+  useEffect(() => {
+    track('badge_open');
+  }, []);
   const T = useT();
   const s = useStyles();
   const t = useTheme();

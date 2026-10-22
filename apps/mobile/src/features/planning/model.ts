@@ -147,6 +147,24 @@ export function nextSession(club: ClubId, now = new Date(), age = 30): NextSessi
   return null;
 }
 
+/** Le prochain cours suivi (étoile), tous clubs confondus, dans les sept jours. */
+export function nextFavorite(favorites: string[], now = new Date()): NextSession | null {
+  if (!favorites.length) return null;
+  const today = jourFr(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  for (let offset = 0; offset < 7; offset++) {
+    const jour = (today + offset) % 7;
+    const slots = SLOTS.filter((s) => s.jour === jour && favorites.includes(s.id)).sort((a, b) => a.debut - b.debut);
+    for (const slot of slots) {
+      if (offset === 0 && slot.debut <= nowMin) continue;
+      const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;
+      const jourLabel = offset === 0 ? "Aujourd’hui" : offset === 1 ? 'Demain' : JOURS[jour];
+      return { slot, activite: normaliseActivite(slot.activite), dansMinutes, jourLabel, offset, jour };
+    }
+  }
+  return null;
+}
+
 /** « aux Minimes », « à Saint-Cyprien », « aux États-Unis »… */
 export function auClub(id: ClubId, court: string): string {
   if (id === 'minimes' || id === 'etats-unis') return `aux ${court}`;
