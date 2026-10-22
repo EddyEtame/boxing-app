@@ -53,6 +53,9 @@ jobs:
           npx tsc --noEmit -p .
           npx eslint . --max-warnings=0
 
+      - name: Tests du contrat partagé (statistiques, démo, événements)
+        run: npm test --workspace packages/contract
+
       - name: Projet Android natif (prebuild Expo)
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --no-install

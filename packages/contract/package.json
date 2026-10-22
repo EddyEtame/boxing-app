@@ -5,5 +5,9 @@
   "description": "Le contrat partagé entre l'app, l'admin et le serveur : passages, calcul des statistiques, démonstration, événements d'usage anonymes.",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "sideEffects": false
+  "sideEffects": false,
+  "scripts": {
+    "test": "node --experimental-strip-types --import ./test/hooks.mjs --test test/*.test.ts"
+  },
+  "type": "module"
 }

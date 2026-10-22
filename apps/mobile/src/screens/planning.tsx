@@ -188,6 +188,7 @@ export function Screen() {
             track('planning_view', { club, mode: m });
           }}
           options={[{ value: 'jour', label: T('planning.day') }, { value: 'semaine', label: T('planning.week') }]}
+          style={s.modeSeg}
         />
         {espaces.length ? (
           <Animated.View entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)} style={s.espaces}>
@@ -361,6 +362,8 @@ const useStyles = makeStyles((t) => ({
   openDot: { width: 7, height: 7, borderRadius: 4 },
   plateBottom: { padding: space[4], gap: 2 },
   controls: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space[3], marginTop: space[6] },
+  // Deux options de largeur égale : « Semaine » et « Week » doivent tenir sans se couper.
+  modeSeg: { minWidth: 232 },
   espaces: { flexDirection: 'row', gap: space[2], flexWrap: 'wrap' },
   daysScroll: { flexGrow: 0, marginHorizontal: -GUTTER, marginTop: space[5] },
   days: { paddingHorizontal: GUTTER, gap: space[2] },

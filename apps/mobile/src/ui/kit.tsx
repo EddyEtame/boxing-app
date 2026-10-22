@@ -296,7 +296,7 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.card,
     ...(t.scheme === 'light' ? { boxShadow: '0px 1px 3px rgba(16,19,42,0.12)' } : null),
   },
-  segBtn: { flex: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: space[4] },
+  segBtn: { flex: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: space[2] },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 60, paddingVertical: space[3] },
   rowLine: { borderBottomWidth: stroke.hair, borderBottomColor: t.line },
   rowText: { flex: 1, gap: 2 },
