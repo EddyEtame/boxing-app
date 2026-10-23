@@ -1,0 +1,419 @@
+/* =====================================================================
+   L'ASSISTANT — trois colonnes sur grand écran : les étapes, le formulaire,
+   l'aperçu dans l'app (qui bouge pendant qu'on écrit). Une seule colonne sur
+   téléphone, l'aperçu à portée d'un bouton.
+   ===================================================================== */
+
+.wiz {
+  width: calc(100vw - 32px);
+  height: calc(100dvh - 32px);
+  max-width: 1480px;
+  margin: auto;
+  border-radius: 24px;
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.wiz[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* Sans cela, la seule colonne prend la largeur de son plus long contenu : 563 px sur un écran de 390. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wiz-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px 14px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.wiz-head .choice-icon {
+  margin: 0;
+  width: 42px;
+  height: 42px;
+}
+
+.wiz-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.wiz-body {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr) minmax(360px, 440px);
+  min-height: 0;
+}
+
+.wiz-steps {
+  padding: 22px 14px 22px 20px;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+}
+
+.wiz-steps ol {
+  display: grid;
+  gap: 4px;
+}
+
+.wiz-step {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  color: var(--text-muted);
+  transition: background-color var(--d-jab) var(--e-standard), color var(--d-jab) var(--e-standard);
+}
+
+.wiz-step:not([disabled]):hover {
+  background: var(--hover);
+}
+
+.wiz-step[disabled] {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.wiz-step[aria-current='step'] {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--card-border);
+}
+
+.wiz-step-n {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all var(--d-cross) var(--e-standard);
+}
+
+.wiz-step[aria-current='step'] .wiz-step-n {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.wiz-step[data-done='true'] .wiz-step-n {
+  background: var(--positive-soft);
+  border-color: transparent;
+  color: var(--positive);
+}
+
+.wiz-step[data-error='true'] .wiz-step-n {
+  background: var(--negative-soft);
+  border-color: transparent;
+  color: var(--negative);
+}
+
+.wiz-step-title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.wiz-step-hint {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.wiz-main {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px clamp(20px, 3vw, 44px) 40px;
+  scroll-padding: 24px;
+}
+
+.wiz-form {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  display: grid;
+  gap: 22px;
+  animation: rise var(--d-round) var(--e-arrive) both;
+}
+
+.wiz-progress {
+  display: flex;
+  gap: 5px;
+}
+
+.wiz-progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  transition: background-color var(--d-round) var(--e-standard);
+}
+
+.wiz-progress span[data-on='true'] {
+  background: var(--primary);
+}
+
+.wiz-step-head {
+  display: grid;
+  gap: 6px;
+}
+
+.wiz-step-head h3 {
+  font-family: var(--font-display), sans-serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: var(--title);
+}
+
+.wiz-step-head p {
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.wiz-preview {
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 22px 22px 32px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in oklab, var(--primary) 6%, transparent) 0%, transparent 70%),
+    var(--bg-elevated);
+}
+
+.wiz-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.wiz-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px 14px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.wiz-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.wiz-review {
+  display: grid;
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.wiz-review > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.36fr) 1fr auto;
+  align-items: start;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wiz-review > div:last-child {
+  border-bottom: 0;
+}
+
+.wiz-review dt {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.wiz-review dd {
+  font-size: 14.5px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wiz-mobile-preview {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .wiz-body {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .wiz-preview {
+    display: none;
+  }
+
+  .wiz-mobile-preview {
+    display: inline-flex;
+  }
+
+  .wiz-preview[data-open='true'] {
+    display: block;
+    position: absolute;
+    inset: 72px 0 72px auto;
+    width: min(440px, 100%);
+    z-index: 5;
+    box-shadow: var(--shadow-float);
+    animation: slide-in-right var(--d-round) var(--e-arrive);
+  }
+}
+
+@media (max-width: 760px) {
+  .wiz {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .wiz-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiz-steps {
+    display: none;
+  }
+
+  .wiz-main {
+    padding: 20px 16px 32px;
+  }
+
+  .wiz-step-head h3 {
+    font-size: 32px;
+  }
+
+  .wiz-review > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .wiz-foot .wiz-draft {
+    display: none;
+  }
+}
+
+/* --- Sélecteur de photos : la photothèque réelle des clubs ---------------- */
+.photo-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+
+.photo-tile {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--chip);
+  transition: border-color var(--d-jab) var(--e-standard), transform var(--d-press-out) var(--e-standard);
+}
+
+.photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--d-round) var(--e-standard);
+}
+
+.photo-tile:hover img {
+  transform: scale(1.04);
+}
+
+.photo-tile[aria-pressed='true'] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.photo-tile[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+
+.photo-tile .photo-club {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(8, 10, 20, 0.66);
+  color: #f5f5f5;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 110px;
+  padding: 18px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  transition: border-color var(--d-jab) var(--e-standard), background-color var(--d-jab) var(--e-standard);
+}
+
+.dropzone[data-over='true'] {
+  border-color: var(--primary);
+  background: var(--tint);
+}
+
+/* Dans l'aperçu, les tuiles se resserrent : on lit les chiffres, pas les cartes. */
+.wiz-preview .kpi {
+  min-height: 0;
+  padding: 14px 16px;
+}
+
+.wiz-preview .kpi-value {
+  font-size: 30px;
+}
+
+.wiz-preview .panel-head {
+  padding: 14px 16px 10px;
+}
+
+.wiz-preview .panel-body {
+  padding: 2px 16px 16px;
+}
+
+/* Sur téléphone, pas de clavier physique : le rappel « Ctrl Entrée » laisse la place aux boutons. */
+@media (max-width: 760px) {
+  .wiz-foot .kbd-hint {
+    display: none;
+  }
+}

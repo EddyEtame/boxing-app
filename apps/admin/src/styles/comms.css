@@ -1,0 +1,763 @@
+/* Notifications et messages : boîte de réception, ciblage, écran verrouillé. */
+
+/* --- Étiquettes et petites pièces ------------------------------------------ */
+.comms-type {
+  color: var(--text);
+  background: var(--chip);
+  white-space: nowrap;
+}
+
+.comms-type svg {
+  flex: none;
+}
+
+.comms-cell-msg {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: 46ch;
+}
+
+.comms-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- La portée estimée ---------------------------------------------------- */
+.comms-reach {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--tint);
+  border: 1px solid var(--card-border);
+}
+
+.comms-reach-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.comms-reach-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.comms-reach-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.comms-reach[data-state='loading'] .comms-reach-value {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.comms-reach[data-state='zero'] {
+  background: var(--warning-soft);
+}
+
+.comms-reach[data-state='unmeasured'] .comms-reach-value {
+  color: var(--text-dim);
+}
+
+/* Les trois statuts, expliqués sous les pastilles. */
+.comms-defs {
+  display: grid;
+  gap: 6px;
+  margin: -4px 0 4px;
+  font-size: 13px;
+}
+
+.comms-defs > div {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 12px;
+}
+
+.comms-defs dt {
+  font-weight: 700;
+}
+
+.comms-defs dd {
+  color: var(--text-muted);
+}
+
+/* --- Aperçus : écran verrouillé, bannière, carte de message ----------------- */
+.comms-phones {
+  gap: 22px;
+}
+
+/* La barre d'état passe par-dessus la photo de l'écran verrouillé, en blanc. */
+.app:has(> .comms-lock) > .app-status {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  color: #f5f5f5;
+}
+
+.comms-lock {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  padding-top: 62px;
+}
+
+.comms-lock-icon {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.comms-lock .lock-time {
+  font-size: 88px;
+  font-weight: 600;
+}
+
+/* iOS sombre : la carte de verre devient fumée. L'ambiance est celle de l'écran du téléphone, jamais celle de l'admin. */
+.phone-screen[data-theme='dark'] .comms-notif:not(.notif-android) {
+  background: rgba(32, 34, 44, 0.72);
+  color: #f5f5f5;
+}
+
+.notif-android.comms-notif {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.phone-screen[data-theme='light'] .notif-android.comms-notif {
+  background: #ffffff;
+  color: #10132a;
+  border: 1px solid rgba(16, 19, 42, 0.08);
+}
+
+.comms-notif-title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.comms-notif-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.comms-ph {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.comms-banner-app {
+  position: relative;
+  padding-top: 112px;
+}
+
+.comms-banner {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
+  animation: comms-drop 520ms var(--e-arrive) both;
+}
+
+@keyframes comms-drop {
+  from {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+
+.comms-ghost {
+  margin-top: 14px;
+  border-radius: 22px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-card);
+}
+
+.comms-app-thread {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.comms-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comms-app-readonly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+/* --- Contrôles avant l'envoi ---------------------------------------------- */
+.comms-checks {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  font-size: 14px;
+}
+
+.comms-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.comms-checks li > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--positive);
+}
+
+.comms-checks li[data-ok='false'] > svg {
+  color: var(--warning);
+}
+
+/* --- Celles qui partent seules -------------------------------------------- */
+.comms-auto {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.comms-auto li {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.comms-auto li:last-child {
+  border-bottom: 0;
+}
+
+.comms-auto-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--chip);
+  color: var(--text);
+}
+
+.comms-auto-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .comms-auto li {
+    grid-template-columns: 36px 1fr;
+  }
+
+  .comms-auto li > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* --- Fiche d'une notification ---------------------------------------------- */
+.comms-facts {
+  display: grid;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.comms-facts > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+}
+
+.comms-facts dt {
+  color: var(--text-dim);
+  font-weight: 650;
+}
+
+.comms-tpl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comms-tpl-head svg {
+  flex: none;
+}
+
+/* Le logo officiel est large : dans l'icône carrée, il se pose entier sur son fond blanc. */
+.comms-notif .notif-icon img {
+  object-fit: contain;
+  padding: 3px;
+}
+
+.phone-screen[data-theme='light'] .comms-notif:not(.notif-android) {
+  background: rgba(245, 245, 245, 0.86);
+}
+
+/* --- La boîte de réception, en vue partagée -------------------------------- */
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.inbox-list {
+  position: sticky;
+  top: 80px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 100px);
+  overflow: hidden;
+}
+
+.inbox-filters {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 6px;
+}
+
+.inbox-filters .seg {
+  width: 100%;
+}
+
+.inbox-filters .seg button {
+  flex: 1;
+  justify-content: center;
+  padding: 0 6px;
+}
+
+.inbox-filters-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inbox-count {
+  padding: 6px 16px 8px;
+}
+
+.inbox-none {
+  padding: 12px 16px 22px;
+}
+
+.inbox-items {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0 8px 10px;
+  overscroll-behavior: contain;
+}
+
+.inbox-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  border-radius: 14px;
+  transition: background-color var(--d-jab) var(--e-standard);
+}
+
+.inbox-item:hover {
+  background: var(--hover);
+}
+
+.inbox-item[data-current='true'] {
+  background: var(--tint);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.inbox-check {
+  margin: 21px 0 0 9px;
+  opacity: 0;
+  transition: opacity var(--d-jab) var(--e-standard);
+}
+
+.inbox-item:hover .inbox-check,
+.inbox-item[data-checked='true'] .inbox-check,
+.inbox-check:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .inbox-check {
+    opacity: 1;
+  }
+}
+
+.inbox-open {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  padding: 12px 12px 12px 2px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.inbox-open:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.inbox-item-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.inbox-item-main > * {
+  min-width: 0;
+}
+
+.inbox-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Un nom long se coupe ; l'heure, elle, reste lisible en entier. */
+.inbox-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+}
+
+.inbox-time {
+  flex: none;
+}
+
+.inbox-item[data-unread='true'] .inbox-name {
+  font-weight: 800;
+}
+
+.inbox-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.inbox-item-meta .tag {
+  height: 20px;
+  font-size: 11px;
+}
+
+.inbox-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.inbox-item-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.inbox-item-foot .tag {
+  height: 22px;
+  font-size: 11.5px;
+}
+
+.inbox-dot {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.inbox-bulk {
+  position: sticky;
+  bottom: 10px;
+  margin: 8px auto 10px;
+}
+
+.inbox-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+}
+
+.inbox-pick {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 46ch;
+  margin: auto;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.inbox-pick-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  background: var(--chip);
+}
+
+/* --- Un fil ------------------------------------------------------------------ */
+.thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.thread-head {
+  display: grid;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.thread-back {
+  display: none;
+  justify-self: start;
+}
+
+.thread-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.thread-who > div {
+  flex: 1;
+}
+
+.thread-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.thread-declared {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--warning-soft);
+  color: var(--text);
+}
+
+.thread-declared svg {
+  flex: none;
+  color: var(--warning);
+}
+
+.thread-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.thread-assign {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thread-assign .select-wrap {
+  min-width: 180px;
+}
+
+.thread-msgs {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  max-height: 54dvh;
+  padding: 20px 22px;
+  overflow-y: auto;
+}
+
+.msg {
+  max-width: 78%;
+  padding: 11px 15px 12px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.msg-member {
+  justify-self: start;
+  border-bottom-left-radius: 6px;
+  background: var(--chip);
+}
+
+.msg-staff {
+  justify-self: end;
+  border-bottom-right-radius: 6px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.msg-staff .msg-meta {
+  color: color-mix(in oklab, var(--on-primary) 74%, transparent);
+}
+
+.msg-auto {
+  justify-self: center;
+  max-width: 90%;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.msg-auto .msg-meta {
+  justify-content: center;
+}
+
+.msg-note {
+  justify-self: stretch;
+  max-width: none;
+  border: 1.5px dashed color-mix(in oklab, var(--warning) 60%, transparent);
+  border-radius: 14px;
+  background: var(--warning-soft);
+}
+
+/* --- Écrire dans le fil ------------------------------------------------------- */
+.composer {
+  display: grid;
+  gap: 10px;
+  padding: 14px 22px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.composer[data-mode='note'] .textarea {
+  border-style: dashed;
+  background: var(--warning-soft);
+}
+
+.composer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.comms-signed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.comms-sent-text {
+  max-width: 44ch;
+}
+
+@media (max-width: 1000px) {
+  .inbox {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inbox[data-view='thread'] .inbox-list,
+  .inbox[data-view='list'] .inbox-pane {
+    display: none;
+  }
+
+  .inbox-list {
+    position: static;
+    max-height: none;
+  }
+
+  .thread-back {
+    display: inline-flex;
+  }
+
+  .thread-msgs {
+    max-height: none;
+  }
+
+  .msg {
+    max-width: 92%;
+  }
+}
+
+@media (max-width: 640px) {
+  .thread-head,
+  .thread-msgs,
+  .composer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .composer-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inbox-pane {
+    scroll-margin-top: 76px;
+  }
+}
+
+/* Sur téléphone, les quatre statuts tiennent sur la largeur au lieu de déborder du panneau. */
+@media (max-width: 640px) {
+  .comms-filters > div,
+  .comms-filters .seg {
+    width: 100%;
+  }
+
+  .comms-filters .seg button {
+    flex: 1;
+    justify-content: center;
+    padding: 0 4px;
+  }
+}

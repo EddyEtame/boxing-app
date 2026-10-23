@@ -1,0 +1,760 @@
+/* =====================================================================
+   LES DONNÉES — tuiles chiffrées, graphiques, tableaux.
+   Règles (skill dataviz) : marques fines, bout arrondi de 4 px, ligne de base
+   unique, grille en filet, une série = une couleur, le texte ne porte jamais
+   la couleur de la série, chaque graphique se lit aussi en tableau.
+   ===================================================================== */
+
+.grid {
+  display: grid;
+  gap: var(--gap, 16px);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.grid-main {
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-3,
+  .grid-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Sur téléphone, les tuiles chiffrées restent deux par ligne : un écran montre quatre chiffres, pas un. */
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* --- Tuiles chiffrées ----------------------------------------------------- */
+.kpi {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 18px 20px;
+  min-height: 132px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-card);
+}
+
+.kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.kpi-value {
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.kpi-value small {
+  font-size: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+.kpi-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.kpi-delta[data-good='true'] {
+  color: var(--positive);
+}
+
+.kpi-delta[data-good='false'] {
+  color: var(--negative);
+}
+
+.kpi-hero .kpi-value {
+  font-size: clamp(44px, 4.6vw, 60px);
+}
+
+.kpi-value {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .kpi {
+    min-height: 0;
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+  }
+
+  .kpi-label {
+    font-size: 12.5px;
+  }
+
+  .kpi-value,
+  .kpi-hero .kpi-value {
+    font-size: 30px;
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+  }
+}
+
+/* --- Graphiques ------------------------------------------------------------- */
+.chart {
+  position: relative;
+}
+
+.chart-cols {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bar-gap, 6px);
+  height: var(--chart-h, 180px);
+  padding-top: 22px;
+  border-bottom: 1px solid var(--chart-grid);
+  background-image: linear-gradient(var(--chart-grid) 1px, transparent 1px);
+  background-size: 100% calc((var(--chart-h, 180px) - 22px) / 4);
+  background-position: 0 22px;
+}
+
+.chart-col {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.chart-col:focus-visible {
+  outline-offset: 4px;
+}
+
+.chart-bar {
+  width: min(100%, var(--bar-w, 24px));
+  border-radius: 4px 4px 0 0;
+  background: var(--chart-bar);
+  transform-origin: bottom;
+  animation: grow-y var(--d-bell) var(--e-arrive) both;
+  transition: filter var(--d-jab) var(--e-standard), background-color var(--d-cross) var(--e-standard);
+}
+
+.chart-col:hover .chart-bar,
+.chart-col:focus-visible .chart-bar {
+  filter: brightness(1.18) saturate(1.05);
+}
+
+.chart-bar[data-soft='true'] {
+  background: var(--chart-bar-soft);
+}
+
+.chart-bar[data-hi='true'] {
+  background: var(--accent);
+}
+
+.chart-bar[data-empty='true'] {
+  height: 3px !important;
+  background: var(--chart-bar-soft);
+}
+
+.chart-val {
+  position: absolute;
+  bottom: calc(var(--h) + 6px);
+  left: 50%;
+  translate: -50% 0;
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.chart-axis {
+  display: flex;
+  gap: var(--bar-gap, 6px);
+  margin-top: 8px;
+}
+
+/* Un repère se lit en entier : il déborde de sa colonne, centré dessus, et les bords s'alignent sur le cadre. */
+.chart-axis span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chart-axis span[data-edge='start'] {
+  justify-content: flex-start;
+}
+
+.chart-axis span[data-edge='end'] {
+  justify-content: flex-end;
+}
+
+.chart-goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed transparent;
+  border-image: linear-gradient(90deg, var(--text-dim) 50%, transparent 50%) 1;
+  border-image-width: 1.5px 0 0 0;
+  pointer-events: none;
+}
+
+.chart-goal span {
+  position: absolute;
+  right: 0;
+  top: -20px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.chart-legend .key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.chart-tip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  min-width: 120px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-float);
+  translate: -50% calc(-100% - 12px);
+  animation: fade var(--d-jab) var(--e-standard);
+  white-space: nowrap;
+}
+
+.chart-tip strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.chart-tip span {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* Barres horizontales : une catégorie par ligne, le nom écrit, la valeur au bout. */
+.hbars {
+  display: grid;
+  gap: 2px;
+}
+
+.hbar {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.62fr) minmax(64px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 40px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--text);
+}
+
+/* Un libellé se lit en entier : il passe à la ligne plutôt que d'être coupé. */
+.hbar-label {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.hbar-track {
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--chip);
+  overflow: hidden;
+}
+
+.hbar-fill {
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--chart-bar);
+  transform-origin: left;
+  animation: grow-x var(--d-bell) var(--e-arrive) both;
+}
+
+.hbar:hover .hbar-fill,
+.hbar:focus-visible .hbar-fill {
+  filter: brightness(1.18);
+}
+
+.hbar-value {
+  min-width: 48px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.hbar-value small {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* Sur téléphone, la valeur et sa note s'empilent : « 1188 » au-dessus de « 664 visiteurs ». */
+@media (max-width: 640px) {
+  .hbar {
+    grid-template-columns: minmax(92px, 0.9fr) minmax(40px, 1fr) auto;
+    gap: 10px;
+  }
+
+  .hbar-value {
+    display: grid;
+    justify-items: end;
+    line-height: 1.2;
+  }
+
+  .hbar-value small {
+    margin-left: 0;
+    font-size: 11.5px;
+  }
+}
+
+/* L'entonnoir : chaque étape garde sa part du départ, et dit ce qu'elle perd. */
+.funnel {
+  display: grid;
+  gap: 10px;
+}
+
+.funnel-step {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.5fr) minmax(0, 1fr) 140px;
+  align-items: center;
+  gap: 16px;
+}
+
+.funnel-label {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.funnel-label small {
+  display: block;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-dim);
+}
+
+.funnel-track {
+  position: relative;
+  height: 30px;
+  border-radius: 0 6px 6px 0;
+  background: var(--chip);
+}
+
+.funnel-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0 6px 6px 0;
+  background: var(--chart-bar);
+  transform-origin: left;
+  animation: grow-x var(--d-bell) var(--e-arrive) both;
+}
+
+.funnel-fill[data-hi='true'] {
+  background: var(--accent);
+}
+
+.funnel-num {
+  display: grid;
+  justify-items: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.funnel-num strong {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.funnel-num span {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.funnel-num .loss {
+  color: var(--negative);
+}
+
+@media (max-width: 640px) {
+  .funnel-step {
+    grid-template-columns: 1fr auto;
+  }
+
+  .funnel-track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+
+/* La carte de régularité : 7 lignes (lundi → dimanche), une colonne par semaine. */
+.heat {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.heat-days {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell, 16px));
+  gap: var(--cell-gap, 4px);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  align-items: center;
+}
+
+.heat-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, var(--cell, 16px));
+  grid-auto-columns: var(--cell, 16px);
+  gap: var(--cell-gap, 4px);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.heat-cell {
+  width: var(--cell, 16px);
+  height: var(--cell, 16px);
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--heat-0);
+  transition: transform var(--d-jab) var(--e-standard);
+}
+
+.heat-cell[data-level='1'] {
+  background: var(--heat-1);
+}
+
+.heat-cell[data-level='2'] {
+  background: var(--heat-2);
+}
+
+.heat-cell[data-level='3'] {
+  background: var(--heat-3);
+}
+
+.heat-cell[data-future='true'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.heat-cell[data-today='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.heat-cell:hover,
+.heat-cell:focus-visible {
+  transform: scale(1.18);
+}
+
+.heat-scale {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.heat-scale .heat-cell {
+  --cell: 12px;
+  cursor: default;
+}
+
+.heat-scale .heat-cell:hover {
+  transform: none;
+}
+
+/* --- Tableaux ----------------------------------------------------------------- */
+.tbl-wrap {
+  overflow-x: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.tbl th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tbl th[data-num='true'],
+.tbl td[data-num='true'] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tbl td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.tbl tbody tr {
+  transition: background-color var(--d-jab) var(--e-standard);
+}
+
+.tbl tbody tr:hover {
+  background: var(--hover);
+}
+
+.tbl tbody tr[aria-selected='true'] {
+  background: var(--tint);
+}
+
+.tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tbl .th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.tbl .th-sort:hover {
+  color: var(--text);
+}
+
+.row-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.row-sub {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 760px) {
+  .tbl-cards thead {
+    display: none;
+  }
+
+  .tbl-cards,
+  .tbl-cards tbody,
+  .tbl-cards tr,
+  .tbl-cards td {
+    display: block;
+  }
+
+  .tbl-cards tr {
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tbl-cards td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 10px;
+    border: 0;
+  }
+
+  .tbl-cards td::before {
+    content: attr(data-l);
+    color: var(--text-dim);
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+
+  .tbl-cards td[data-l='']::before {
+    content: none;
+  }
+}
+
+/* --- Barre d'actions groupées ------------------------------------------------- */
+.bulkbar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 16px auto 0;
+  padding: 8px 8px 8px 16px;
+  border-radius: 16px;
+  background: var(--text);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-float);
+  animation: slide-up var(--d-cross) var(--e-arrive);
+}
+
+.bulkbar .btn {
+  color: inherit;
+}
+
+.bulkbar .btn:hover {
+  background: color-mix(in oklab, currentColor 14%, transparent);
+}
+
+/* --- Filtres en une ligne, au-dessus de ce qu'ils filtrent --------------------- */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filters .input-group {
+  flex: 1;
+  min-width: 220px;
+  max-width: 380px;
+}
+
+/* --- Tableau : sélection, tri, ligne ouverte, focus clavier ------------------ */
+.tbl-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.tbl-check-cell {
+  width: 44px;
+}
+
+.th-arrow {
+  font-size: 11px;
+  opacity: 0.35;
+}
+
+.th-arrow[data-dir] {
+  opacity: 1;
+  color: var(--text);
+}
+
+.tbl tbody tr[data-open='true'] {
+  cursor: pointer;
+}
+
+.tbl tbody tr:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.tbl tbody tr[data-active='true'] {
+  background: var(--tint);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.bulkbar-count {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+
+.bulkbar .btn[data-danger='true'] {
+  color: color-mix(in oklab, var(--negative) 70%, white);
+}
+
+@media (max-width: 760px) {
+  .tbl-cards td.tbl-check-cell {
+    justify-content: flex-start;
+  }
+}
