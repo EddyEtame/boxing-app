@@ -20,3 +20,6 @@ build/
 
 # captures et fichiers temporaires
 .tmp/
+
+# captures de défauts envoyées par Eddy (jamais versionnées)
+defects/

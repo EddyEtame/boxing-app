@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
-import { INVOICES } from '@/data/member';
+import { INVOICES, libelleIn } from '@/data/member';
 import { BOUTIQUE_URL } from '@/features/sections';
-import { daysUntil, euros, longDate, shortDay } from '@/features/time';
+import { daysUntil, euros, longDate, periodRange, shortDay } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { IconCard } from '@/ui/icons';
@@ -50,7 +50,7 @@ function SubscriptionBody() {
   const actif = member.statut === 'actif';
   const ab = member.abonnement;
   const jours = ab.prochainPrelevement ? daysUntil(ab.prochainPrelevement, new Date()) : null;
-  const [offre, periode] = ab.libelle.split(' · ');
+  const [offre, periode] = libelleIn(ab.libelle, lang).split(' · ');
 
   return (
     <Page title={T('sub.title')}>
@@ -87,7 +87,7 @@ function SubscriptionBody() {
               <Tap key={f.numero} onPress={() => setPdf(pdf === f.numero ? null : f.numero)} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={T('sub.download', { n: f.numero })} style={[s.invoice, i < INVOICES.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Body weight="bold" numberOfLines={1}>
-                    {f.periode}
+                    {'du' in f ? periodRange(f.du, f.au, lang) : T('sub.badgeInvoice')}
                   </Body>
                   <Body size="caption" tone="muted">
                     {shortDay(f.date, lang)} · {f.origine}

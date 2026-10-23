@@ -10,7 +10,7 @@ import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor 
 import { useStats } from '@/features/stats/model';
 import { clock, dayLabel, daysUntil, fullDay, monthName } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
-import { useMessages } from '@/state/messages';
+import { useMessages, useMessageText } from '@/state/messages';
 import { useSession } from '@/state/session';
 import { useUsage } from '@/state/usage';
 import { IconBadge, IconBell, IconCard, IconChart, IconChevron, IconPlanning } from '@/ui/icons';
@@ -38,6 +38,7 @@ export function HomeMembre() {
   const clubActif = useSession((st) => st.clubActif);
   const setClubActif = useSession((st) => st.setClubActif);
   const threads = useMessages((st) => st.threads);
+  const messageText = useMessageText();
   const secondsLeft = useBadgeClock((st) => st.secondsLeft);
   const now = new Date();
   const club = clubById(clubActif);
@@ -150,7 +151,7 @@ export function HomeMembre() {
                   </Body>
                 </View>
                 <Body size="bodySmall" tone="muted" numberOfLines={2}>
-                  {lastMsg.text}
+                  {messageText(lastMsg)}
                 </Body>
               </View>
               <IconChevron size={18} color={t.textDim} />

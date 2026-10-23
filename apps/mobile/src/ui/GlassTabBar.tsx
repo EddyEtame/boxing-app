@@ -12,6 +12,7 @@ import { useUnreadCount } from '@/state/messages';
 import { useSession } from '@/state/session';
 import { GlassSurface } from '@/ui/Glass';
 import { IconLock } from '@/ui/icons';
+import { scrollActiveToTop } from '@/ui/scrollTop';
 import { CountBadge, LiveDot } from '@/ui/kit';
 import { Body } from '@/ui/Text';
 import { duration, radius, spring, TAB_BAR_HEIGHT, TAB_BAR_SIDE, useTheme } from '@/ui/theme';
@@ -59,6 +60,7 @@ export function GlassTabBar() {
               id={id}
               width={itemW}
               focused={i === active}
+              here={i === match}
               label={T(SECTIONS[id].label)}
               count={id === 'messages' && statut === 'actif' ? unread : 0}
               locked={!!SECTIONS[id].members && statut !== 'actif'}
@@ -71,7 +73,7 @@ export function GlassTabBar() {
   );
 }
 
-function TabButton({ id, width, focused, label, count, locked, live }: { id: SectionId; width: number; focused: boolean; label: string; count: number; locked: boolean; live: boolean }) {
+function TabButton({ id, width, focused, here, label, count, locked, live }: { id: SectionId; width: number; focused: boolean; here: boolean; label: string; count: number; locked: boolean; live: boolean }) {
   const t = useTheme();
   const Icon = SECTIONS[id].icon;
   const press = useSharedValue(0);
@@ -90,6 +92,12 @@ function TabButton({ id, width, focused, label, count, locked, live }: { id: Sec
       onPressOut={() => press.set(withTiming(0, { duration: duration.pressOut }))}
       onPress={() => {
         if (Platform.OS !== 'web') void Haptics.selectionAsync();
+        // Premier toucher : la rubrique. Toucher l'onglet de la page ouverte : retour en haut.
+        // « Plus » allumé par défaut (rubrique ouverte depuis Plus) n'est pas « ici » : il ramène à Plus.
+        if (here) {
+          scrollActiveToTop();
+          return;
+        }
         router.navigate(SECTIONS[id].href as never);
       }}
       accessibilityRole="tab"

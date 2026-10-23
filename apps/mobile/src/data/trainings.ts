@@ -7,12 +7,12 @@ import type { ClubId } from '@/ui/theme';
  */
 export type TrainingType = 'sparring-anglaise' | 'sparring-pieds-poings' | 'sparring-sol' | 'training-collectif' | 'footing';
 
-export const TRAINING_TYPES: { id: TrainingType; label: string; sparring: boolean }[] = [
-  { id: 'sparring-anglaise', label: 'Sparring boxe anglaise', sparring: true },
-  { id: 'sparring-pieds-poings', label: 'Sparring pieds-poings', sparring: true },
-  { id: 'sparring-sol', label: 'Sparring au sol / grappling', sparring: true },
-  { id: 'training-collectif', label: 'Training collectif / prépa physique', sparring: false },
-  { id: 'footing', label: 'Footing / course en groupe', sparring: false },
+export const TRAINING_TYPES: { id: TrainingType; label: string; en: { label: string }; sparring: boolean }[] = [
+  { id: 'sparring-anglaise', label: 'Sparring boxe anglaise', en: { label: 'Boxing sparring' }, sparring: true },
+  { id: 'sparring-pieds-poings', label: 'Sparring pieds-poings', en: { label: 'Kickboxing sparring' }, sparring: true },
+  { id: 'sparring-sol', label: 'Sparring au sol / grappling', en: { label: 'Ground sparring / grappling' }, sparring: true },
+  { id: 'training-collectif', label: 'Training collectif / prépa physique', en: { label: 'Group training / conditioning' }, sparring: false },
+  { id: 'footing', label: 'Footing / course en groupe', en: { label: 'Group run' }, sparring: false },
 ];
 
 export type Niveau = 'Débutant' | 'Intermédiaire' | 'Confirmé';

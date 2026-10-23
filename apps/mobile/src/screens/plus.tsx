@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
@@ -8,15 +8,16 @@ import { SECTIONS, PLUS_GRID, type SectionId } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useI18nStore, useT, type Locale } from '@/i18n';
 import { usePrefs, type Appearance } from '@/state/prefs';
+import { deleteLocalAccount } from '@/state/account';
 import { useUsage } from '@/state/usage';
 import { useSession } from '@/state/session';
 import { GlassSurface } from '@/ui/Glass';
-import { IconBell, IconChart, IconGlobe, IconLock, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
+import { IconBell, IconChart, IconGlobe, IconLock, IconLogout, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
 import { Button, Card, Chip, IconTile, Row, Section, Segmented, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body, Heading, Mono } from '@/ui/Text';
-import { duration, easing, makeStyles, radius, space, stagger, stroke, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
+import { duration, easing, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stagger, stroke, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
 
 const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2], easing.arrive[3]);
 
@@ -31,6 +32,9 @@ export function Screen() {
   const member = useSession((st) => st.member);
   const actif = member.statut === 'actif';
   const invite = member.statut === 'invite';
+  const signOut = useSession((st) => st.signOut);
+  const { width } = useWindowDimensions();
+  const tileW = Math.floor((Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2 - space[3] * 2) / 3);
 
   return (
     <Page title={T('plus.title')}>
@@ -40,7 +44,7 @@ export function Screen() {
         <Section title={T('plus.all')}>
           <View style={s.grid}>
             {PLUS_GRID.map((id, i) => (
-              <GridTile key={id} id={id} index={i} locked={!!SECTIONS[id].members && !actif} />
+              <GridTile key={id} id={id} index={i} width={tileW} locked={!!SECTIONS[id].members && !actif} />
             ))}
           </View>
         </Section>
@@ -80,6 +84,15 @@ export function Screen() {
         <Reveal>
           <Section title={T('plus.account')}>
             <Card padded={false} style={s.list}>
+              <Row
+                icon={IconLogout}
+                title={T('plus.signOut')}
+                subtitle={T('plus.signOutSub')}
+                onPress={() => {
+                  signOut();
+                  router.navigate('/');
+                }}
+              />
               <HoldToDelete />
             </Card>
           </Section>
@@ -106,6 +119,7 @@ function MemberCard() {
   const s = useStyles();
   const t = useTheme();
   const member = useSession((st) => st.member);
+  const account = useSession((st) => st.account);
   const club = clubById(member.clubPrincipal);
   const actif = member.statut === 'actif';
   const impaye = member.abonnement.impaye > 0;
@@ -123,7 +137,7 @@ function MemberCard() {
             {member.prenom} {member.nom}
           </Heading>
           <Body size="bodySmall" tone="muted" numberOfLines={1}>
-            {club.court} · Nº {member.deciplusId}
+            {club.court} · {account.kind === 'demo' ? T('plus.demoAccount') : account.kind === 'created' ? T('plus.localAccount') : `Nº ${member.deciplusId}`}
           </Body>
           <View style={[s.status, { backgroundColor: !actif || impaye ? t.negativeSoft : t.positiveSoft }]}>
             <Body size="caption" weight="bold" tone={!actif || impaye ? 'negative' : 'positive'}>
@@ -157,7 +171,7 @@ function GuestCard() {
   );
 }
 
-function GridTile({ id, index, locked }: { id: SectionId; index: number; locked: boolean }) {
+function GridTile({ id, index, width, locked }: { id: SectionId; index: number; width: number; locked: boolean }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
@@ -172,7 +186,7 @@ function GridTile({ id, index, locked }: { id: SectionId; index: number; locked:
     else router.navigate(section.href as never);
   };
   return (
-    <Animated.View style={[s.tileWrap, style]}>
+    <Animated.View style={[{ width }, style]}>
       <Tap onPress={open} scaleTo={0.94} haptic="light" accessibilityRole="button" accessibilityLabel={T(section.title)} style={s.tile}>
         <View>
           <IconTile icon={section.icon} size={44} tone={id === 'badge' ? 'accent' : 'neutral'} />
@@ -293,7 +307,6 @@ function HoldToDelete() {
   const s = useStyles();
   const t = useTheme();
   const fill = useSharedValue(0);
-  const [done, setDone] = useState(false);
   const style = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
   return (
     <View style={s.delete}>
@@ -301,20 +314,23 @@ function HoldToDelete() {
       <View style={{ flex: 1, gap: 2 }}>
         <Body weight="semi">{T('plus.delete')}</Body>
         <Body size="caption" tone="muted">
-          {done ? T('plus.deleteDone') : T('plus.deleteSub')}
+          {T('plus.deleteSub')}
         </Body>
       </View>
       <Pressable
         onPressIn={() => fill.set(withTiming(1, { duration: 600 }))}
         onPressOut={() => fill.set(withTiming(0, { duration: duration.jab }))}
-        onLongPress={() => setDone(true)}
+        onLongPress={() => {
+          deleteLocalAccount();
+          router.navigate('/');
+        }}
         delayLongPress={600}
         style={[s.hold, { borderColor: t.negative }]}
         accessibilityRole="button"
         accessibilityLabel={T('plus.deleteHold')}>
         <Animated.View style={[s.holdFill, { backgroundColor: t.negative }, style]} />
-        <Body size="caption" weight="bold" tone={done ? 'onAccent' : 'negative'} style={{ zIndex: 1 }}>
-          {done ? T('plus.deleteOk') : T('plus.deleteHold')}
+        <Body size="caption" weight="bold" tone="negative" style={{ zIndex: 1 }}>
+          {T('plus.deleteHold')}
         </Body>
       </Pressable>
     </View>
@@ -322,6 +338,7 @@ function HoldToDelete() {
 }
 
 function DemoStatut() {
+  const T = useT();
   const statut = useSession((st) => st.member.statut);
   const setStatut = useSession((st) => st.setStatut);
   return (
@@ -330,9 +347,9 @@ function DemoStatut() {
       value={statut}
       onChange={setStatut}
       options={[
-        { value: 'actif', label: 'Actif' },
-        { value: 'restreint', label: 'Restreint' },
-        { value: 'invite', label: 'Invité' },
+        { value: 'actif', label: T('plus.statuses.actif') },
+        { value: 'restreint', label: T('plus.statuses.restreint') },
+        { value: 'invite', label: T('plus.statuses.invite') },
       ]}
     />
   );
@@ -344,8 +361,8 @@ const useStyles = makeStyles((t) => ({
   status: { alignSelf: 'flex-start', marginTop: space[2], paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   guestBody: { marginTop: space[2], marginBottom: space[5] },
   second: { marginTop: space[3] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space[3] },
-  tileWrap: { width: '31%' },
+  // Trois tuiles par rang, alignées à gauche : un dernier rang de deux ne laisse plus de trou au milieu.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[3], rowGap: space[3] },
   tile: {
     alignItems: 'center',
     gap: space[2],

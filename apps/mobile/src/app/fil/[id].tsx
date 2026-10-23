@@ -10,8 +10,8 @@ import { PERSONNES } from '@/data/coachs';
 import { SUJETS, type Message, type Sujet, type Thread } from '@/data/messages';
 import { clock, dayLabel, shortDay } from '@/features/time';
 import { track } from '@/features/analytics';
-import { useLocale, useT } from '@/i18n';
-import { useMessages } from '@/state/messages';
+import { useInLocale, useLocale, useT } from '@/i18n';
+import { useMessages, useMessageText } from '@/state/messages';
 import { useSession } from '@/state/session';
 import { GlassSurface } from '@/ui/Glass';
 import { IconBack, IconInfo, IconSend } from '@/ui/icons';
@@ -79,6 +79,7 @@ export default function ThreadScreen() {
 function Header({ thread, top }: { thread: Thread; top: number }) {
   const s = useStyles();
   const T = useT();
+  const loc = useInLocale();
   return (
     <View style={[s.header, { paddingTop: top }]}>
       <GlassSurface radius={0} style={StyleSheet.absoluteFill} />
@@ -94,7 +95,7 @@ function Header({ thread, top }: { thread: Thread; top: number }) {
             {thread.title}
           </Body>
           <Body size="caption" tone="muted" numberOfLines={1}>
-            {thread.subtitle}
+            {loc(thread).subtitle}
           </Body>
         </View>
       </View>
@@ -110,7 +111,7 @@ function ThreadAvatar({ thread }: { thread: Thread }) {
   if (thread.kind === 'club' && thread.club) return <Image source={clubById(thread.club).photo} style={s.avatar} contentFit="cover" />;
   return (
     <View style={[s.avatar, s.avatarLogo, { backgroundColor: t.scheme === 'light' ? t.bg : '#FFFFFF' }]}>
-      <Logo width={34} />
+      <Logo width={34} variant="plain" />
     </View>
   );
 }
@@ -132,6 +133,8 @@ function ThreadIntro({ thread }: { thread: Thread }) {
 function Bubble({ message, prev, index }: { message: Message; prev?: Message; index: number }) {
   const s = useStyles();
   const lang = useLocale();
+  const loc = useInLocale();
+  const text = useMessageText();
   const now = new Date();
   const newDay = !prev || new Date(prev.at).toDateString() !== new Date(message.at).toDateString();
   const day = newDay ? (
@@ -148,7 +151,7 @@ function Bubble({ message, prev, index }: { message: Message; prev?: Message; in
         {day}
         <Animated.View entering={enter} style={s.auto}>
           <Body size="caption" tone="muted" style={s.autoText}>
-            {message.text}
+            {text(message)}
           </Body>
         </Animated.View>
       </>
@@ -161,7 +164,7 @@ function Bubble({ message, prev, index }: { message: Message; prev?: Message; in
       <Animated.View entering={enter} style={[s.bubbleWrap, mine ? s.mineWrap : s.theirsWrap]}>
         {!mine && message.signature ? (
           <Body size="caption" weight="bold" tone="muted" style={s.signature}>
-            {message.signature}
+            {loc(message).signature}
           </Body>
         ) : null}
         {mine && message.context ? (
@@ -170,7 +173,7 @@ function Bubble({ message, prev, index }: { message: Message; prev?: Message; in
           </Body>
         ) : null}
         <View style={[s.bubble, mine ? s.mine : s.theirs]}>
-          <Body tone={mine ? 'onPrimary' : 'text'}>{message.text}</Body>
+          <Body tone={mine ? 'onPrimary' : 'text'}>{text(message)}</Body>
           <Body size="caption" tone={mine ? 'onPrimary' : 'dim'} style={[s.time, mine && { opacity: 0.75 }]}>
             {clock(message.at)}
           </Body>

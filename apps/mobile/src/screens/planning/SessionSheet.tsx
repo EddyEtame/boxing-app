@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clubById } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
-import { familleColor, heure, normaliseActivite } from '@/features/planning/model';
+import { espaceLabel, familleColor, heure, normaliseActivite } from '@/features/planning/model';
 import { shareSession } from '@/features/planning/share';
 import { longDate, WEEKDAYS } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -91,7 +91,7 @@ export function SessionSheet({ target, open, onClose, onClosed, onSeeDay }: { ta
   const facts = [
     [T('planning.sheet.when'), `${WEEKDAYS[lang][jour]} · ${heure(slot.debut)}–${heure(slot.fin)}`],
     [T('planning.sheet.duration'), T('planning.sheet.minutes', { n: minutes })],
-    [T('planning.sheet.club'), `Boxing Center ${club.court}${slot.espace ? ` · ${slot.espace}` : ''}`],
+    [T('planning.sheet.club'), `Boxing Center ${club.court}${slot.espace ? ` · ${espaceLabel(slot.espace)}` : ''}`],
     a.public || a.niveau ? [T('planning.sheet.who'), [a.public, a.niveau].filter(Boolean).join(' · ')] : null,
     [T('planning.sheet.next'), longDate(ymd(when), lang)],
   ].filter((x): x is [string, string] => !!x);

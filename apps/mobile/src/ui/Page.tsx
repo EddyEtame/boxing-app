@@ -1,10 +1,11 @@
-import { router } from 'expo-router';
-import { createContext, useContext, type PropsWithChildren, type ReactNode } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { createContext, useCallback, useContext, type PropsWithChildren, type ReactNode } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
   useAnimatedReaction,
+  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '@/i18n';
 import { GlassSurface } from '@/ui/Glass';
 import { IconBack, IconClose } from '@/ui/icons';
+import { registerScrollTop } from '@/ui/scrollTop';
 import { Tap } from '@/ui/Tap';
 import { Body, Display } from '@/ui/Text';
 import { easing, GUTTER, MAX_CONTENT_WIDTH, space, stroke, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
@@ -86,6 +88,19 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
   const onScroll = useAnimatedScrollHandler((e) => {
     y.value = e.contentOffset.y;
   });
+  const scroller = useAnimatedRef<Animated.ScrollView>();
+  // La page au premier plan répond au second toucher sur son onglet : retour en haut.
+  useFocusEffect(
+    useCallback(() => {
+      if (!scroll) return undefined;
+      return registerScrollTop(() => {
+        // get() et non .value : le React Compiler lirait .value pendant le rendu pour sa mémoïsation.
+        if (y.get() < 2) return false;
+        scroller.current?.scrollTo({ y: 0, animated: true });
+        return true;
+      });
+    }, [scroll, y, scroller]),
+  );
   const hasBarItems = !!leading || !!trailing;
   const contentTop = bleedTop ? 0 : top + (hasBarItems ? BAR : space[4]);
 
@@ -142,7 +157,7 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
   const bar = (
     <View pointerEvents="box-none" style={[styles.bar, { height: top + BAR, paddingTop: top }]}>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.barBg, { borderBottomColor: t.line }, barStyle]}>
-        <GlassSurface radius={0} style={StyleSheet.absoluteFill} />
+        {Platform.OS === 'android' ? <View style={[StyleSheet.absoluteFill, { backgroundColor: t.bg }]} /> : <GlassSurface radius={0} style={StyleSheet.absoluteFill} />}
       </Animated.View>
       <View pointerEvents="box-none" style={styles.barRow}>
         <View style={styles.barSide}>{leadingButton}</View>
@@ -176,6 +191,7 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
     <View style={[styles.root, { backgroundColor: t.bg }, style]}>
       <ScrollStateContext.Provider value={{ y, viewport }}>
         <Animated.ScrollView
+          ref={scroller}
           onScroll={onScroll}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}

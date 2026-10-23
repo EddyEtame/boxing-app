@@ -7,7 +7,7 @@ import { ageOf } from '@/data/member';
 import { NEWS } from '@/data/news';
 import { heure, nextSession } from '@/features/planning/model';
 import { duree, shortDay } from '@/features/time';
-import { useLocale, useT } from '@/i18n';
+import { inLocale, useLocale, useT } from '@/i18n';
 import { useMessages } from '@/state/messages';
 import { useSession } from '@/state/session';
 import { IconCard, IconChat, IconClock, IconGear, IconNews, type IconProps } from '@/ui/icons';
@@ -40,7 +40,7 @@ export default function AlertesScreen() {
   }
   if (next) alerts.push({ id: 'next', icon: IconClock, tone: 'neutral', title: T('alerts.next', { cours: next.activite.libelle, h: heure(next.slot.debut), club: club.court }), when: T('home.inTime', { t: duree(next.dansMinutes, lang) }), unread: false, href: '/planning' });
   if (member.abonnement.prochainPrelevement) alerts.push({ id: 'debit', icon: IconCard, tone: 'positive', title: T('alerts.debit', { date: shortDay(member.abonnement.prochainPrelevement, lang) }), when: T('alerts.billing'), unread: false, href: '/abonnement' });
-  for (const n of NEWS.slice(0, 2)) alerts.push({ id: n.id, icon: IconNews, tone: 'neutral', title: n.titre, when: shortDay(n.date, lang), unread: false, href: '/actualites' });
+  for (const n of NEWS.slice(0, 2)) alerts.push({ id: n.id, icon: IconNews, tone: 'neutral', title: inLocale(n, lang).titre, when: shortDay(n.date, lang), unread: false, href: '/actualites' });
 
   return (
     <Page title={T('alerts.title')} leading="back" tabBar={false}>

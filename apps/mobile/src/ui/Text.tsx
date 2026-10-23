@@ -14,6 +14,11 @@ export type Tone = 'text' | 'muted' | 'dim' | 'accent' | 'inverse' | 'positive' 
  */
 export const OnPhotoContext = createContext(false);
 
+/** Un nom composé ne se coupe pas à son trait d'union (« États-Unis », « Portet-sur-Garonne ») : un gluon invisible le tient. */
+export function insecable(s: string): string {
+  return s.replace(/-/g, '\u2060-\u2060');
+}
+
 const weightFamily: Record<Weight, string> = {
   regular: fontFamily.text,
   medium: fontFamily.textMedium,

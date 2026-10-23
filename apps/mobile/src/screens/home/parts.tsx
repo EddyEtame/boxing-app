@@ -10,7 +10,7 @@ import type { NextSession } from '@/features/planning/model';
 import { heure } from '@/features/planning/model';
 import type { Stats } from '@/features/stats/model';
 import { duree, relativeDay, shortDay } from '@/features/time';
-import { useLocale, useT } from '@/i18n';
+import { useInLocale, useLocale, useT } from '@/i18n';
 import type { IconProps } from '@/ui/icons';
 import { IconChevron } from '@/ui/icons';
 import { Chip, IconTile, LiveDot } from '@/ui/kit';
@@ -129,10 +129,11 @@ export function QuickTile({ icon, title, sub, subTone = 'muted', tone = 'neutral
 /* Les actualités en lignes                                               */
 /* ------------------------------------------------------------------ */
 
-export function NewsRow({ item, onPress, last }: { item: NewsItem; onPress?: () => void; last?: boolean }) {
+export function NewsRow({ item: source, onPress, last }: { item: NewsItem; onPress?: () => void; last?: boolean }) {
   const s = useStyles();
   const t = useTheme();
   const lang = useLocale();
+  const item = useInLocale()(source);
   return (
     <Tap onPress={onPress} disabled={!onPress} scaleTo={0.985} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={item.titre} style={[s.news, !last && s.newsLine]}>
       <Image source={item.photo} style={s.newsThumb} contentFit="cover" cachePolicy="memory-disk" transition={duration.cross} />

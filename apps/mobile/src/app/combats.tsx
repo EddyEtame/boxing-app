@@ -46,6 +46,7 @@ export default function CombatsScreen() {
                 <View style={s.rowBody}>
                   <Body size="caption" weight="bold" tone="dim">
                     {c.date ? shortDay(c.date, lang) : ''} · {c.source}
+                    {lang === 'en' ? ` · ${T('fights.inFrench')}` : ''}
                   </Body>
                   <Body weight="bold">{c.titre}</Body>
                   {c.resume ? (

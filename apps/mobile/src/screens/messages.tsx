@@ -7,8 +7,8 @@ import { PERSONNES } from '@/data/coachs';
 import type { Thread } from '@/data/messages';
 import { BOUTIQUE_URL } from '@/features/sections';
 import { clock, dayLabel } from '@/features/time';
-import { useLocale, useT } from '@/i18n';
-import { useMessages } from '@/state/messages';
+import { useInLocale, useLocale, useT } from '@/i18n';
+import { useMessages, useMessageText } from '@/state/messages';
 import { useSession } from '@/state/session';
 import { IconChat, IconCheck, IconInfo, IconLock, IconUsers } from '@/ui/icons';
 import { Button, Card, CountBadge, IconTile, Section } from '@/ui/kit';
@@ -79,7 +79,7 @@ function Avatar({ thread, size = 48 }: { thread: Thread; size?: number }) {
   }
   return (
     <View style={[s.avatarLogo, { width: size, height: size, borderRadius: size / 2, backgroundColor: t.scheme === 'light' ? t.bg : '#FFFFFF' }]}>
-      <Logo width={size * 0.84} />
+      <Logo width={size * 0.84} variant="plain" />
     </View>
   );
 }
@@ -87,6 +87,8 @@ function Avatar({ thread, size = 48 }: { thread: Thread; size?: number }) {
 function ThreadCard({ thread, featured }: { thread: Thread; featured?: boolean }) {
   const s = useStyles();
   const lang = useLocale();
+  const loc = useInLocale();
+  const text = useMessageText();
   const last = thread.messages[thread.messages.length - 1];
   return (
     <Card padded={false} onPress={() => router.push(`/fil/${thread.id}`)} accessibilityLabel={thread.title}>
@@ -102,11 +104,11 @@ function ThreadCard({ thread, featured }: { thread: Thread; featured?: boolean }
             </Body>
           </View>
           <Body size="caption" weight="semi" tone="muted" numberOfLines={1}>
-            {thread.subtitle}
+            {loc(thread).subtitle}
           </Body>
           <View style={s.rowHead}>
             <Body size="bodySmall" tone="muted" numberOfLines={2} style={{ flex: 1 }}>
-              {last.text}
+              {text(last)}
             </Body>
             <CountBadge count={thread.unread} />
           </View>
@@ -120,6 +122,8 @@ function ThreadRow({ thread, last: isLast }: { thread: Thread; last?: boolean })
   const s = useStyles();
   const t = useTheme();
   const lang = useLocale();
+  const loc = useInLocale();
+  const text = useMessageText();
   const last = thread.messages[thread.messages.length - 1];
   return (
     <Tap onPress={() => router.push(`/fil/${thread.id}`)} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={thread.title} style={[s.row, !isLast && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
@@ -134,11 +138,11 @@ function ThreadRow({ thread, last: isLast }: { thread: Thread; last?: boolean })
           </Body>
         </View>
         <Body size="caption" weight="semi" tone="muted" numberOfLines={1}>
-          {thread.subtitle}
+          {loc(thread).subtitle}
         </Body>
         <View style={s.rowHead}>
           <Body size="bodySmall" tone="muted" numberOfLines={2} style={{ flex: 1 }}>
-            {last.text}
+            {text(last)}
           </Body>
           <CountBadge count={thread.unread} />
         </View>

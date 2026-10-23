@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { Mono } from '@/ui/Text';
 import { radius, space, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
@@ -12,13 +13,14 @@ import { radius, space, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
  */
 export function ProfileSwitch() {
   const t = useTheme();
+  const T = useT();
   const insets = useSafeAreaInsets();
   const statut = useSession((s) => s.member.statut);
   const setStatut = useSession((s) => s.setStatut);
   if (!__DEV__) return null;
   const options = [
-    { id: 'invite', label: 'INVITÉ' },
-    { id: 'actif', label: 'ADHÉRENT' },
+    { id: 'invite', label: T('plus.statuses.invite').toUpperCase() },
+    { id: 'actif', label: T('plus.statuses.member').toUpperCase() },
   ] as const;
   const bottom = (insets.bottom > 0 ? Math.max(insets.bottom - 6, 10) : 14) + TAB_BAR_HEIGHT + space[3];
   return (
@@ -27,7 +29,7 @@ export function ProfileSwitch() {
         {options.map((o) => {
           const on = o.id === 'invite' ? statut === 'invite' : statut !== 'invite';
           return (
-            <Pressable key={o.id} onPress={() => setStatut(o.id)} style={[styles.btn, on && { backgroundColor: t.primary }]} accessibilityRole="button" accessibilityLabel={`Voir comme ${o.label.toLowerCase()}`}>
+            <Pressable key={o.id} onPress={() => setStatut(o.id)} style={[styles.btn, on && { backgroundColor: t.primary }]} accessibilityRole="button" accessibilityLabel={o.label}>
               <Mono size="micro" tone={on ? 'onPrimary' : 'muted'}>
                 {o.label}
               </Mono>

@@ -24,6 +24,7 @@ import { useBadgeClockTicker } from '@/features/badge/clock';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { usePrefs } from '@/state/prefs';
+import { useSession } from '@/state/session';
 import { useUsage } from '@/state/usage';
 import { useTheme } from '@/ui/theme';
 
@@ -75,6 +76,8 @@ export default function RootLayout() {
   const t = useTheme();
   const prefsReady = usePrefs((s) => s.hydrated);
   const localeReady = useI18nStore((s) => s.hydrated);
+  // La session décide de la vitrine ou de l'espace membre : on l'attend, sinon l'invité verrait un instant « Salut Camille ».
+  const sessionReady = useSession((s) => s.hydrated);
   const onboarded = usePrefs((s) => s.onboarded);
   const [loaded, error] = useFonts({
     BebasNeue_400Regular,
@@ -85,7 +88,7 @@ export default function RootLayout() {
     Montserrat_800ExtraBold,
     IBMPlexMono_500Medium,
   });
-  const ready = (loaded || !!error) && prefsReady && localeReady;
+  const ready = (loaded || !!error) && prefsReady && localeReady && sessionReady;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();

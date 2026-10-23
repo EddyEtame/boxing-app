@@ -13,7 +13,7 @@ import {
   IconGrid,
   IconNews,
   IconPlanning,
-  IconRing,
+  IconHome,
   IconShop,
   IconUsers,
   type IconProps,
@@ -44,7 +44,7 @@ export type Section = {
 export const BOUTIQUE_URL = 'https://boutique.boxingcenter.fr/';
 
 export const SECTIONS: Record<SectionId, Section> = {
-  home: { id: 'home', icon: IconRing, label: 'tabs.home', title: 'tabs.home', sub: 'sections.homeSub', href: '/' },
+  home: { id: 'home', icon: IconHome, label: 'tabs.home', title: 'tabs.home', sub: 'sections.homeSub', href: '/' },
   planning: { id: 'planning', icon: IconPlanning, label: 'tabs.planning', title: 'sections.planning', sub: 'sections.planningSub', href: '/planning' },
   badge: { id: 'badge', icon: IconBadge, label: 'tabs.badge', title: 'sections.badge', sub: 'sections.badgeSub', href: '/badge' },
   messages: { id: 'messages', icon: IconChat, label: 'tabs.messages', title: 'sections.messages', sub: 'sections.messagesSub', href: '/messages', members: true },

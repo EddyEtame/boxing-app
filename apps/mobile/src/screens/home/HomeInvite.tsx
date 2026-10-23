@@ -10,7 +10,7 @@ import { useCombats } from '@/features/combats/useCombats';
 import { clubsProposant, heure } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
 import { track } from '@/features/analytics';
-import { useI18nStore, useLocale, useT } from '@/i18n';
+import { useI18nStore, useInLocale, useLocale, useT } from '@/i18n';
 import { GlassSurface } from '@/ui/Glass';
 import { IconChevron, IconGlobe } from '@/ui/icons';
 import { Button, Card, Section } from '@/ui/kit';
@@ -38,8 +38,8 @@ export function HomeInvite() {
   const col = Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2;
   const combats = useCombats();
   const [clubIndex, setClubIndex] = useState(0);
-  const offre = OFFRES[0];
-  const others = OFFRES.slice(1);
+  const loc = useInLocale();
+  const [offre, ...others] = OFFRES.map(loc);
   const plateW = Math.round(col * 0.82);
   const discW = Math.round(col * 0.56);
   const portraitW = Math.round(col * 0.5);
@@ -132,7 +132,7 @@ export function HomeInvite() {
       <Reveal style={s.section}>
         <CarouselHead title={T('guest.disciplines')} index={0} total={DISCIPLINES.length} action={{ label: T('common.seeAll'), onPress: () => router.push('/disciplines') }} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={discW + space[3]} decelerationRate="fast" style={s.carousel} contentContainerStyle={s.carouselContent}>
-          {DISCIPLINES.map((d) => {
+          {DISCIPLINES.map(loc).map((d) => {
             const n = clubsProposant(d.famille).length;
             return (
               <Tap key={d.famille} style={{ width: discW }} onPress={() => router.push('/disciplines')} scaleTo={0.97} accessibilityRole="button" accessibilityLabel={d.nom}>
@@ -163,7 +163,7 @@ export function HomeInvite() {
                     {p.nom}
                   </Heading>
                   <Body size="caption" tone="muted" numberOfLines={2}>
-                    {p.role}
+                    {loc(p).role}
                   </Body>
                 </View>
               </Photo>
@@ -182,7 +182,7 @@ export function HomeInvite() {
                     {c.titre}
                   </Body>
                   <Body size="caption" weight="semi" tone="dim">
-                    {c.date ? shortDay(c.date, lang) : ''} · actu-mma.com
+                    {c.date ? shortDay(c.date, lang) : ''} · actu-mma.com{lang === 'en' ? ` · ${T('fights.inFrench')}` : ''}
                   </Body>
                 </View>
                 <IconChevron size={18} color={t.textDim} />

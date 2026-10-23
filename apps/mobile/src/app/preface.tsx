@@ -12,14 +12,17 @@ import { GlassSurface } from '@/ui/Glass';
 import { IconBack, IconCheck, IconMoon, IconSun } from '@/ui/icons';
 import { Button, Toggle } from '@/ui/kit';
 import { Logo } from '@/ui/Logo';
+import { LowerThird } from '@/ui/LowerThird';
 import { useTopInset } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
-import { Body, Display } from '@/ui/Text';
+import { Body, Display, OnPhotoContext } from '@/ui/Text';
 import { easing, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke, themes, useTheme, type Scheme } from '@/ui/theme';
 
 const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2], easing.arrive[3]);
 const STEPS = 3;
+/** BC-015 : une boxeuse entre sous les étincelles, le bras levé (Portet). La photo la plus forte du fonds. */
+const ENTREE = require('@/assets/photos/portet-entree-feux.jpg');
 
 /**
  * La préface (20/10/2026, demande d'Eddy) : avant d'entrer, l'utilisateur
@@ -33,7 +36,9 @@ export default function Preface() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const setOnboarded = usePrefs((st) => st.setOnboarded);
-  const setStatut = useSession((st) => st.setStatut);
+  const signOut = useSession((st) => st.signOut);
+  // L'étape 1 se joue sur la photo : le haut de l'écran passe en blanc.
+  const onPhoto = step === 0;
 
   const go = (n: number) => {
     track('preface_step', { step: n + 1 });
@@ -41,51 +46,61 @@ export default function Preface() {
   };
   const finish = (who: 'member' | 'guest') => {
     track('preface_done', { choice: who });
-    // Les deux entrent sans session ; l'adhérent se connecte juste après (CDC §2).
-    setStatut('invite');
+    // « Je découvre » : la vitrine, gardée d'un lancement à l'autre. « Je suis membre » :
+    // on reste invité tant que la connexion n'a pas abouti.
+    if (who === 'guest') signOut();
     setOnboarded(true);
     if (who === 'member') setTimeout(() => router.push('/connexion?mode=connexion'), 60);
   };
 
   return (
     <View style={s.root}>
-      <View style={[s.top, { paddingTop: top + space[2] }]}>
-        <View style={s.topSide}>
-          {step > 0 ? (
-            <Tap onPress={() => setStep(step - 1)} scaleTo={0.9} accessibilityRole="button" accessibilityLabel={T('common.back')} hitSlop={8}>
-              <GlassSurface radius={22} strength="light" style={s.round}>
-                <IconBack size={22} />
-              </GlassSurface>
-            </Tap>
-          ) : null}
+      {onPhoto ? <Entrance /> : null}
+      <OnPhotoContext.Provider value={onPhoto}>
+        <View style={[s.top, { paddingTop: top + space[2] }]}>
+          <View style={s.topSide}>
+            {step > 0 ? (
+              <Tap onPress={() => setStep(step - 1)} scaleTo={0.9} accessibilityRole="button" accessibilityLabel={T('common.back')} hitSlop={8}>
+                <GlassSurface radius={22} strength="light" style={s.round}>
+                  <IconBack size={22} />
+                </GlassSurface>
+              </Tap>
+            ) : null}
+          </View>
+          <Progress step={step} onPhoto={onPhoto} />
+          <View style={[s.topSide, s.topRight]}>
+            {step < STEPS - 1 ? (
+              <Pressable onPress={() => setStep(STEPS - 1)} hitSlop={10} accessibilityRole="button" accessibilityLabel={T('preface.skip')}>
+                <Body size="bodySmall" weight="bold" tone="muted">
+                  {T('preface.skip')}
+                </Body>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-        <Progress step={step} />
-        <View style={[s.topSide, s.topRight]}>
-          {step < STEPS - 1 ? (
-            <Pressable onPress={() => setStep(STEPS - 1)} hitSlop={10} accessibilityRole="button" accessibilityLabel={T('preface.skip')}>
-              <Body size="bodySmall" weight="bold" tone="muted">
-                {T('preface.skip')}
-              </Body>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      </OnPhotoContext.Provider>
 
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 16) + space[6] }]} showsVerticalScrollIndicator={false}>
-        <Animated.View key={step} entering={FadeInDown.duration(420).easing(ARRIVE)} exiting={FadeOut.duration(120)} style={s.stepBox}>
-          {step === 0 ? <StepLangue onNext={() => go(1)} /> : step === 1 ? <StepAmbiance onNext={() => go(2)} /> : <StepProfil onPick={finish} />}
-        </Animated.View>
-      </ScrollView>
+      {onPhoto ? (
+        <StepLangue onNext={() => go(1)} bottom={Math.max(insets.bottom, 16)} />
+      ) : (
+        <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 16) + space[6] }]} showsVerticalScrollIndicator={false}>
+          <Animated.View key={step} entering={FadeInDown.duration(420).easing(ARRIVE)} exiting={FadeOut.duration(120)} style={s.stepBox}>
+            {step === 1 ? <StepAmbiance onNext={() => go(2)} /> : <StepProfil onPick={finish} />}
+          </Animated.View>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
-function Progress({ step }: { step: number }) {
+function Progress({ step, onPhoto }: { step: number; onPhoto: boolean }) {
   const t = useTheme();
+  const color = onPhoto ? '#FFFFFF' : t.text;
+  const track = onPhoto ? 'rgba(255,255,255,0.38)' : t.lineStrong;
   return (
     <View style={styles.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: STEPS, now: step + 1 }}>
       {Array.from({ length: STEPS }).map((_, i) => (
-        <ProgressDot key={i} on={i <= step} current={i === step} color={t.text} track={t.lineStrong} />
+        <ProgressDot key={i} on={i <= step} current={i === step} color={color} track={track} />
       ))}
     </View>
   );
@@ -100,9 +115,32 @@ function ProgressDot({ on, current, color, track }: { on: boolean; current: bool
   return <Animated.View style={[styles.dot, { backgroundColor: on ? color : track }, style]} />;
 }
 
+/**
+ * L'entrée (23/10/2026) : l'app s'ouvre comme on entre dans une salle de gala.
+ * La photo occupe le haut de l'écran et s'avance lentement (9 s) ; le logo
+ * s'allume sous son projecteur ; le choix de la langue monte du bas.
+ */
+function Entrance() {
+  const s = useStyles();
+  const { height } = useWindowDimensions();
+  const reduced = useReducedMotion();
+  const z = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    if (!reduced) z.value = withTiming(1, { duration: 9000, easing: Easing.out(Easing.cubic) });
+  }, [z, reduced]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: 1.12 - z.value * 0.12 }, { translateY: (1 - z.value) * -14 }] }));
+  return (
+    <View pointerEvents="none" style={[s.entrance, { height: Math.round(height * 0.7) }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, style]}>
+        <Photo source={ENTREE} style={StyleSheet.absoluteFill} darken={0.36} scrim={0.55} scrimTop={0.5} priority="high" />
+      </Animated.View>
+    </View>
+  );
+}
+
 /* --------------------------------------------------------------- */
 
-function StepLangue({ onNext }: { onNext: () => void }) {
+function StepLangue({ onNext, bottom }: { onNext: () => void; bottom: number }) {
   const s = useStyles();
   const T = useT();
   const locale = useI18nStore((st) => st.locale);
@@ -110,40 +148,51 @@ function StepLangue({ onNext }: { onNext: () => void }) {
   const reduced = useReducedMotion();
   const logo = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
-    if (!reduced) logo.value = withDelay(80, withTiming(1, { duration: 700, easing: ARRIVE }));
+    if (!reduced) logo.value = withDelay(220, withTiming(1, { duration: 900, easing: ARRIVE }));
   }, [logo, reduced]);
-  const logoStyle = useAnimatedStyle(() => ({ opacity: logo.value, transform: [{ scale: 0.92 + logo.value * 0.08 }] }));
+  // Le projecteur s'allume : le logo monte de 0,9 à 1 et sort du noir.
+  const logoStyle = useAnimatedStyle(() => ({ opacity: logo.value, transform: [{ scale: 0.9 + logo.value * 0.1 }] }));
   const options: { value: Locale; label: string; sub: string }[] = [
     { value: 'fr', label: 'Français', sub: 'Continuer en français' },
     { value: 'en', label: 'English', sub: 'Continue in English' },
   ];
   return (
-    <>
-      <Animated.View style={[s.logoBox, logoStyle]}>
-        <Logo width={236} />
-      </Animated.View>
-      <Display size="display3" tight style={s.center}>
-        Bienvenue · Welcome
-      </Display>
-      <Body tone="muted" style={[s.center, s.lead]}>
-        Cinq clubs à Toulouse, une seule app.{'\n'}Five clubs in Toulouse, one app.
-      </Body>
-      <View style={s.choices}>
-        {options.map((o, i) => (
-          <Animated.View key={o.value} entering={FadeInDown.delay(160 + i * 83).duration(420).easing(ARRIVE)}>
-            <Choice label={o.label} sub={o.sub} selected={locale === o.value} onPress={() => {
-              setLocale(o.value);
-              track('locale_change', { value: o.value, step: 1 });
-            }} />
+    <View style={s.entry}>
+      <OnPhotoContext.Provider value>
+        <View style={s.entryHero}>
+          <Animated.View style={[s.entryLogo, logoStyle]}>
+            <Logo width={212} variant="spot" />
           </Animated.View>
-        ))}
-      </View>
-      <Body size="caption" tone="dim" style={[s.center, s.note]}>
-        {T('preface.langNote')}
-      </Body>
-      <View style={s.push} />
-      <Button label={T('preface.continue')} onPress={onNext} />
-    </>
+          <Display size="display3" tight style={s.center}>
+            Bienvenue · Welcome
+          </Display>
+          <Body tone="muted" weight="semi" style={[s.center, s.lead]}>
+            Cinq clubs à Toulouse, une seule app.{'\n'}Five clubs in Toulouse, one app.
+          </Body>
+        </View>
+      </OnPhotoContext.Provider>
+      <Animated.View entering={FadeInDown.delay(240).duration(560).easing(ARRIVE)} style={[s.sheet, { paddingBottom: bottom + space[2] }]}>
+        <View style={s.sheetChoices}>
+          {options.map((o, i) => (
+            <Animated.View key={o.value} entering={FadeInDown.delay(380 + i * 83).duration(420).easing(ARRIVE)}>
+              <Choice
+                label={o.label}
+                sub={o.sub}
+                selected={locale === o.value}
+                onPress={() => {
+                  setLocale(o.value);
+                  track('locale_change', { value: o.value, step: 1 });
+                }}
+              />
+            </Animated.View>
+          ))}
+        </View>
+        <Body size="caption" tone="dim" style={s.center}>
+          {T('preface.langNote')}
+        </Body>
+        <Button label={T('preface.continue')} onPress={onNext} />
+      </Animated.View>
+    </View>
   );
 }
 
@@ -197,8 +246,9 @@ function StepProfil({ onPick }: { onPick: (who: 'member' | 'guest') => void }) {
   const s = useStyles();
   const T = useT();
   const cards = [
-    { who: 'member' as const, title: T('preface.member'), sub: T('preface.memberSub'), photo: require('@/assets/photos/minimes-sacs.jpg') },
-    { who: 'guest' as const, title: T('preface.discover'), sub: T('preface.discoverSub'), photo: require('@/assets/photos/ring-drapeaux-vide.jpg') },
+    { who: 'member' as const, title: T('preface.member'), sub: T('preface.memberSub'), meta: T('preface.memberMeta'), photo: require('@/assets/photos/minimes-sacs.jpg') },
+    // Un cours en garde, du débutant au confirmé : la porte est ouverte (test de la permission, charte).
+    { who: 'guest' as const, title: T('preface.discover'), sub: T('preface.discoverSub'), meta: T('preface.discoverMeta'), photo: require('@/assets/photos/groupe-garde.jpg') },
   ];
   return (
     <>
@@ -213,8 +263,8 @@ function StepProfil({ onPick }: { onPick: (who: 'member' | 'guest') => void }) {
       </Body>
       <View style={s.whoList}>
         {cards.map((c, i) => (
-          <Animated.View key={c.who} entering={FadeInDown.delay(120 + i * 83).duration(440).easing(ARRIVE)}>
-            <Tap onPress={() => onPick(c.who)} scaleTo={0.98} haptic="medium" accessibilityRole="button" accessibilityLabel={c.title}>
+          <Animated.View key={c.who} entering={FadeInDown.delay(120 + i * 83).duration(440).easing(ARRIVE)} style={s.whoItem}>
+            <Tap onPress={() => onPick(c.who)} scaleTo={0.98} haptic="medium" accessibilityRole="button" accessibilityLabel={c.title} style={s.whoItem}>
               <Photo source={c.photo} style={s.whoCard} darken={0.45} scrim={0.8} vignette={false}>
                 <View style={s.whoText}>
                   <Display size="display4" tight>
@@ -223,6 +273,7 @@ function StepProfil({ onPick }: { onPick: (who: 'member' | 'guest') => void }) {
                   <Body size="bodySmall" tone="muted">
                     {c.sub}
                   </Body>
+                  <LowerThird meta={c.meta} compact style={s.whoMeta} />
                 </View>
               </Photo>
             </Tap>
@@ -313,6 +364,23 @@ const styles = StyleSheet.create({
 
 const useStyles = makeStyles((t) => ({
   root: { flex: 1, backgroundColor: t.bg },
+  entrance: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+  entry: { flex: 1, justifyContent: 'space-between' },
+  entryHero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: GUTTER, gap: space[2], paddingBottom: space[6] },
+  entryLogo: { marginBottom: space[7] },
+  sheet: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
+    gap: space[4],
+    paddingTop: space[6],
+    paddingHorizontal: GUTTER,
+    borderTopLeftRadius: radius.card + 10,
+    borderTopRightRadius: radius.card + 10,
+    backgroundColor: t.bg,
+    boxShadow: t.scheme === 'light' ? '0px -8px 30px rgba(16,19,42,0.18)' : '0px -8px 30px rgba(0,0,0,0.5)',
+  },
+  sheetChoices: { gap: space[3] },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingBottom: space[2], width: '100%', maxWidth: MAX_CONTENT_WIDTH + 2 * space[4], alignSelf: 'center' },
   topSide: { width: 80, flexDirection: 'row' },
   topRight: { justifyContent: 'flex-end' },
@@ -356,7 +424,10 @@ const useStyles = makeStyles((t) => ({
   check: { position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pvLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: space[3] },
   systemRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[5], paddingVertical: space[3], borderTopWidth: stroke.hair, borderBottomWidth: stroke.hair, borderColor: t.line },
-  whoList: { gap: space[3], marginTop: space[5] },
-  whoCard: { height: 196, borderRadius: radius.card, justifyContent: 'flex-end' },
+  // Les deux portes se partagent l'écran : plus de quart vide sous les cartes (23/10/2026).
+  whoList: { flexGrow: 1, gap: space[3], marginTop: space[5] },
+  whoItem: { flex: 1, minHeight: 176 },
+  whoCard: { flex: 1, borderRadius: radius.card, justifyContent: 'flex-end' },
+  whoMeta: { marginTop: space[2] },
   whoText: { padding: space[5], gap: space[1] },
 }));

@@ -4,7 +4,7 @@ import { ScrollView, View } from 'react-native';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { PERSONNES, type Personne } from '@/data/coachs';
-import { useT } from '@/i18n';
+import { useInLocale, useT } from '@/i18n';
 import { Button, Card, Chip, Section } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
@@ -65,9 +65,10 @@ export default function EquipeScreen() {
   );
 }
 
-function Portrait({ p, last }: { p: Personne; last: boolean }) {
+function Portrait({ p: source, last }: { p: Personne; last: boolean }) {
   const s = useStyles();
   const t = useTheme();
+  const p = useInLocale()(source);
   const clubs = p.clubs.map((c) => clubById(c).court).join(' · ');
   return (
     <Reveal>

@@ -55,12 +55,22 @@ export const MEMBER: Member = {
   passages: generatePassages(DEFAULT_DEMO),
 };
 
-export const INVOICES = [
-  { numero: 'F-2026-10-0412', date: '2026-10-03', periode: '26 sept. → 23 oct. 2026', montant: 44.99, origine: 'Deciplus' },
-  { numero: 'F-2026-09-0391', date: '2026-09-05', periode: '29 août → 25 sept. 2026', montant: 44.99, origine: 'Deciplus' },
-  { numero: 'B-2026-09-0077', date: '2026-09-07', periode: 'Badge d’accès', montant: 34.99, origine: 'Boutique' },
-  { numero: 'F-2026-08-0352', date: '2026-08-08', periode: '1er → 28 août 2026', montant: 44.99, origine: 'Deciplus' },
-] as const;
+/** Une facture : une période d’abonnement (mise en forme à l’affichage, dans la langue de l’app) ou un achat. */
+export type Invoice = { numero: string; date: string; montant: number; origine: 'Deciplus' | 'Boutique' } & ({ du: string; au: string } | { objet: 'badge' });
+
+export const INVOICES: Invoice[] = [
+  { numero: 'F-2026-10-0412', date: '2026-10-03', du: '2026-09-26', au: '2026-10-23', montant: 44.99, origine: 'Deciplus' },
+  { numero: 'F-2026-09-0391', date: '2026-09-05', du: '2026-08-29', au: '2026-09-25', montant: 44.99, origine: 'Deciplus' },
+  { numero: 'B-2026-09-0077', date: '2026-09-07', objet: 'badge', montant: 34.99, origine: 'Boutique' },
+  { numero: 'F-2026-08-0352', date: '2026-08-08', du: '2026-08-01', au: '2026-08-28', montant: 44.99, origine: 'Deciplus' },
+];
+
+/** Les libellés du catalogue Deciplus en anglais ; le connecteur renverra le libellé français. */
+const LIBELLES_EN: Record<string, string> = { 'Sans engagement': 'No commitment', '4 semaines': '4 weeks' };
+
+export function libelleIn(libelle: string, lang: 'fr' | 'en'): string {
+  return lang === 'en' ? libelle.split(' · ').map((p) => LIBELLES_EN[p] ?? p).join(' · ') : libelle;
+}
 
 export function ageOf(member: Member, now = new Date()): number {
   const d = new Date(member.dateNaissance + 'T00:00:00');

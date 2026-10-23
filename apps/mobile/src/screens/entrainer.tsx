@@ -4,13 +4,14 @@ import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-rea
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { ageOf } from '@/data/member';
-import { TRAINING_TYPES, TRAININGS, type Niveau, type Training, type TrainingType } from '@/data/trainings';
-import { SECURITE_LABEL, VIDEOS, type Video } from '@/data/videos';
+import { TRAINING_TYPES, type Niveau, type Training, type TrainingType } from '@/data/trainings';
+import { VIDEOS, type Video } from '@/data/videos';
 import { familleColor, heure, jourFr, nextSession, plagesLibres, type Famille } from '@/features/planning/model';
 import { weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { track } from '@/features/analytics';
-import { useLocale, useT, type Locale, type MessageKey } from '@/i18n';
+import { useInLocale, useLocale, useT, type Locale, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
+import { useTrainings } from '@/state/trainings';
 import { IconLock, IconPlay, IconUsers } from '@/ui/icons';
 import { Button, Card, Chip, Section, Segmented } from '@/ui/kit';
 import { LowerThird } from '@/ui/LowerThird';
@@ -28,14 +29,7 @@ const LEVEL_KEY: Record<Niveau, MessageKey> = { Débutant: 'train.levels.debutan
 /** Les guillemets de la langue : « … » avec espaces insécables en français, “…” en anglais. */
 const quote = (x: string, lang: Locale) => (lang === 'fr' ? `« ${x} »` : `“${x}”`);
 
-const FILTRES: { id: Filtre; label: string }[] = [
-  { id: 'tous', label: 'Tout' },
-  { id: 'anglaise', label: 'Anglaise' },
-  { id: 'piedsPoings', label: 'Pieds-poings' },
-  { id: 'mma', label: 'MMA' },
-  { id: 'grappling', label: 'Grappling' },
-  { id: 'crossTraining', label: 'Prépa' },
-];
+const FILTRES = ['tous', 'anglaise', 'piedsPoings', 'mma', 'grappling', 'crossTraining'] as const satisfies readonly Filtre[];
 
 /**
  * S'entraîner (CDC §9 et §11) : les vidéos des coachs, et les séances entre
@@ -53,7 +47,9 @@ export function Screen() {
   const next = nextSession(member.clubPrincipal, now, age);
   const [vue, setVue] = useState<Vue>('videos');
   const [filtre, setFiltre] = useState<Filtre>('tous');
-  const [trainings, setTrainings] = useState<Training[]>(TRAININGS);
+  const trainings = useTrainings((st) => st.list);
+  const publish = useTrainings((st) => st.publish);
+  const toggle = useTrainings((st) => st.toggle);
   const [composer, setComposer] = useState(false);
   const videos = orderVideos(filtre, next?.activite.famille);
 
@@ -76,7 +72,7 @@ export function Screen() {
           <Reveal delay={60}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filtersScroll} contentContainerStyle={s.filters}>
               {FILTRES.map((f) => (
-                <Chip key={f.id} label={f.id === 'tous' ? T('train.all') : f.label} selected={filtre === f.id} onPress={() => setFiltre(f.id)} />
+                <Chip key={f} label={f === 'tous' ? T('train.all') : T(`train.filters.${f}`)} selected={filtre === f} onPress={() => setFiltre(f)} />
               ))}
             </ScrollView>
             <Body size="caption" weight="semi" tone="muted" style={s.count}>
@@ -113,7 +109,7 @@ export function Screen() {
               age={age}
               clubDefault={member.clubPrincipal}
               onPublish={(tr) => {
-                setTrainings((list) => [tr, ...list]);
+                publish(tr);
                 setComposer(false);
               }}
             />
@@ -124,7 +120,7 @@ export function Screen() {
             today={jourFr(now)}
             age={age}
             actif={actif}
-            onToggle={(id) => setTrainings((list) => list.map((tr) => (tr.id === id ? { ...tr, jeParticipe: !tr.jeParticipe, participants: tr.participants + (tr.jeParticipe ? -1 : 1) } : tr)))}
+            onToggle={toggle}
           />
         </>
       )}
@@ -141,10 +137,11 @@ function orderVideos(filtre: Filtre, famille?: Famille): Video[] {
   return [list[i], ...list.slice(0, i), ...list.slice(i + 1)];
 }
 
-function VideoCard({ video, index, locked, first, hero }: { video: Video; index: number; locked: boolean; first: boolean; hero: boolean }) {
+function VideoCard({ video: source, index, locked, first, hero }: { video: Video; index: number; locked: boolean; first: boolean; hero: boolean }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
+  const video = useInLocale()(source);
   const tint = familleColor(video.famille);
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, stagger.max) * stagger.step).duration(420)}>
@@ -177,7 +174,7 @@ function VideoCard({ video, index, locked, first, hero }: { video: Video; index:
             </View>
           </View>
         </Photo>
-        <LowerThird meta={`${video.disciplineLabel.toUpperCase()} · ${video.niveau.toUpperCase()} · ${video.objectif.toUpperCase()}${video.securite !== 'seul' ? ' · ' + SECURITE_LABEL[video.securite] : ''}`} bar={video.securite === 'seul' ? tint : t.accent} compact style={s.videoMeta} />
+        <LowerThird meta={`${video.disciplineLabel.toUpperCase()} · ${T(LEVEL_KEY[video.niveau]).toUpperCase()} · ${video.objectif.toUpperCase()}${video.securite !== 'seul' ? ' · ' + T(`train.safety.${video.securite}`).toUpperCase() : ''}`} bar={video.securite === 'seul' ? tint : t.accent} compact style={s.videoMeta} />
       </Tap>
     </Animated.View>
   );
@@ -187,6 +184,7 @@ function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainin
   const T = useT();
   const s = useStyles();
   const lang = useLocale();
+  const loc = useInLocale();
   const groups: { jour: number; club: ClubId; debut: number; fin: number; items: Training[]; source: 'planning' | 'ouverture' }[] = [];
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
@@ -219,7 +217,7 @@ function SlotGroups({ trainings, clubs, today, age, actif, onToggle }: { trainin
                   return (
                     <Card key={tr.id} style={s.proposal}>
                       <View style={s.pills}>
-                        <Pill>{type.label}</Pill>
+                        <Pill>{loc(type).label}</Pill>
                         <Pill>{heure(tr.debut)}</Pill>
                         <Pill>{T(LEVEL_KEY[tr.niveau])}</Pill>
                       </View>
@@ -260,6 +258,7 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
   const T = useT();
   const s = useStyles();
   const lang = useLocale();
+  const loc = useInLocale();
   const [type, setType] = useState<TrainingType>('training-collectif');
   const [club, setClub] = useState<ClubId>(clubDefault);
   const [jour, setJour] = useState(jourFr(new Date()));
@@ -280,7 +279,7 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
         <Heading level="card">{T('train.compose')}</Heading>
         <ChoiceRow label={T('train.type')}>
           {types.map((x) => (
-            <Chip key={x.id} label={x.label} selected={x.id === type} onPress={() => setType(x.id)} />
+            <Chip key={x.id} label={loc(x).label} selected={x.id === type} onPress={() => setType(x.id)} />
           ))}
         </ChoiceRow>
         <ChoiceRow label={T('train.club')}>
@@ -324,7 +323,7 @@ function Composer({ age, clubDefault, onPublish }: { age: number; clubDefault: C
           ))}
         </ChoiceRow>
         <Body tone="muted" style={s.sentence}>
-          {slot ? quote(`${TRAINING_TYPES.find((x) => x.id === type)!.label} · ${clubById(club).court} · ${weekdayIn(jour, lang)} ${heure(slot.debut)} · ${T(LEVEL_KEY[niveau]).toLowerCase()}`, lang) : T('train.pickOpenDay')}
+          {slot ? quote(`${loc(TRAINING_TYPES.find((x) => x.id === type)!).label} · ${clubById(club).court} · ${weekdayIn(jour, lang)} ${heure(slot.debut)} · ${T(LEVEL_KEY[niveau]).toLowerCase()}`, lang) : T('train.pickOpenDay')}
         </Body>
         <Button
           label={T('train.publish')}

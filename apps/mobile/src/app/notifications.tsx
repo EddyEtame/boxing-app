@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { View } from 'react-native';
 
 import { useT, type MessageKey } from '@/i18n';
+import { usePrefs } from '@/state/prefs';
 import { Card, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Body } from '@/ui/Text';
@@ -28,7 +28,8 @@ export default function NotificationsScreen() {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
-  const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(PREFS.map((p) => [p.id, true])));
+  const notif = usePrefs((st) => st.notif);
+  const setNotif = usePrefs((st) => st.setNotif);
   return (
     <Page title={T('notif.title')} subtitle={T('notif.sub')} leading="back" tabBar={false}>
       <Reveal>
@@ -48,7 +49,7 @@ export default function NotificationsScreen() {
                   </View>
                 ) : null}
               </View>
-              <Toggle value={p.essential ? true : on[p.id]} disabled={p.essential} onChange={(v) => setOn((st) => ({ ...st, [p.id]: v }))} label={T(p.label)} />
+              <Toggle value={p.essential ? true : notif[p.id] !== false} disabled={p.essential} onChange={(v) => setNotif(p.id, v)} label={T(p.label)} />
             </View>
           ))}
         </Card>

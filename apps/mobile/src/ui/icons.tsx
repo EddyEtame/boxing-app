@@ -405,3 +405,24 @@ export function IconCalendarPlus({ size = 24, color, strokeWidth = SW }: IconPro
     </Svg>
   );
 }
+
+/** Accueil : une maison lisible au premier coup d'œil (23/10/2026 : le carré du ring ne se lisait pas comme « accueil »). */
+export function IconHome({ size = 24, color, strokeWidth = SW }: IconProps) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3.75 10.4 12 3.75l8.25 6.65" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5.75 9v9.75a1.5 1.5 0 0 0 1.5 1.5h3.25v-5.25a1.5 1.5 0 0 1 1.5-1.5h0a1.5 1.5 0 0 1 1.5 1.5v5.25h3.25a1.5 1.5 0 0 0 1.5-1.5V9" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function IconLogout({ size = 24, color, strokeWidth = SW }: IconProps) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H14" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M10.5 12h9M16.5 8.5 20 12l-3.5 3.5" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

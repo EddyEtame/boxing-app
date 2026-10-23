@@ -1,11 +1,11 @@
-import { useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
 import { track } from '@/features/analytics';
-import { espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { espaceLabel, espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor } from '@/features/planning/model';
 import { shareWeek } from '@/features/planning/share';
 import { duree, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -18,7 +18,7 @@ import { Button, Card, Chip, Segmented } from '@/ui/kit';
 import { Page, Reveal, RoundButton } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
-import { Body, Display, Heading, Mono } from '@/ui/Text';
+import { Body, Display, Heading, insecable, Mono } from '@/ui/Text';
 import { duration, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke, useTheme, type ClubId } from '@/ui/theme';
 
 type Mode = 'jour' | 'semaine';
@@ -60,11 +60,13 @@ export function Screen() {
   const lang = useLocale();
   const clubActif = useSession((st) => st.clubActif);
   const statut = useSession((st) => st.member.statut);
-  const usedClubs = useUsage((st) => st.clubs);
   const favorites = useUsage((st) => st.favorites);
   const bump = useUsage((st) => st.bump);
   // L'invité retrouve le club qu'il regarde le plus ; l'adhérent, son club actif.
-  const startClub = (statut === 'invite' ? (topKeys(usedClubs, 1, 2)[0] as ClubId | undefined) : undefined) ?? clubActif;
+  // Le club d'ouverture, choisi UNE fois : l'invité retrouve celui qu'il regarde le plus, l'adhérent
+  // son club actif. Les plaques gardent l'ordre du CDC ; rien ne se réordonne sous le doigt (23/10/2026 :
+  // États-Unis passait en tête pendant le défilement et le titre ne suivait plus la plaque).
+  const [startClub] = useState<ClubId>(() => (statut === 'invite' ? (topKeys(useUsage.getState().clubs, 1, 2)[0] as ClubId | undefined) : undefined) ?? clubActif);
   const now = new Date();
   const today = jourFr(now);
   const dates = weekDates(now);
@@ -74,7 +76,7 @@ export function Screen() {
   const plateW = Math.round((colWidth - GUTTER * 2) * 0.8);
   const step = plateW + space[3];
 
-  const ordered = [clubById(startClub), ...CLUBS.filter((c) => c.id !== startClub)];
+  const ordered = CLUBS;
   const [club, setClub] = useState<ClubId>(startClub);
   const [espace, setEspace] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>('jour');
@@ -89,6 +91,14 @@ export function Screen() {
     sheet.show(slot, j);
   };
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  // Le carrousel s'ouvre sur le club de départ, sans animation.
+  useEffect(() => {
+    const i = CLUBS.findIndex((c) => c.id === startClub);
+    if (i <= 0) return undefined;
+    const id = setTimeout(() => scroller.current?.scrollTo({ x: i * step, animated: false }), 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, à l'ouverture.
+  }, []);
 
   const espaces = espacesFor(club);
   const espaceActif = espaces.length ? (espace && espaces.includes(espace) ? espace : espaces[0]) : undefined;
@@ -133,7 +143,7 @@ export function Screen() {
       <Reveal>
         <View style={s.rule}>
           <Heading level="card" style={{ flex: 1 }}>
-            {clubById(club).nom}
+            {insecable(clubById(club).nom)}
           </Heading>
           <Mono size="caption" tone="dim">
             {index + 1} / {ordered.length}
@@ -193,7 +203,7 @@ export function Screen() {
         {espaces.length ? (
           <Animated.View entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)} style={s.espaces}>
             {espaces.map((e) => (
-              <Chip key={e} label={e} selected={e === espaceActif} onPress={() => setEspace(e)} />
+              <Chip key={e} label={espaceLabel(e)} selected={e === espaceActif} onPress={() => setEspace(e)} />
             ))}
           </Animated.View>
         ) : null}
@@ -226,7 +236,7 @@ export function Screen() {
             ) : (
               <Card padded={false} style={s.list}>
                 {slots.map((sl, i) => (
-                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} favorite={favorites.includes(sl.id)} onPress={() => openSession(sl, jour)} />
+                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} favorite={favorites.includes(sl.id)} showEspace={!espaceActif} onPress={() => openSession(sl, jour)} />
                 ))}
               </Card>
             )}
@@ -297,7 +307,7 @@ function EmptyDay({ club, jour, today, onJump }: { club: ClubId; jour: number; t
   );
 }
 
-function SlotRow({ slot, last, isToday, nowMin, next, favorite, onPress }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean; favorite: boolean; onPress: () => void }) {
+function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, onPress }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean; favorite: boolean; showEspace: boolean; onPress: () => void }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
@@ -307,7 +317,8 @@ function SlotRow({ slot, last, isToday, nowMin, next, favorite, onPress }: { slo
   const tint = familleColor(a.famille);
   const enCours = isToday && nowMin >= slot.debut && nowMin < slot.fin;
   const passe = isToday && nowMin >= slot.fin;
-  const meta = [a.public, a.niveau, slot.espace].filter(Boolean).join(' · ');
+  // La salle n'est rappelée que si on ne l'a pas déjà choisie au-dessus.
+  const meta = [a.public, a.niveau, showEspace && slot.espace ? espaceLabel(slot.espace) : undefined].filter(Boolean).join(' · ');
   return (
     <Tap onPress={libre ? undefined : onPress} disabled={libre} scaleTo={0.985} style={[s.row, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }, passe && s.rowPast]} accessibilityRole={libre ? undefined : 'button'} accessibilityLabel={`${a.libelle} ${heure(slot.debut)}`}>
       <View style={s.time}>
@@ -321,7 +332,7 @@ function SlotRow({ slot, last, isToday, nowMin, next, favorite, onPress }: { slo
       <View style={[s.bar, { backgroundColor: libre ? t.lineStrong : tint }, (enCours || next) && { backgroundColor: t.accent, width: stroke.accentBar }]} />
       <View style={s.body}>
         <View style={s.titleRow}>
-          <Body weight="bold" tone={libre || passe ? 'muted' : 'text'} numberOfLines={1} style={{ flexShrink: 1 }}>
+          <Body weight="bold" tone={libre || passe ? 'muted' : 'text'} numberOfLines={2} style={{ flexShrink: 1 }}>
             {a.libelle}
           </Body>
           {favorite ? <IconStar size={14} color={t.accent} fill={t.accent} /> : null}

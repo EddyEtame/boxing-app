@@ -112,6 +112,16 @@ export function shortDay(iso: string, lang: Lang): string {
   return `${d.getDate()} ${MONTHS_SHORT[lang][d.getMonth()]}`;
 }
 
+/** « 26 sept. → 23 oct. 2026 », « 1er → 28 août 2026 » · « 26 Sep → 23 Oct 2026 » */
+export function periodRange(du: string, au: string, lang: Lang): string {
+  const a = new Date(du + 'T12:00:00');
+  const b = new Date(au + 'T12:00:00');
+  const day = (d: Date) => (lang === 'fr' && d.getDate() === 1 ? '1er' : String(d.getDate()));
+  const sameMonth = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+  const left = sameMonth ? day(a) : `${day(a)} ${MONTHS_SHORT[lang][a.getMonth()]}`;
+  return `${left} → ${day(b)} ${MONTHS_SHORT[lang][b.getMonth()]} ${b.getFullYear()}`;
+}
+
 /** « 24 octobre 2026 » · « 24 October 2026 » */
 export function longDate(iso: string, lang: Lang): string {
   const d = new Date(iso + 'T12:00:00');

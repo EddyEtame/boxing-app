@@ -1,5 +1,6 @@
 import { clubById } from '@/data/clubs';
 import { SLOTS, type Slot } from '@/data/planning';
+import { useI18nStore, type Locale } from '@/i18n';
 import { discipline, type ClubId } from '@/ui/theme';
 
 /**
@@ -44,7 +45,50 @@ function titleCase(s: string): string {
     .replace(/\bHiit\b/g, 'HIIT');
 }
 
-export function normaliseActivite(raw: string): Activite {
+/** La langue de l’app au moment du rendu ; les écrans se redessinent quand elle change (ils lisent `useT`). */
+const appLocale = (): Locale => useI18nStore.getState().locale;
+
+/** Le libellé propre d’un cours, dans la langue de l’app (ou celle demandée, pour un texte partagé). */
+export function normaliseActivite(raw: string, lang: Locale = appLocale()): Activite {
+  const a = activiteFr(raw);
+  return lang === 'en' ? activiteEn(a) : a;
+}
+
+/**
+ * Les mots du planning en anglais. Les noms qui voyagent tels quels (MMA, Hyrox,
+ * Lady punch, Boxing camp, Open sparring) ne changent pas.
+ */
+const LIBELLE_EN: Record<string, string> = {
+  'Accès libre': 'Open gym',
+  'Baby boxe': 'Baby boxing',
+  'Préparation physique': 'Strength & conditioning',
+  'Jiu-jitsu brésilien': 'Brazilian jiu-jitsu',
+  'MMA (association)': 'MMA (club association)',
+  'Boxe éducative': 'Youth boxing',
+  'Boxe thaï / K1': 'Muay Thai / K1',
+  'Boxe française': 'Savate',
+  'Kick-boxing / K1': 'Kickboxing / K1',
+  'Boxe pieds-poings': 'Kickboxing',
+  'Boxe anglaise': 'Boxing',
+};
+const NIVEAU_EN: Record<string, string> = { Compétiteurs: 'Competitors', Confirmés: 'Experienced', Loisirs: 'Recreational', 'Amateurs et pros': 'Amateurs & pros' };
+const PUBLIC_EN: Record<string, string> = { Ados: 'Teens', Enfants: 'Kids' };
+
+function activiteEn(a: Activite): Activite {
+  const en: Activite = { ...a, libelle: LIBELLE_EN[a.libelle] ?? a.libelle };
+  if (a.public) en.public = PUBLIC_EN[a.public] ?? a.public.replace(/ ans$/, ' yrs');
+  if (a.niveau) en.niveau = NIVEAU_EN[a.niveau] ?? a.niveau;
+  return en;
+}
+
+/** Les salles d’États-Unis et de Portet (« Boxe », « Combat »…), dans la langue de l’app. */
+const ESPACE_EN: Record<string, string> = { Boxe: 'Boxing', Combat: 'Fight room' };
+
+export function espaceLabel(espace: string, lang: Locale = appLocale()): string {
+  return lang === 'en' ? (ESPACE_EN[espace] ?? espace) : espace;
+}
+
+function activiteFr(raw: string): Activite {
   const s = raw.toUpperCase().replace(/\s+/g, ' ').trim();
   const age = s.match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*ANS/);
   const publicAge = age ? `${age[1]}–${age[2]} ans` : undefined;
@@ -98,10 +142,12 @@ export function convientA(a: Activite, age: number): boolean {
 export const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] as const;
 export const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] as const;
 
-export function heure(min: number): string {
+/** « 18h30 », « 10h » en français ; « 18:30 », « 10:00 » en anglais. */
+export function heure(min: number, lang: Locale = appLocale()): string {
   const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+  const m = String(min % 60).padStart(2, '0');
+  if (lang === 'en') return `${h}:${m}`;
+  return min % 60 ? `${h}h${m}` : `${h}h`;
 }
 
 export function slotsFor(club: ClubId, jour: number, espace?: string): Slot[] {

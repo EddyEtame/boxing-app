@@ -39,7 +39,9 @@ export function GlassSurface({ style, radius, strength = 'bar', interactive, chi
       </GlassView>
     );
   }
-  const veil = Platform.OS === 'android' ? (t.scheme === 'light' ? 'rgba(255,255,255,0.94)' : 'rgba(23,28,48,0.95)') : strength === 'bar' ? t.glass : t.scheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(23,28,48,0.55)';
+  // Android n'a pas de flou temps réel : un voile translucide laissait lire le texte
+  // dessous en fantôme (captures du 23/10/2026). Là, la matière est pleine.
+  const veil = Platform.OS === 'android' ? t.card : strength === 'bar' ? t.glass : t.scheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(23,28,48,0.55)';
   // Web : un calque en position absolue se peint au-dessus d'une icône SVG
   // restée dans le flux. Le flou et le voile passent donc sous le contenu
   // (zIndex -1), dans un contexte d'empilement propre au verre (20/10/2026 :

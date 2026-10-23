@@ -1,4 +1,5 @@
 import { getLocales } from 'expo-localization';
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -89,4 +90,19 @@ export function useT() {
 export function t(key: MessageKey, params?: Params) {
   const locale = useI18nStore.getState().locale;
   return format(lookup(dictionaries[locale], key), params, locale);
+}
+
+/**
+ * Les données de l'app sont écrites en français, avec leur version anglaise à
+ * côté (`en`, exigée par le typage de chaque fichier de data/) : en anglais,
+ * les champs traduits remplacent les champs français. Le contenu écrit par une
+ * personne (un message d'adhérent, une proposition de séance) reste dans sa langue.
+ */
+export function inLocale<T extends { en?: object }>(item: T, locale: Locale): T {
+  return locale === 'en' && item.en ? { ...item, ...item.en } : item;
+}
+
+export function useInLocale(): <T extends { en?: object }>(item: T) => T {
+  const locale = useI18nStore((s) => s.locale);
+  return useCallback(<T extends { en?: object }>(item: T) => inLocale(item, locale), [locale]);
 }

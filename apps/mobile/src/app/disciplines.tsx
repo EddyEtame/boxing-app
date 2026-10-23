@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { clubById } from '@/data/clubs';
 import { DISCIPLINES } from '@/data/disciplines';
 import { clubsProposant, familleColor } from '@/features/planning/model';
-import { useT } from '@/i18n';
+import { useInLocale, useT } from '@/i18n';
 import { LowerThird } from '@/ui/LowerThird';
 import { Page, Reveal } from '@/ui/Page';
 import { Photo } from '@/ui/Photo';
@@ -19,9 +19,10 @@ import { makeStyles, radius, space } from '@/ui/theme';
 export default function DisciplinesScreen() {
   const T = useT();
   const s = useStyles();
+  const loc = useInLocale();
   return (
     <Page title={T('disc.title')} subtitle={T('disc.sub')} leading="back" tabBar={false}>
-      {DISCIPLINES.map((d, i) => {
+      {DISCIPLINES.map(loc).map((d, i) => {
         const clubs = clubsProposant(d.famille);
         return (
           <Reveal key={d.famille} delay={i < 2 ? i * 80 : 0} style={s.cardWrap}>

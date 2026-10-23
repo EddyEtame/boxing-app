@@ -26,6 +26,10 @@ type PrefsState = {
   setAppearance: (appearance: Appearance) => void;
   setOnboarded: (onboarded: boolean) => void;
   setBar: (bar: BarSlot[]) => void;
+  /** Notifications non essentielles, par catégorie (CDC §14) ; vrai par défaut. */
+  notif: Record<string, boolean>;
+  setNotif: (id: string, on: boolean) => void;
+  resetNotif: () => void;
 };
 
 function cleanBar(bar: unknown): BarSlot[] {
@@ -45,13 +49,16 @@ export const usePrefs = create<PrefsState>()(
       setAppearance: (appearance) => set({ appearance }),
       setOnboarded: (onboarded) => set({ onboarded }),
       setBar: (bar) => set({ bar: cleanBar(bar) }),
+      notif: {},
+      setNotif: (id, on) => set((s) => ({ notif: { ...s.notif, [id]: on } })),
+      resetNotif: () => set({ notif: {} }),
     }),
     {
       name: 'bc-prefs',
       version: 1,
       storage: persistStorage,
       skipHydration: IS_SERVER,
-      partialize: (s) => ({ onboarded: s.onboarded, appearance: s.appearance, bar: s.bar }),
+      partialize: (s) => ({ onboarded: s.onboarded, appearance: s.appearance, bar: s.bar, notif: s.notif }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<PrefsState>;
         return {
@@ -59,6 +66,7 @@ export const usePrefs = create<PrefsState>()(
           onboarded: p.onboarded === true,
           appearance: p.appearance === 'light' || p.appearance === 'dark' || p.appearance === 'system' ? p.appearance : current.appearance,
           bar: cleanBar(p.bar),
+          notif: p.notif && typeof p.notif === 'object' ? p.notif : {},
         };
       },
       onRehydrateStorage: () => () => {
