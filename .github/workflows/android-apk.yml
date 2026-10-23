@@ -63,8 +63,16 @@ jobs:
       - name: Mémoire Gradle et architectures des téléphones
         working-directory: apps/mobile/android
         run: |
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" >> gradle.properties
-          echo "reactNativeArchitectures=arm64-v8a,armeabi-v7a" >> gradle.properties
+          # Le fichier généré par le prebuild ne finit pas par un saut de ligne. Sans la
+          # ligne vide écrite d'abord, la première ligne ajoutée se collait à
+          # `expo.inlineModules.watchedDirectories=[]` et Gradle échouait sur un JSON
+          # invalide (23/10/2026).
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+            echo "reactNativeArchitectures=arm64-v8a,armeabi-v7a"
+          } >> gradle.properties
+          tail -n 6 gradle.properties
 
       - name: Construire l'APK
         working-directory: apps/mobile/android
