@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { usePrefs } from '@/state/prefs';
@@ -22,6 +23,11 @@ const STICKER = require('@/assets/brand/logo-sticker-1200.png');
 const STICKER_RATIO = 573 / 1200;
 
 const BAR_WIDTH = 112;
+/** La barre sous le logo : l'écart, puis son épaisseur. Le même poids en haut garde le logo au centre exact. */
+const BAR_GAP = 30;
+const BAR_HEIGHT = 3;
+/** Filet : si le logo ne signale pas son affichage, l'écran natif part quand même. */
+const DISPLAY_FALLBACK_MS = 900;
 /** Assez pour que la barre se lise comme un chargement, pas assez pour faire attendre. */
 const MIN_VISIBLE_MS = 520;
 const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2], easing.arrive[3]);
@@ -56,14 +62,18 @@ export function BootScreen({ ready, onDone }: Props) {
   const logoW = BOOT_LOGO_WIDTH;
   const logoH = Math.round(logoW * (dark ? STICKER_RATIO : LOGO_RATIO));
 
-  // Dessiné : l'écran natif peut partir, la barre arrive et avance.
-  const onLayout = () => {
+  // Le logo est à l'écran : l'écran natif peut partir (pas avant : sur Android, le fond restait
+  // un instant vide entre les deux, 24/10/2026), la barre arrive et avance.
+  const start = useCallback(() => {
     if (shownAt.current) return;
     shownAt.current = Date.now();
     setShown(true);
     void SplashScreen.hideAsync();
-    barIn.value = withTiming(1, { duration: 200 });
-    progress.value = withTiming(0.85, { duration: 1100, easing: Easing.out(Easing.cubic) });
+    barIn.set(withTiming(1, { duration: 200 }));
+    progress.set(withTiming(0.85, { duration: 1100, easing: Easing.out(Easing.cubic) }));
+  }, [barIn, progress]);
+  const onLayout = () => {
+    setTimeout(start, DISPLAY_FALLBACK_MS);
   };
 
   useEffect(() => {
@@ -89,18 +99,26 @@ export function BootScreen({ ready, onDone }: Props) {
   if (!prefsReady) return null;
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, { backgroundColor: th.bg }, rootStyle]} onLayout={onLayout} accessibilityRole="progressbar" accessibilityLabel="Boxing Center">
-      <Animated.View style={[{ width: logoW, height: logoH }, logoStyle]}>
-        <Image source={dark ? STICKER : LOGO} style={{ width: logoW, height: logoH }} contentFit="contain" />
-        <Animated.View style={[styles.track, { top: logoH + 30, left: (logoW - BAR_WIDTH) / 2, backgroundColor: th.lineStrong }, barStyle]}>
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      {/* Une colonne : contrepoids, logo, écart, barre. La barre reste dans l'écran (Android rognait
+          une barre posée hors du cadre du logo) et le logo reste au centre exact. */}
+      <View style={styles.column}>
+        <View style={{ height: BAR_GAP + BAR_HEIGHT }} />
+        <Animated.View style={[{ width: logoW, height: logoH }, logoStyle]}>
+          <Image source={dark ? STICKER : LOGO} style={{ width: logoW, height: logoH }} contentFit="contain" onDisplay={start} />
+        </Animated.View>
+        <View style={{ height: BAR_GAP }} />
+        <Animated.View style={[styles.track, { backgroundColor: th.lineStrong }, barStyle]}>
           <Animated.View style={[styles.fill, { backgroundColor: th.accent }, fillStyle]} />
         </Animated.View>
-      </Animated.View>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { zIndex: 1000, alignItems: 'center', justifyContent: 'center' },
-  track: { position: 'absolute', width: BAR_WIDTH, height: 3, borderRadius: 2, overflow: 'hidden' },
-  fill: { width: BAR_WIDTH, height: 3, borderRadius: 2 },
+  column: { alignItems: 'center' },
+  track: { width: BAR_WIDTH, height: BAR_HEIGHT, borderRadius: 2, overflow: 'hidden' },
+  fill: { width: BAR_WIDTH, height: BAR_HEIGHT, borderRadius: 2 },
 });

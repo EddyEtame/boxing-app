@@ -15,8 +15,7 @@
       "infoPlist": {
         "CFBundleDevelopmentRegion": "fr",
         "CFBundleLocalizations": [
-          "fr",
-          "en"
+          "fr"
         ]
       }
     },
