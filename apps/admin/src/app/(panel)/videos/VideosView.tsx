@@ -32,7 +32,6 @@ function blankDraft(numero: number, tpl: Template): VideoDraft {
   return {
     famille: tpl?.famille ?? null,
     title: '',
-    coach: '',
     numero,
     niveau: 'Débutant',
     dureeMin: 6,
@@ -89,7 +88,6 @@ export function VideosView({
   const nextNumero = Math.min(999, items.reduce((n, v) => Math.max(n, v.numero), 0) + 1);
   const freeCount = items.filter((v) => v.gratuite && v.status !== 'archive').length;
   const noSource = items.filter((v) => !v.source.ref).length;
-  const coaches = useMemo(() => [...new Set(rows.map((r) => r.item.coach).filter((c): c is string => Boolean(c)))].sort((a, b) => a.localeCompare(b, 'fr')), [rows]);
   const fresh = importPreview.candidates.filter((c) => !c.already).length;
 
   const open = (draft: VideoDraft, wasPublished = false) => setWizard({ draft, wasPublished });
@@ -110,7 +108,7 @@ export function VideosView({
       if (status !== 'all' && v.status !== status) return false;
       if (famille !== 'all' && v.famille !== famille) return false;
       if (niveau !== 'all' && v.niveau !== niveau) return false;
-      return !needle || fold(`${v.numero} ${v.title} ${v.coach ?? ''}`).includes(needle);
+      return !needle || fold(`${v.numero} ${v.title}`).includes(needle);
     });
   }, [rows, status, famille, niveau, q]);
 
@@ -160,7 +158,6 @@ export function VideosView({
             <p className="row-title ct-clamp">{v.title}</p>
             <p className="row-sub ct-cell-meta">
               <span className="mono">n° {v.numero}</span>
-              {v.coach ? <span>{v.coach}</span> : null}
               {v.demo ? <span className="tag tag-demo">{t('state.demo')}</span> : null}
               {v.origin === 'app' ? <span className="ct-origin">{t('contenu.tag.app')}</span> : null}
             </p>
@@ -346,7 +343,6 @@ export function VideosView({
           library={library}
           onUploaded={(u: Upload) => setLibrary((l) => ({ ...l, uploads: [u, ...l.uploads.filter((x) => x.file !== u.file)] }))}
           takenNumbers={items.filter((v) => v.id !== wizard.draft.id).map((v) => v.numero)}
-          coaches={coaches}
           freeCount={freeCount}
           total={items.length}
           streamConfigured={streamConfigured}

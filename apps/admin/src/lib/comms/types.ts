@@ -1,4 +1,4 @@
-import type { ClubId, Famille, InboxThread, NotifType, OutgoingMessage, PushNotification, Statut } from '@/lib/types';
+import { isNotifEssential, NOTIF_TYPES, type ClubId, type Famille, type InboxThread, type NotifType, type OutgoingMessage, type PushNotification, type Statut } from '@/lib/types';
 
 /**
  * Les formes propres à la communication (CDC §10, §14). Les types de base
@@ -27,24 +27,27 @@ export const LOCK_CUT = { title: 32, body: 110 } as const;
 
 /**
  * Chaque type de notification (CDC §14), d'où il part, et la préférence de
- * l'app qui permet de le couper (apps/mobile/src/app/notifications.tsx :
- * seuls les messages de l'équipe sont « Toujours actif »).
+ * l'app qui le range (apps/mobile/src/app/notifications.tsx). Essentiel ou
+ * non vient d'une seule liste, dans @bc/contract (NOTIF_OPTIONAL) — Eddy,
+ * 24/10/2026 : tout est essentiel sauf les offres et les nouvelles vidéos.
  */
 export type AppPref = 'direction' | 'coach' | 'events' | 'promos' | 'videos' | 'trainings' | 'billing' | 'clubs';
 export type NotifSource = 'admin' | 'messages' | 'deciplus' | 'propositions';
 
-export const NOTIF_META: Record<NotifType, { source: NotifSource; pref: AppPref; essential: boolean; link: AppLink }> = {
-  direction: { source: 'admin', pref: 'direction', essential: true, link: '/' },
-  coach: { source: 'messages', pref: 'coach', essential: false, link: '/messages' },
-  evenement: { source: 'admin', pref: 'events', essential: false, link: '/evenements' },
-  promo: { source: 'admin', pref: 'promos', essential: false, link: '/actualites' },
-  video: { source: 'admin', pref: 'videos', essential: false, link: '/videos' },
-  club: { source: 'admin', pref: 'clubs', essential: false, link: '/' },
-  rappel: { source: 'propositions', pref: 'trainings', essential: false, link: '/' },
-  rencontre: { source: 'propositions', pref: 'trainings', essential: false, link: '/' },
-  echeance: { source: 'deciplus', pref: 'billing', essential: false, link: '/' },
-  impaye: { source: 'deciplus', pref: 'billing', essential: false, link: '/' },
+const META: Record<NotifType, { source: NotifSource; pref: AppPref; link: AppLink }> = {
+  direction: { source: 'admin', pref: 'direction', link: '/' },
+  coach: { source: 'messages', pref: 'coach', link: '/messages' },
+  evenement: { source: 'admin', pref: 'events', link: '/evenements' },
+  promo: { source: 'admin', pref: 'promos', link: '/actualites' },
+  video: { source: 'admin', pref: 'videos', link: '/videos' },
+  club: { source: 'admin', pref: 'clubs', link: '/' },
+  rappel: { source: 'propositions', pref: 'trainings', link: '/' },
+  rencontre: { source: 'propositions', pref: 'trainings', link: '/' },
+  echeance: { source: 'deciplus', pref: 'billing', link: '/' },
+  impaye: { source: 'deciplus', pref: 'billing', link: '/' },
 };
+
+export const NOTIF_META = Object.fromEntries(NOTIF_TYPES.map((type) => [type, { ...META[type], essential: isNotifEssential(type) }])) as Record<NotifType, { source: NotifSource; pref: AppPref; essential: boolean; link: AppLink }>;
 
 /** Ce qui part tout seul, une fois les services branchés. */
 export const NOTIF_AUTO: NotifType[] = ['echeance', 'impaye', 'rappel', 'rencontre', 'coach'];

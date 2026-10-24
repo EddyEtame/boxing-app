@@ -12,6 +12,7 @@ import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { CLUB_LABEL } from '@/lib/clubs';
 import { fmtDate, fmtDateTime, relative } from '@/lib/format';
+import { weekSummary } from '@/lib/planning/hours';
 import { heure } from '@/lib/planning/model';
 import type { PlanningChange, Slot } from '@/lib/types';
 
@@ -146,7 +147,7 @@ export function SourceStrip({ source, canTake }: { source: SourceView; canTake: 
   );
 }
 
-const UNDOABLE: PlanningChange['kind'][] = ['ajout', 'deplacement', 'suppression', 'annulation', 'fermeture'];
+const UNDOABLE: PlanningChange['kind'][] = ['ajout', 'deplacement', 'suppression', 'annulation', 'fermeture', 'horaires'];
 
 /** Les derniers changements, signés et datés ; le plus récent de chaque cours se défait d'un clic. */
 export function HistoryPanel({ history, slots, canEdit }: { history: PlanningChange[]; slots: Slot[]; canEdit: boolean }) {
@@ -158,14 +159,28 @@ export function HistoryPanel({ history, slots, canEdit }: { history: PlanningCha
   const undone = new Set(history.map((h) => h.undoOf).filter(Boolean) as string[]);
   const seen = new Set<string>();
   const undoable = new Set<string>();
+  // Les horaires : seul le plus récent changement qui touche un club se défait (un changement peut en toucher plusieurs).
+  const hoursSeen = new Set<string>();
   for (const h of history) {
+    if (h.hours) {
+      const clubs = h.clubs ?? [];
+      if (h.kind === 'horaires' && !undone.has(h.id) && !clubs.some((c) => hoursSeen.has(c))) undoable.add(h.id);
+      for (const c of clubs) hoursSeen.add(c);
+      continue;
+    }
     const key = h.slotId ?? (h.kind === 'fermeture' ? `fermeture:${h.date}` : null);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     if (UNDOABLE.includes(h.kind) && !undone.has(h.id)) undoable.add(h.id);
   }
+  const dayShort = (j: number) => t(`planning.dayShort.${j}` as MessageKey).toLowerCase();
   const label = (h: PlanningChange) => {
     const s = h.after ?? h.before ?? slots.find((x) => x.id === h.slotId);
+    if (h.hours) {
+      const clubs = h.clubs ?? [];
+      const week = clubs.length ? h.hours.after[clubs[0]!] : undefined;
+      return `${clubs.map((c) => CLUB_LABEL[c]).join(', ')}${week ? ` · ${weekSummary(week, dayShort, t('planning.hours.closedShort'))}` : ''}`;
+    }
     if (h.kind === 'fermeture') return `${(h.clubs ?? []).map((c) => CLUB_LABEL[c]).join(', ')} · ${h.date ? fmtDate(locale, h.date, { weekday: 'short', day: 'numeric', month: 'short' }) : ''} · ${t('planning.sessionsCount', { n: h.exceptionIds?.length ?? 0 })}`;
     if (!s) return h.note ?? '';
     const where = `${s.activite} · ${CLUB_LABEL[s.club]}`;

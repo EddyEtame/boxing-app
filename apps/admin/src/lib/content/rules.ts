@@ -219,7 +219,6 @@ export function checkVideo(d: VideoDraft, takenNumbers: number[] = []): Errs {
   if (!d.famille || !isFamilleVideo(d.famille)) e.famille = 'vid.err.famille';
   if (blank(d.title)) e.title = 'form.required';
   else if (tooLong(d.title, LIMITS.videoTitle)) e.title = `form.tooLong:max=${LIMITS.videoTitle}`;
-  if (tooLong(d.coach, LIMITS.coach)) e.coach = `form.tooLong:max=${LIMITS.coach}`;
   if (!Number.isInteger(d.numero) || d.numero < 1 || d.numero > 999) e.numero = 'form.number:min=1,max=999';
   else if (takenNumbers.includes(d.numero)) e.numero = 'vid.err.numero';
   if (!isNiveau(d.niveau)) e.niveau = 'vid.err.niveau';
@@ -300,7 +299,6 @@ export function videoToDraft(v: VideoItem): VideoDraft {
     rev: v.updatedAt,
     famille: v.famille,
     title: v.title,
-    coach: v.coach ?? '',
     numero: v.numero,
     niveau: v.niveau,
     dureeMin: v.dureeMin,
@@ -404,7 +402,6 @@ export function asVideoDraft(raw: unknown): VideoDraft {
     rev: typeof o.rev === 'string' ? o.rev.slice(0, 40) : undefined,
     famille: isFamilleVideo(o.famille) ? o.famille : null,
     title: s(o.title, 300),
-    coach: s(o.coach, 200),
     numero: n(o.numero),
     niveau: isNiveau(o.niveau) ? o.niveau : 'Débutant',
     dureeMin: n(o.dureeMin),

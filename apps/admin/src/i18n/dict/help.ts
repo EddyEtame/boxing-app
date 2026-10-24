@@ -51,7 +51,7 @@ export const fr = {
   'help.plannings.s4': '« Voir comme l’adhérent » masque le coach et montre ce que l’app affiche.',
   'help.plannings.s5': 'Annuler une séance garde le cours au planning : seule la date choisie disparaît.',
   'help.plannings.r1': 'Le nom du coach reste dans l’admin : il ne sort jamais vers l’app (décision du 17/10/2026).',
-  'help.plannings.r2': 'Dans l’app, l’accès libre suit l’ouverture du club, sauf lignes « Accès libre » écrites au planning.',
+  'help.plannings.r2': 'L’accès libre suit les heures d’ouverture, réglées dans la vue Horaires, sauf les jours où le planning a ses lignes « Accès libre ». Un jour fermé ferme aussi l’accès libre.',
   'help.plannings.r3': 'Chaque changement est daté et signé dans l’historique du planning.',
 
   'help.messages.intro': 'Les messages que les adhérents envoient à la direction depuis l’app, et ceux que l’équipe envoie à un adhérent ou à un groupe.',
@@ -71,7 +71,7 @@ export const fr = {
   'help.notifications.s3': 'Écrivez un titre court et un texte qui tient sur l’écran verrouillé.',
   'help.notifications.s4': 'Envoyez maintenant ou programmez une heure.',
   'help.notifications.s5': 'Relisez l’aperçu sur l’écran verrouillé, iPhone et Android, puis validez.',
-  'help.notifications.r1': 'Seuls les messages de la direction sont toujours reçus ; un adhérent peut couper tout le reste dans l’app (coachs, événements, promotions, vidéos, entraînements, échéances, clubs).',
+  'help.notifications.r1': 'Tout arrive toujours (messages, annonces, événements, infos des clubs, entraînements, abonnement), sauf les offres et les nouvelles vidéos, que l’adhérent peut couper dans l’app.',
   'help.notifications.r2': 'Tant que le service d’envoi (Expo Push) n’est pas branché, une notification validée attend en file : rien ne part en silence.',
 
   'help.moderation.intro': 'Les propositions d’entraînement entre membres : sparring, footing, training collectif. L’équipe vérifie chaque proposition et peut la retirer.',
@@ -81,7 +81,7 @@ export const fr = {
   'help.moderation.s3': 'Réglez l’âge minimal du sparring et des autres catégories.',
   'help.moderation.s4': 'Coupez une catégorie entière dans « Fonctions » si besoin.',
   'help.moderation.r1': 'Le seul texte libre est l’observation : un numéro, un e-mail ou un pseudo de réseau social est signalé (CDC §11 D).',
-  'help.moderation.r2': 'Une proposition doit tomber dans un créneau d’accès libre du club.',
+  'help.moderation.r2': 'Une proposition doit tomber pendant l’accès libre du club (ses heures d’ouverture, ou ses lignes « Accès libre » ce jour-là), jamais un jour de fermeture.',
   'help.moderation.r3': 'Pas de sparring sous l’âge minimal.',
 
   'help.statistiques.intro': 'Ce que l’app voit, sans savoir qui : d’abord les non-membres (la vitrine), puis les adhérents. Une mesure anonyme, faite par Boxing Center seul.',
@@ -194,7 +194,7 @@ export const en: Record<keyof typeof fr, string> = {
   'help.plannings.s4': '“See as a member” hides the coach and shows what the app displays.',
   'help.plannings.s5': 'Cancelling a session keeps the class on the schedule: only the chosen date disappears.',
   'help.plannings.r1': 'The coach’s name stays in the admin: it never goes out to the app (decision of 17 Oct 2026).',
-  'help.plannings.r2': 'In the app, open training follows the club’s opening hours, unless “Open training” lines are written in the schedule.',
+  'help.plannings.r2': 'Open training follows the opening hours, set in the Opening hours view, except on days where the schedule has its own “Open training” lines. A closed day closes open training too.',
   'help.plannings.r3': 'Every change is dated and signed in the schedule history.',
 
   'help.messages.intro': 'Messages members send to the management from the app, and those the team sends to a member or a group.',
@@ -214,7 +214,7 @@ export const en: Record<keyof typeof fr, string> = {
   'help.notifications.s3': 'Write a short title and a text that fits the lock screen.',
   'help.notifications.s4': 'Send now or schedule a time.',
   'help.notifications.s5': 'Check the lock-screen preview, iPhone and Android, then confirm.',
-  'help.notifications.r1': 'Only management messages always get through; members can switch off everything else in the app (coaches, events, promotions, videos, training, instalments, clubs).',
+  'help.notifications.r1': 'Everything always gets through (messages, announcements, events, club news, training, membership), except offers and new videos, which members can switch off in the app.',
   'help.notifications.r2': 'Until the sending service (Expo Push) is connected, a confirmed notification waits in the queue: nothing goes out silently.',
 
   'help.moderation.intro': 'Training proposals between members: sparring, running, group training. The team checks each proposal and can withdraw it.',
@@ -224,7 +224,7 @@ export const en: Record<keyof typeof fr, string> = {
   'help.moderation.s3': 'Set the minimum age for sparring and for the other categories.',
   'help.moderation.s4': 'Turn off a whole category in “Features” if needed.',
   'help.moderation.r1': 'The only free text is the note: a phone number, an email or a social handle gets flagged (spec §11 D).',
-  'help.moderation.r2': 'A proposal must fall within the club’s open-training hours.',
+  'help.moderation.r2': 'A proposal must fall within the club’s open training (its opening hours, or its “Open training” lines that day), never on a closed day.',
   'help.moderation.r3': 'No sparring under the minimum age.',
 
   'help.statistiques.intro': 'What the app sees, without knowing who: non-members first (the showcase), then members. An anonymous measurement, run by Boxing Center alone.',

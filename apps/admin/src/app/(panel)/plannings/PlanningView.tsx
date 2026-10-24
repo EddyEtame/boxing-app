@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { restoreSession } from './actions';
 import { ControlsView } from './ControlsView';
+import { HoursView } from './HoursView';
 import { MemberPreview } from './MemberPreview';
 import { NetworkDay } from './NetworkDay';
 import { HistoryPanel, SourceStrip, type SourceView } from './PlanningSide';
@@ -21,9 +22,10 @@ import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { CLUB_IDS, CLUB_LABEL, CLUB_PHOTO, photoThumb } from '@/lib/clubs';
 import { fmtDate } from '@/lib/format';
+import { closureOn, hoursOf } from '@/lib/planning/hours';
 import { addDaysYmd, duree, espacesFor, familleColor, heure, isFree, jourOf, mondayOf, normaliseActivite } from '@/lib/planning/model';
 import { VIEWS, type View } from '@/lib/planning/views';
-import type { ClubId, Famille, PlanningChange, Slot, SlotException } from '@/lib/types';
+import type { ClubId, Closure, Famille, PlanningChange, PlanningState, Slot, SlotException } from '@/lib/types';
 
 
 type Open = { kind: 'ajout'; start?: Partial<AddState> } | { kind: 'deplacement'; slot?: Slot | null } | { kind: 'annulation'; slot?: Slot | null; date?: string; scope?: 'date' | 'retrait' } | { kind: 'fermeture' } | null;
@@ -32,6 +34,9 @@ export type PlanningProps = {
   slots: Slot[];
   exceptions: SlotException[];
   history: PlanningChange[];
+  horaires: PlanningState['horaires'];
+  horairesSource: PlanningState['horairesSource'];
+  closures: Closure[];
   source: SourceView;
   canEdit: boolean;
   editable: ClubId[];
@@ -53,7 +58,7 @@ const ymdJour = (ymd: string) => {
   return jourOf(new Date(y, m - 1, d, 12));
 };
 
-export function PlanningView({ slots, exceptions, history, source, canEdit, editable, canTake, today, initial }: PlanningProps) {
+export function PlanningView({ slots, exceptions, history, horaires, horairesSource, closures, source, canEdit, editable, canTake, today, initial }: PlanningProps) {
   const { t, locale } = useI18n();
   const toast = useToast();
   const router = useRouter();
@@ -86,6 +91,8 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
   const shownEspace = espaces.includes(espace) ? espace : '';
   const canEditClub = canEdit && editable.includes(club);
   const slot = openSlot ? (slots.find((s) => s.id === openSlot) ?? null) : null;
+  // Les jours fermés de la semaine montrée : sur l'affiche, l'accès libre y tombe avec les cours.
+  const closedJours = useMemo(() => new Set(weekDates.flatMap((d, j) => (closureOn(closures, club, d) ? [j] : []))), [weekDates, closures, club]);
 
   // L'adresse suit la vue : un lien copié rouvre le même club, la même semaine, la même vue.
   const first = useRef(true);
@@ -253,10 +260,10 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
 
         <div className="plan-bar">
           <Segmented<View> value={view} onChange={setView} label={t('planning.views')} options={VIEWS.map((v) => ({ value: v, label: t(`planning.view.${v}` as MessageKey) }))} />
-          {espaces.length && view !== 'reseau' && view !== 'controles' ? (
+          {espaces.length && view !== 'reseau' && view !== 'controles' && view !== 'horaires' ? (
             <Segmented<string> value={shownEspace || '__all'} onChange={(v) => setEspace(v === '__all' ? '' : v)} label={t('planning.f.espace')} options={[{ value: '__all', label: t('planning.espaces.all') }, ...espaces.map((e) => ({ value: e, label: e }))]} />
           ) : null}
-          {view !== 'controles' ? (
+          {view !== 'controles' && view !== 'horaires' ? (
             <div className="week-nav" role="group" aria-label={t('planning.weekNav')}>
               <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={() => setWeek(addDaysYmd(week, -7))} aria-label={t('planning.prevWeek')}>
                 <IconChevron size={18} style={{ transform: 'rotate(180deg)' }} />
@@ -326,6 +333,7 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
               espace={shownEspace || undefined}
               weekDates={weekDates}
               exceptions={exceptions}
+              closedJours={closedJours}
               todayJour={todayJour}
               nowMin={nowMin}
               focusCoach={coach}
@@ -347,11 +355,28 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
           </section>
         ) : null}
 
+        {view === 'horaires' ? (
+          <HoursView
+            club={club}
+            slots={slots}
+            horaires={horaires}
+            source={horairesSource}
+            closures={closures}
+            exceptions={exceptions}
+            today={today}
+            canEdit={canEditClub}
+            editable={editable}
+            onOpen={(s) => setOpenSlot(s.id)}
+            onCloseDay={canEdit ? () => setWizard({ kind: 'fermeture' }) : undefined}
+          />
+        ) : null}
+
         {view === 'reseau' ? <NetworkDay slots={slots} jour={netDay} date={weekDates[netDay]} exceptions={exceptions} nowMin={todayJour === netDay ? nowMin : null} focusCoach={coach} onOpen={(s) => setOpenSlot(s.id)} onPickDay={setNetDay} /> : null}
 
         {view === 'controles' ? (
           <ControlsView
             slots={slots}
+            horaires={horaires}
             onOpen={(s) => setOpenSlot(s.id)}
             onMove={canEdit ? (s) => openMove(s) : undefined}
             onFocusCoach={(c, home) => {
@@ -362,7 +387,7 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
           />
         ) : null}
 
-        {view === 'adherent' ? <MemberPreview slots={slots} club={club} espace={shownEspace || undefined} jour={todayJour ?? netDay} date={weekDates[todayJour ?? netDay]} exceptions={exceptions} nowMin={nowMin} todayJour={todayJour} weekDates={weekDates} /> : null}
+        {view === 'adherent' ? <MemberPreview slots={slots} club={club} espace={shownEspace || undefined} jour={todayJour ?? netDay} date={weekDates[todayJour ?? netDay]} exceptions={exceptions} closedJours={closedJours} closedMotif={closureOn(closures, club, weekDates[todayJour ?? netDay])?.motif ?? null} dayHours={hoursOf(horaires, club)[todayJour ?? netDay] ?? null} nowMin={nowMin} todayJour={todayJour} weekDates={weekDates} /> : null}
 
         <HistoryPanel history={history} slots={slots} canEdit={canEdit} />
       </div>
@@ -374,7 +399,7 @@ export function PlanningView({ slots, exceptions, history, source, canEdit, edit
           <AddWizard open={wizard?.kind === 'ajout'} start={wizard?.kind === 'ajout' ? wizard.start : undefined} slots={slots} exceptions={exceptions} editable={editable} today={today} onClose={closeWizard} />
           <MoveWizard open={wizard?.kind === 'deplacement'} slot={wizard?.kind === 'deplacement' ? wizard.slot : null} slots={slots} exceptions={exceptions} editable={editable} today={today} onClose={closeWizard} />
           <CancelWizard open={wizard?.kind === 'annulation'} slot={wizard?.kind === 'annulation' ? wizard.slot : null} date={wizard?.kind === 'annulation' ? wizard.date : undefined} scope={wizard?.kind === 'annulation' ? wizard.scope : undefined} slots={slots} exceptions={exceptions} editable={editable} today={today} onClose={closeWizard} />
-          <ClosureWizard open={wizard?.kind === 'fermeture'} slots={slots} exceptions={exceptions} editable={editable} today={today} onClose={closeWizard} />
+          <ClosureWizard open={wizard?.kind === 'fermeture'} slots={slots} exceptions={exceptions} horaires={horaires} closures={closures} editable={editable} today={today} onClose={closeWizard} />
         </>
       ) : null}
     </>

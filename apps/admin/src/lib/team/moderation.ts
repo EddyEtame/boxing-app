@@ -9,7 +9,7 @@ import type { TrainingProposal, TrainingType } from '@/lib/types';
  * `bloquant` : la proposition ne peut pas être mise en ligne telle quelle.
  * `attention` : à relire, l'équipe tranche.
  */
-export const CHECK_CODES = ['coordonnees', 'hors-acces-libre', 'sparring-mineur', 'age-minimum', 'age-inconnu', 'categorie-coupee', 'passee', 'mots-sensibles'] as const;
+export const CHECK_CODES = ['coordonnees', 'hors-acces-libre', 'club-ferme', 'sparring-mineur', 'age-minimum', 'age-inconnu', 'categorie-coupee', 'passee', 'mots-sensibles'] as const;
 export type CheckCode = (typeof CHECK_CODES)[number];
 
 export type ModerationCheck = {

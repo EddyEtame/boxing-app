@@ -1,12 +1,13 @@
 'use client';
 
 import { PosterGrid } from './PosterGrid';
+import { motifLabel } from './SlotDrawer';
 import { Phone } from '@/components/phone/Phone';
 import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { CLUB_LABEL, CLUB_PHOTO, photoThumb } from '@/lib/clubs';
 import { familleColor, heure, isFree, normaliseActivite, slotsFor } from '@/lib/planning/model';
-import type { ClubId, Slot, SlotException } from '@/lib/types';
+import type { ClubId, DayHours, Slot, SlotException } from '@/lib/types';
 
 /**
  * « VOIR COMME L'ADHÉRENT » — l'écran Planning de l'app, en vrai : la semaine en
@@ -15,7 +16,35 @@ import type { ClubId, Slot, SlotException } from '@/lib/types';
  * de l'admin. Une séance annulée apparaît barrée : c'est ce que l'API publie
  * (`cancellations`) et ce que l'app devra afficher — elle ne le fait pas encore.
  */
-export function MemberPreview({ slots, club, espace, jour, date, exceptions, nowMin, todayJour, weekDates }: { slots: Slot[]; club: ClubId; espace?: string; jour: number; date: string; exceptions: SlotException[]; nowMin: number | null; todayJour: number | null; weekDates: string[] }) {
+export function MemberPreview({
+  slots,
+  club,
+  espace,
+  jour,
+  date,
+  exceptions,
+  closedJours,
+  closedMotif,
+  dayHours = null,
+  nowMin,
+  todayJour,
+  weekDates,
+}: {
+  slots: Slot[];
+  club: ClubId;
+  espace?: string;
+  jour: number;
+  date: string;
+  exceptions: SlotException[];
+  /** Les jours fermés de la semaine montrée, et le motif du jour montré s'il est fermé (API : `fermetures`). */
+  closedJours?: ReadonlySet<number>;
+  closedMotif?: string | null;
+  /** Les heures d'ouverture du jour montré (`null` : fermé ce jour de la semaine). */
+  dayHours?: DayHours;
+  nowMin: number | null;
+  todayJour: number | null;
+  weekDates: string[];
+}) {
   const { t } = useI18n();
   const list = slotsFor(slots, club, jour, espace);
   const cancelled = new Set(exceptions.filter((e) => e.date === date).map((e) => e.slotId));
@@ -28,7 +57,7 @@ export function MemberPreview({ slots, club, espace, jour, date, exceptions, now
           <div className="app-scroll mp-scroll">
             <AppHead club={club} mode="semaine" />
             <div className="mp-poster">
-              <PosterGrid slots={slots} club={club} espace={espace} variant="member" compact todayJour={todayJour} nowMin={nowMin} weekDates={weekDates} exceptions={exceptions} />
+              <PosterGrid slots={slots} club={club} espace={espace} variant="member" compact todayJour={todayJour} nowMin={nowMin} weekDates={weekDates} exceptions={exceptions} closedJours={closedJours} />
             </div>
             <p className="mp-hint">{t('planning.member.swipe')}</p>
           </div>
@@ -44,11 +73,12 @@ export function MemberPreview({ slots, club, espace, jour, date, exceptions, now
               ))}
             </div>
             <div className="mp-list">
-              {list.length === 0 ? <p className="mp-empty">{t('planning.member.empty')}</p> : null}
+              {closedMotif ? <p className="mp-closed">{t('planning.member.closed', { motif: motifLabel(t, closedMotif) })}</p> : null}
+              {list.length === 0 && !closedMotif ? <p className="mp-empty">{dayHours ? t('planning.member.empty', { from: heure(dayHours.debut), to: heure(dayHours.fin) }) : t('planning.member.emptyClosed')}</p> : null}
               {list.map((s) => {
                 const a = normaliseActivite(s.activite);
                 const libre = isFree(s);
-                const off = cancelled.has(s.id);
+                const off = cancelled.has(s.id) || (libre && Boolean(closedMotif));
                 const enCours = live !== null && live >= s.debut && live < s.fin;
                 const meta = [a.public, a.niveau, s.espace].filter(Boolean).join(' · ');
                 return (

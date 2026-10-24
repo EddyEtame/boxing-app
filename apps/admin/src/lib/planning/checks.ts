@@ -1,5 +1,7 @@
+import { outsideHours } from './hours';
 import { isFree } from './model';
-import type { Slot } from '@/lib/types';
+import { CLUB_IDS } from '@/lib/clubs';
+import type { ClubId, Slot, WeekHours } from '@/lib/types';
 
 /**
  * LES CONTRÔLES DU PLANNING — ce que l'admin relève tout seul dans les créneaux,
@@ -8,7 +10,7 @@ import type { Slot } from '@/lib/types';
  * (Portet, mardi 19 h, SAMUEL dans deux espaces), 22 cours sans coach, deux
  * libellés dont l'horaire écrit contredit l'horaire du créneau.
  */
-export type CheckKind = 'coach-double' | 'coach-trajet' | 'libelle-horaire' | 'doublon' | 'homonyme' | 'sans-coach';
+export type CheckKind = 'coach-double' | 'coach-trajet' | 'libelle-horaire' | 'doublon' | 'homonyme' | 'hors-horaires' | 'sans-coach';
 
 export type PlanningCheck = {
   kind: CheckKind;
@@ -20,6 +22,8 @@ export type PlanningCheck = {
   coach?: string;
   /** Pour `homonyme` : les deux graphies d'un même nom probable. */
   names?: [string, string];
+  /** Pour `hors-horaires` : le club dont les heures d'ouverture ne couvrent pas ces cours. */
+  club?: ClubId;
 };
 
 const norm = (s?: string) => (s ?? '').trim().toUpperCase();
@@ -33,7 +37,7 @@ export function hoursInLabel(label: string): { debut: number; fin: number } | nu
   return fin > debut ? { debut, fin } : null;
 }
 
-export function planningChecks(slots: Slot[]): PlanningCheck[] {
+export function planningChecks(slots: Slot[], horaires?: Partial<Record<ClubId, WeekHours>>): PlanningCheck[] {
   const out: PlanningCheck[] = [];
   const courses = slots.filter((s) => !isFree(s));
 
@@ -73,6 +77,13 @@ export function planningChecks(slots: Slot[]): PlanningCheck[] {
         out.push({ kind: 'homonyme', level: 'attention', slots: courses.filter((s) => norm(s.coach) === a || norm(s.coach) === b), names: [a, b] });
       }
     }
+  }
+
+  // Un cours affiché à une heure où la salle est fermée (heures réglées dans la vue Horaires).
+  for (const club of CLUB_IDS) {
+    const week = horaires?.[club];
+    const off = week ? outsideHours(courses, week, club) : [];
+    if (off.length) out.push({ kind: 'hors-horaires', level: 'attention', slots: off, club });
   }
 
   const missing = courses.filter((s) => !norm(s.coach));

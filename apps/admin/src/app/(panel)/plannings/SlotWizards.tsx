@@ -13,9 +13,10 @@ import type { MessageKey } from '@/i18n/messages';
 import type { ActionResult } from '@/lib/action-result';
 import { CLUB_IDS, CLUB_LABEL, CLUB_PHOTO, photoThumb } from '@/lib/clubs';
 import { fmtDate } from '@/lib/format';
+import { closureOn, freeRanges, hoursOf } from '@/lib/planning/hours';
 import { addDaysYmd, conflictsFor, duree, espacesFor, familleColor, heure, hhmmOf, isFree, minutesOf, mondayOf, nextDates, normaliseActivite, type Conflicts, type SlotDraft } from '@/lib/planning/model';
 import { nextFeries, type FerieKey } from '@/lib/planning/feries';
-import { FAMILLES, type ClubId, type Famille, type Slot, type SlotException } from '@/lib/types';
+import { FAMILLES, type ClubId, type Closure, type Famille, type PlanningState, type Slot, type SlotException } from '@/lib/types';
 
 export type WizardKind = 'ajout' | 'deplacement' | 'annulation';
 
@@ -815,7 +816,7 @@ export function CancelWizard({ open, slots, exceptions, editable, today, onClose
 
 type ClosureState = { date: string; ferie: FerieKey | ''; clubs: ClubId[]; motif: Motif | ''; note: string };
 
-export function ClosureWizard({ open, slots, exceptions, editable, today, onClose }: Common & { open: boolean }) {
+export function ClosureWizard({ open, slots, exceptions, horaires, closures = [], editable, today, onClose }: Common & { open: boolean; horaires?: PlanningState['horaires']; closures?: Closure[] }) {
   const { t, locale } = useI18n();
   const err = useErr();
   const router = useRouter();
@@ -825,11 +826,15 @@ export function ClosureWizard({ open, slots, exceptions, editable, today, onClos
     const [y, m, dd] = d.split('-').map(Number);
     return (new Date(y, m - 1, dd, 12).getDay() + 6) % 7;
   };
+  const closedOn = (d: string, c: ClubId) => Boolean(closureOn(closures, c, d));
   const sessionsOn = (d: string, clubs: ClubId[]) => {
     if (!d) return [];
     const j = jourOfYmd(d);
-    return slots.filter((s) => clubs.includes(s.club) && s.jour === j && !isFree(s) && !exceptions.some((e) => e.slotId === s.id && e.date === d)).sort((a, b) => a.club.localeCompare(b.club) || a.debut - b.debut);
+    return slots.filter((s) => clubs.includes(s.club) && !closedOn(d, s.club) && s.jour === j && !isFree(s) && !exceptions.some((e) => e.slotId === s.id && e.date === d)).sort((a, b) => a.club.localeCompare(b.club) || a.debut - b.debut);
   };
+  /** L'accès libre que la fermeture fait tomber, club par club (il suit l'ouverture, ou les lignes du planning). */
+  const freeOn = (d: string, c: ClubId) => (!d || closedOn(d, c) ? [] : freeRanges(slots, hoursOf(horaires, c), c, jourOfYmd(d)));
+  const closable = (d: string, clubs: ClubId[]) => clubs.filter((c) => sessionsOn(d, [c]).length > 0 || freeOn(d, c).length > 0);
   const longDate = (d: string) => fmtDate(locale, d, { weekday: 'long', day: 'numeric', month: 'long' });
 
   const steps: WizardStep<ClosureState>[] = [
@@ -844,11 +849,12 @@ export function ClosureWizard({ open, slots, exceptions, editable, today, onClos
             <div className="ferie-grid" role="group" data-field="ferie">
               {holidays.map((h, i) => {
                 const n = sessionsOn(h.date, editable).length;
+                const shut = editable.every((c) => closedOn(h.date, c));
                 return (
                   <button key={h.date} id={i === 0 ? 'f-ferie' : undefined} type="button" className="ferie" aria-pressed={state.date === h.date} onClick={() => set({ date: h.date, ferie: h.key, motif: state.motif || 'ferie' })}>
                     <span className="ferie-name">{t(`planning.ferie.${h.key}` as MessageKey)}</span>
                     <span className="ferie-date">{fmtDate(locale, h.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    <span className="ferie-count">{n ? t('planning.sessionsCount', { n }) : t('planning.noSession')}</span>
+                    <span className="ferie-count">{shut ? t('planning.closedDay') : n ? t('planning.sessionsCount', { n }) : t('planning.noSession')}</span>
                   </button>
                 );
               })}
@@ -864,11 +870,11 @@ export function ClosureWizard({ open, slots, exceptions, editable, today, onClos
       id: 'clubs',
       title: t('planning.w.closeClubs'),
       hint: t('planning.w.closeClubs.hint'),
-      validate: (s): Errors => (!s.clubs.length ? { clubs: err('planning.err.clubs') } : !sessionsOn(s.date, s.clubs).length ? { clubs: err('planning.err.noSession') } : {}),
+      validate: (s): Errors => (!s.clubs.length ? { clubs: err('planning.err.clubs') } : !closable(s.date, s.clubs).length ? { clubs: err('planning.err.noSession') } : {}),
       render: ({ state, set, errors }) => (
         <div className="stack" style={{ '--gap': '14px' } as React.CSSProperties}>
           <Field id="clubs" label={t('planning.f.clubs')} error={errors.clubs}>
-            <Chips<ClubId> id="clubs" values={state.clubs} onChange={(v) => set({ clubs: v })} options={editable.map((c) => ({ value: c, label: `${CLUB_LABEL[c]} · ${sessionsOn(state.date, [c]).length}` }))} />
+            <Chips<ClubId> id="clubs" values={state.clubs} onChange={(v) => set({ clubs: v })} options={editable.map((c) => ({ value: c, label: closedOn(state.date, c) ? `${CLUB_LABEL[c]} · ${t('planning.closedDay')}` : `${CLUB_LABEL[c]} · ${sessionsOn(state.date, [c]).length}` }))} />
           </Field>
           {editable.length > 1 ? (
             <button type="button" className="btn btn-ghost btn-sm" style={{ justifySelf: 'start' }} onClick={() => set({ clubs: state.clubs.length === editable.length ? [] : [...editable] })}>
@@ -920,16 +926,15 @@ export function ClosureWizard({ open, slots, exceptions, editable, today, onClos
 
   const preview = (s: ClosureState) => {
     if (!s.date) return <p className="muted">{t('planning.preview.pickDate')}</p>;
-    const list = sessionsOn(s.date, s.clubs.length ? s.clubs : editable);
-    const byClub = new Map<ClubId, Slot[]>();
-    for (const x of list) byClub.set(x.club, [...(byClub.get(x.club) ?? []), x]);
+    const shown = s.clubs.length ? s.clubs : editable;
+    const groups = shown.map((club) => ({ club, items: sessionsOn(s.date, [club]), free: freeOn(s.date, club), shut: closedOn(s.date, club) })).filter((g) => g.items.length || g.free.length || g.shut);
     return (
       <div className="closure-preview">
         <p className="closure-day">{longDate(s.date)}</p>
-        {[...byClub.entries()].map(([club, items]) => (
-          <section key={club} className="closure-club" data-off={!s.clubs.includes(club) || undefined}>
+        {groups.map(({ club, items, free, shut }) => (
+          <section key={club} className="closure-club" data-off={!s.clubs.includes(club) || shut || undefined}>
             <h4>
-              {CLUB_LABEL[club]} <span className="muted">· {t('planning.sessionsCount', { n: items.length })}</span>
+              {CLUB_LABEL[club]} <span className="muted">· {shut ? t('planning.closedDay') : t('planning.sessionsCount', { n: items.length })}</span>
             </h4>
             <ul>
               {items.map((x) => (
@@ -939,10 +944,16 @@ export function ClosureWizard({ open, slots, exceptions, editable, today, onClos
                   <span className="closure-name">{x.activite}</span>
                 </li>
               ))}
+              {free.length ? (
+                <li className="closure-free">
+                  <span className="course-dot course-dot-free" aria-hidden="true" />
+                  <span className="closure-name">{t('planning.closure.free', { times: free.map((f) => `${heure(f.debut)}–${heure(f.fin)}`).join(' · ') })}</span>
+                </li>
+              ) : null}
             </ul>
           </section>
         ))}
-        {!list.length ? <p className="muted">{t('planning.noSession')}</p> : null}
+        {!groups.length ? <p className="muted">{t('planning.closure.nothing')}</p> : null}
       </div>
     );
   };

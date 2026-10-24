@@ -125,7 +125,6 @@ async function appVideos(): Promise<{ path: string; items: AppVideo[] }> {
       objectif: r.objectif,
       securite: r.securite,
       gratuite: r?.gratuite === true,
-      coach: str(r?.coach, 60) ?? undefined,
       photo: photoFile(r?.photo),
     });
   }
@@ -229,7 +228,6 @@ export async function videosFromApp(ids: string[], by: string, taken: number[]):
         objectif: v.objectif,
         securite: v.securite,
         gratuite: v.gratuite,
-        coach: v.coach,
         source: { kind: 'stream' as const, ref: '' },
         poster: v.photo ? { kind: 'photo' as const, file: v.photo, alt: v.title } : undefined,
         status: 'brouillon' as const,

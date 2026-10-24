@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Dialog } from '@/components/Dialog';
 import { IconBan, IconBell, IconClose, IconMove, IconTrash, IconUndo } from '@/components/icons';
 import { useI18n } from '@/i18n/client';
+import { motifLabel } from '@/lib/planning/motifs';
 import type { MessageKey } from '@/i18n/messages';
 import { CLUB_LABEL } from '@/lib/clubs';
 import { fmtDate, relative } from '@/lib/format';
@@ -192,9 +193,4 @@ export function SlotDrawer({
 }
 
 /** « coach-absent · Mehdi en compétition » → « Coach absent · Mehdi en compétition ». */
-export function motifLabel(t: (k: MessageKey) => string, raw: string): string {
-  const [code, ...rest] = raw.split(' · ');
-  const known = ['coach-absent', 'salle', 'ferie', 'evenement', 'vacances', 'autre'].includes(code);
-  const head = known ? t(`planning.motif.${code}` as MessageKey) : code;
-  return [head, ...rest].join(' · ');
-}
+export { motifLabel };

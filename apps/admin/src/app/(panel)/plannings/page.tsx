@@ -45,6 +45,9 @@ export default async function PlanningsPage({ searchParams }: { searchParams: Pa
       slots={state.slots}
       exceptions={state.exceptions}
       history={state.history.slice(0, 120)}
+      horaires={state.horaires}
+      horairesSource={state.horairesSource}
+      closures={state.closures ?? []}
       source={source}
       canEdit={canEdit}
       editable={editable}

@@ -1,21 +1,23 @@
 import { audit } from './audit';
 import { read, readFeatures, update } from './collections';
 import { newId } from './crypto';
-import { currentSlots } from './planning';
+import { currentSlots, readPlanning } from './planning';
 import { ActionError } from './session';
-import { isClubId } from '@/lib/clubs';
+import { CLUB_IDS, isClubId } from '@/lib/clubs';
 import { inScope } from '@/lib/permissions';
+import { closureOn, freeRanges, hasFreeAccess, hoursOf } from '@/lib/planning/hours';
 import { isFree } from '@/lib/planning/model';
 import { blocking, type CheckCode, type ModerationCheck, type QueueItem } from '@/lib/team/moderation';
-import { NIVEAUX, RETRAIT_MOTIFS, SPARRING, TRAINING_TYPES, type ClubId, type FeatureKey, type FeatureState, type ModerationRules, type Niveau, type RetraitMotif, type SessionUser, type Slot, type TrainingProposal, type TrainingType } from '@/lib/types';
+import { NIVEAUX, RETRAIT_MOTIFS, SPARRING, TRAINING_TYPES, type ClubId, type Closure, type FeatureKey, type FeatureState, type ModerationRules, type Niveau, type PlanningState, type RetraitMotif, type SessionUser, type Slot, type TrainingProposal, type TrainingType } from '@/lib/types';
 
 /**
  * LA MODÉRATION DES ENTRAÎNEMENTS ENTRE MEMBRES (CDC §11).
  *
  * Une proposition arrive de l'app (POST /api/entrainements) ou des exemples.
  * Ses vérifications sont recalculées à chaque lecture, d'après les règles du
- * moment : l'âge minimal, les catégories allumées, les créneaux d'accès libre
- * du planning servi par l'admin. Rien n'est stocké d'avance, rien ne vieillit.
+ * moment : l'âge minimal, les catégories allumées, l'accès libre du club (ses
+ * heures d'ouverture, ou les lignes « Accès libre » du planning ce jour-là) et
+ * ses jours de fermeture. Rien n'est stocké d'avance, rien ne vieillit.
  */
 
 /* ------------------------------------------------------------------ */
@@ -70,11 +72,11 @@ function hitsOf(text: string, patterns: RegExp[]): string[] {
   return [...out];
 }
 
-export type CheckContext = { rules: ModerationRules; features: FeatureState; slots: Slot[]; now: { ymd: string; minutes: number } };
+export type CheckContext = { rules: ModerationRules; features: FeatureState; slots: Slot[]; horaires: PlanningState['horaires']; closures: Closure[]; now: { ymd: string; minutes: number } };
 
 export async function checkContext(): Promise<CheckContext> {
-  const [rules, features, slots] = await Promise.all([read('regles'), readFeatures(), currentSlots()]);
-  return { rules, features, slots, now: parisNow() };
+  const [rules, features, planning] = await Promise.all([read('regles'), readFeatures(), readPlanning()]);
+  return { rules, features, slots: planning.slots, horaires: planning.horaires, closures: planning.closures ?? [], now: parisNow() };
 }
 
 export function checksFor(p: Pick<TrainingProposal, 'type' | 'club' | 'date' | 'debut' | 'observation' | 'organizer'>, ctx: CheckContext): ModerationCheck[] {
@@ -95,15 +97,19 @@ export function checksFor(p: Pick<TrainingProposal, 'type' | 'club' | 'date' | '
   } else if (age !== undefined && age < ctx.rules.otherMinAge) out.push({ code: 'age-minimum', level: 'bloquant', vars: { age, min: ctx.rules.otherMinAge } });
 
   // CDC §11 A.3 : « un créneau correspondant aux horaires d'accès libre autorisés dans le club concerné ».
-  const clubFree = ctx.slots.filter((s) => s.club === p.club && isFree(s));
-  const day = weekdayOf(p.date);
-  const dayFree = clubFree.filter((s) => s.jour === day).sort((a, b) => a.debut - b.debut);
-  const inside = dayFree.some((s) => p.debut >= s.debut && p.debut <= s.fin - 30);
-  if (!inside) {
-    // Le footing part du club mais se court dehors : on le signale sans le bloquer.
-    const level = p.type === 'footing' ? 'attention' : 'bloquant';
-    const vars: Record<string, string | number> = clubFree.length === 0 ? { none: 1 } : { day: dayFree.map((s) => `${hm(s.debut)}–${hm(s.fin)}`).join(', ') || '—' };
-    out.push({ code: 'hors-acces-libre', level, vars });
+  // L'accès libre suit l'ouverture du club, sauf les lignes « Accès libre » du jour (la règle partagée avec l'app).
+  // Le footing part du club mais se court dehors : on le signale sans le bloquer.
+  const level = p.type === 'footing' ? 'attention' : 'bloquant';
+  const closed = closureOn(ctx.closures, p.club, p.date);
+  if (closed) out.push({ code: 'club-ferme', level, vars: { motif: closed.motif } });
+  else {
+    const week = hoursOf(ctx.horaires, p.club);
+    const ranges = freeRanges(ctx.slots, week, p.club, weekdayOf(p.date));
+    const inside = ranges.some((r) => p.debut >= r.debut && p.debut <= r.fin - 30);
+    if (!inside) {
+      const vars: Record<string, string | number> = !hasFreeAccess(ctx.slots, week, p.club) ? { none: 1 } : ranges.length ? { day: ranges.map((r) => `${hm(r.debut)}–${hm(r.fin)}`).join(', ') } : { closedDay: 1 };
+      out.push({ code: 'hors-acces-libre', level, vars });
+    }
   }
 
   const sensitive = hitsOf(p.observation ?? '', [SENSITIVE]);
@@ -112,7 +118,7 @@ export function checksFor(p: Pick<TrainingProposal, 'type' | 'club' | 'date' | '
 }
 
 /** Ce qu'aucune validation ne lève : la sécurité, l'assurance, l'interdit des coordonnées, le passé. */
-const HARD: CheckCode[] = ['coordonnees', 'sparring-mineur', 'age-minimum', 'categorie-coupee', 'passee'];
+const HARD: CheckCode[] = ['coordonnees', 'sparring-mineur', 'age-minimum', 'categorie-coupee', 'passee', 'club-ferme'];
 export const canForce = (checks: ModerationCheck[]) => !checks.some((c) => c.level === 'bloquant' && HARD.includes(c.code));
 
 /* ------------------------------------------------------------------ */
@@ -130,7 +136,7 @@ export async function readQueue(user: SessionUser): Promise<{ items: QueueItem[]
       return { ...p, checks, blocking: blocking(checks) };
     })
     .sort((a, b) => ORDER[a.status] - ORDER[b.status] || (a.status === 'a-verifier' ? a.createdAt.localeCompare(b.createdAt) : `${a.date}${a.debut}`.localeCompare(`${b.date}${b.debut}`)));
-  const freeClubs = [...new Set(ctx.slots.filter(isFree).map((s) => s.club))];
+  const freeClubs = CLUB_IDS.filter((c) => hasFreeAccess(ctx.slots, hoursOf(ctx.horaires, c), c));
   return { items, rules: ctx.rules, features: ctx.features, freeClubs };
 }
 
@@ -246,7 +252,8 @@ function nextOn(jour: number, today: string, after = 1): string {
  * Neuf propositions plausibles, posées sur les vrais créneaux d'accès libre du
  * planning quand il y en a : une saine, les deux exemples du CDC §11, un
  * numéro de téléphone, un pseudo Instagram, un sparring de mineur, un âge
- * inconnu, une hors accès libre, une déjà en ligne et une déjà retirée.
+ * inconnu, une un dimanche (club fermé, donc hors accès libre), une déjà en
+ * ligne et une déjà retirée.
  */
 export async function seedDemo(user: SessionUser): Promise<number> {
   const slots = await currentSlots();
@@ -265,7 +272,7 @@ export async function seedDemo(user: SessionUser): Promise<number> {
     { type: 'footing', club: 'minimes', when: { jour: 5, debut: 9 * 60 + 30 }, niveau: 'Débutant', observation: 'Je propose un footing de 10 km au départ du club des Minimes, direction le canal du Midi, puis retour au club.', organizer: { memberId: '48102', prenom: 'Inès', age: 31 }, participants: 4, status: 'a-verifier', hoursAgo: 5 },
     { type: 'training-collectif', club: 'saint-cyprien', when: sc(6), niveau: 'Intermédiaire', observation: 'Circuit de préparation physique, 45 minutes. Écris-moi au 06 12 34 56 78 pour t’organiser.', organizer: { memberId: '48311', prenom: 'Karim', age: 27 }, participants: 0, status: 'a-verifier', hoursAgo: 7 },
     { type: 'sparring-pieds-poings', club: 'etats-unis', when: at('etats-unis', 0, { jour: 0, debut: 14 * 60 }), niveau: 'Débutant', observation: 'Sparring léger, protections obligatoires, on travaille la distance.', organizer: { memberId: '48590', prenom: 'Lucas', age: 16 }, participants: 2, status: 'a-verifier', hoursAgo: 9 },
-    { type: 'sparring-sol', club: 'ramonville', when: { jour: 2, debut: 20 * 60 + 30 }, niveau: 'Confirmé', observation: 'Grappling sans kimono, rounds de cinq minutes.', organizer: { memberId: '48044', prenom: 'Mehdi', age: 29 }, participants: 1, status: 'a-verifier', hoursAgo: 12 },
+    { type: 'sparring-sol', club: 'ramonville', when: { jour: 6, debut: 11 * 60 }, niveau: 'Confirmé', observation: 'Grappling sans kimono, rounds de cinq minutes.', organizer: { memberId: '48044', prenom: 'Mehdi', age: 29 }, participants: 1, status: 'a-verifier', hoursAgo: 12 },
     { type: 'training-collectif', club: 'saint-cyprien', when: sc(8), niveau: 'Débutant', observation: 'Programme cardio et gainage, retrouvez-moi sur insta @sarah.boxe pour le détail.', organizer: { memberId: '48233', prenom: 'Sarah', age: 22 }, participants: 0, status: 'a-verifier', hoursAgo: 20 },
     { type: 'sparring-sol', club: 'saint-cyprien', when: sc(1), niveau: 'Intermédiaire', observation: 'Travail des sorties de garde, rythme tranquille.', organizer: { memberId: '48420', prenom: 'Adam' }, participants: 0, status: 'a-verifier', hoursAgo: 26 },
     { type: 'sparring-anglaise', club: 'saint-cyprien', when: sc(0), niveau: 'Confirmé', observation: 'Mise de gants technique, 6 rounds de 2 minutes, casque et protège-dents.', organizer: { memberId: '48155', prenom: 'Thomas', age: 35 }, participants: 3, status: 'en-ligne', decision: { by: 'Accueil · Saint-Cyprien', at: created(30) }, hoursAgo: 34 },

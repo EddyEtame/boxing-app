@@ -4,7 +4,8 @@ import { fail, ok, type ActionResult } from '@/lib/action-result';
 import { todayLocal } from '@/lib/format';
 import { inScope } from '@/lib/permissions';
 import { isClubId } from '@/lib/clubs';
-import { addSlot, applyAppChanges, cancelOccurrence, checkDraft, closeDay, conflictsOf, moveSlot, readPlanning, removeSlot, restoreOccurrence, undoChange, MOTIFS_ANNULATION } from '@/server/planning';
+import { checkWeek, outsideHours } from '@/lib/planning/hours';
+import { addSlot, applyAppChanges, cancelOccurrence, checkDraft, closeDay, conflictsOf, moveSlot, readPlanning, removeSlot, restoreOccurrence, saveHours, undoChange, MOTIFS_ANNULATION } from '@/server/planning';
 import { actionUser, errorCode } from '@/server/session';
 
 /**
@@ -113,8 +114,9 @@ export async function undoPlanning(changeId: string): Promise<ActionResult<{ cha
     const st = await readPlanning();
     const ch = st.history.find((h) => h.id === changeId);
     if (!ch) return fail('introuvable');
-    const club = ch.after?.club ?? ch.before?.club;
-    if (club && !inScope(user, club)) return fail('droits');
+    // Le cours touché, ou les clubs d'une fermeture et d'horaires : tous dans le périmètre de la personne.
+    const clubs = [ch.after?.club, ch.before?.club, ...(ch.clubs ?? [])].filter((c): c is NonNullable<typeof c> => Boolean(c));
+    if (clubs.some((c) => !inScope(user, c))) return fail('droits');
     const change = await undoChange(user, changeId);
     return ok({ changeId: change.id });
   });
@@ -126,6 +128,26 @@ export async function takeAppChanges(prefer: 'admin' | 'app'): Promise<ActionRes
     if (user.clubs !== 'all') return fail('droits');
     if (prefer !== 'admin' && prefer !== 'app') return fail('invalide');
     return ok(await applyAppChanges(user, prefer));
+  });
+}
+
+/**
+ * Les heures d'ouverture d'un club (et, au choix, des autres clubs de son
+ * périmètre) : la semaine est relue ici, et un cours qui en sortirait n'est
+ * accepté que confirmé — il resterait affiché à une heure où la salle est fermée.
+ */
+export async function saveClubHours(clubs: string[], input: unknown, confirmOutside: boolean): Promise<ActionResult<{ changeId: string; changed: number }>> {
+  return guarded(async () => {
+    const user = await actionUser('plannings.edit');
+    const chosen = [...new Set(clubs)].filter(isClubId);
+    if (!chosen.length || chosen.length !== clubs.length) return fail('invalide', { clubs: 'planning.err.clubs' });
+    if (chosen.some((c) => !inScope(user, c))) return fail('droits');
+    const { week, errors } = checkWeek(input);
+    if (!week) return fail('invalide', errors);
+    const st = await readPlanning();
+    if (!confirmOutside && chosen.some((c) => outsideHours(st.slots, week, c).length)) return fail('conflit', { hours: 'planning.hours.err.outside' });
+    const { change, changed } = await saveHours(user, chosen, week);
+    return ok({ changeId: change.id, changed: changed.length });
   });
 }
 

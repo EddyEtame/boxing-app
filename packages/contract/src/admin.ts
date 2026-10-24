@@ -8,7 +8,8 @@ import type { Statut } from './passages';
  * Les listes fermées partagées vivent ici une seule fois : l'admin les
  * réexporte, l'app peut les reprendre au lieu de ses copies locales. Toutes les
  * routes publiques acceptent les origines locales (Expo, réseau local) ; aucune
- * ne renvoie de donnée personnelle, ni le nom d'un coach pour le planning.
+ * ne renvoie de donnée personnelle, ni le nom d'un coach (ni au planning, ni
+ * sur une vidéo).
  */
 
 /* ------------------------------------------------------------------ */
@@ -42,6 +43,16 @@ export type Audience = 'tous' | 'actifs';
 /** Les dix types du CDC §14, dans son ordre. */
 export const NOTIF_TYPES = ['direction', 'coach', 'evenement', 'promo', 'video', 'club', 'rappel', 'rencontre', 'echeance', 'impaye'] as const;
 export type NotifType = (typeof NOTIF_TYPES)[number];
+
+/**
+ * Les seules notifications que l'adhérent peut couper (CDC §14 : « les
+ * notifications non essentielles »). Tout le reste arrive toujours : messages,
+ * annonces, événements, infos des clubs, séances entre membres, abonnement
+ * (Eddy, 24/10/2026). L'écran des préférences de l'app suit cette liste.
+ */
+export const NOTIF_OPTIONAL = ['promo', 'video'] as const satisfies readonly NotifType[];
+export type NotifOptional = (typeof NOTIF_OPTIONAL)[number];
+export const isNotifEssential = (type: NotifType): boolean => !(NOTIF_OPTIONAL as readonly NotifType[]).includes(type);
 
 /** Les sujets d'un message à la direction (CDC §10). */
 export const SUJETS = ['general', 'acces', 'abonnement', 'info', 'admin'] as const;
@@ -115,7 +126,40 @@ export type PlanningResponse = {
   slots: PublicSlot[];
   /** Séances annulées à venir (huit semaines) : l'app barre la date. `motif` : « coach-absent », « salle », « ferie »… suivi d'une précision. */
   cancellations: { slotId: string; date: string; motif: string }[];
+  /** Les heures d'ouverture de chaque club, réglées dans l'admin (Plannings → Horaires). L'accès libre les suit : voir `plagesLibres`. */
+  horaires: Record<ClubId, PublicHoraire[]>;
+  /** Les jours où un club ferme (férié, gala, travaux), sur treize semaines (une proposition d'entraînement se fait jusqu'à 60 jours à l'avance) : ni cours ni accès libre ce jour-là. */
+  fermetures: { club: ClubId; date: string; motif: string }[];
 };
+
+/** Une plage d'ouverture : `jour` 0 = lundi, minutes depuis minuit. Un jour sans plage est un jour fermé. */
+export type PublicHoraire = { jour: number; debut: number; fin: number };
+
+/** Une plage d'accès libre, et d'où elle vient : une ligne « ACCES LIBRE » du planning, ou l'ouverture du club. */
+export type PlageLibre = { jour: number; debut: number; fin: number; source: 'planning' | 'ouverture'; slotId?: string; espace?: string };
+
+/** Une ligne du planning est-elle de l'accès libre ? La même lecture que l'app : le libellé commence par « ACCES LIBRE ». */
+export const isAccesLibre = (activite: string): boolean => activite.toUpperCase().replace(/\s+/g, ' ').trim().startsWith('ACCES LIBRE');
+
+/**
+ * L'accès libre d'un club, un jour de la semaine. Il est ouvert dès que le
+ * club l'est, et ses heures se règlent dans l'admin (Eddy, 24/10/2026) : les
+ * lignes « ACCES LIBRE » écrites ce jour-là au planning priment, sinon ce sont
+ * les heures d'ouverture. Une date de `fermetures` n'en a aucun.
+ */
+export function plagesLibres(
+  slots: readonly Pick<PublicSlot, 'id' | 'club' | 'espace' | 'jour' | 'debut' | 'fin' | 'activite'>[],
+  horaires: readonly PublicHoraire[],
+  club: ClubId,
+  jour: number,
+): PlageLibre[] {
+  const lines = slots.filter((s) => s.club === club && s.jour === jour && isAccesLibre(s.activite)).sort((a, b) => a.debut - b.debut);
+  if (lines.length) return lines.map((s): PlageLibre => ({ jour, debut: s.debut, fin: s.fin, source: 'planning', slotId: s.id, ...(s.espace ? { espace: s.espace } : {}) }));
+  return horaires
+    .filter((h) => h.jour === jour)
+    .sort((a, b) => a.debut - b.debut)
+    .map((h): PlageLibre => ({ jour, debut: h.debut, fin: h.fin, source: 'ouverture' }));
+}
 
 /* ------------------------------------------------------------------ */
 /* Actualités, événements, vidéos (CDC §8, §9)                          */
@@ -178,7 +222,6 @@ export type PublicVideo = {
   securite: Securite;
   /** Visible en mode restreint (CDC §9 : « quelques vidéos »). */
   gratuite: boolean;
-  coach: string | null;
   poster: PublicMedia | null;
   /** Donnée seulement pour une vidéo gratuite ; une vidéo réservée se lira par une adresse signée. */
   source: { kind: 'stream' | 'url'; ref: string } | null;

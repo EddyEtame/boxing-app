@@ -209,7 +209,7 @@ export async function prefillFrom(user: SessionUser, from: string): Promise<Noti
   if (kind === 'video') {
     const v = (await read('videos')).find((x) => x.id === id);
     if (!v) return { draft: null, missing: 'video' };
-    const body = [`${v.dureeMin} min`, v.niveau, v.objectif, v.coach ? `avec ${v.coach}` : ''].filter(Boolean).join(' · ');
+    const body = [`${v.dureeMin} min`, v.niveau, v.objectif].join(' · ');
     return {
       source: { kind: 'video', label: v.title },
       draft: { ...blank(), type: 'video', title: clip(`Nouvelle vidéo · ${v.title}`, 50), body: clip(body, 150), link: '/videos', clubs: scope('all'), statuts: v.gratuite ? ALL_STATUTS : ['actif'], origin: { kind: 'video', id } },

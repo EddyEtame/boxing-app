@@ -1,27 +1,28 @@
 /**
  * Le logo officiel, toujours un fichier (charte), jamais recomposé en texte :
- * la version transparente sur la toile claire ; en sombre, le fichier
- * « plaque » posé sur une plaque blanche arrondie, parce que les lettres navy
- * disparaissent sur le navy — la même règle que l'app (apps/mobile/src/ui/Logo.tsx).
- * Le choix suit l'ambiance de l'admin (attribut data-theme), pas seulement
- * celle de l'ordinateur. Les fichiers sont servis depuis les assets de l'app.
+ * la version transparente sur la toile claire ; en sombre (et sur le rail
+ * navy), l'autocollant — un fond blanc qui épouse la silhouette, parce que les
+ * lettres navy disparaissent sur le navy. La même règle que l'app
+ * (apps/mobile/src/ui/Logo.tsx, depuis le 23/10/2026 : la plaque blanche
+ * faisait « boîte »). Le choix suit l'ambiance de l'admin (attribut
+ * data-theme), pas seulement celle de l'ordinateur. Les fichiers sont servis
+ * depuis les assets de l'app.
  */
 const TRANSPARENT = '/api/media/app/brand/logo-transparent-600.png';
-const PLAQUE = '/api/media/app/brand/logo-plaque-750.png';
+const STICKER = '/api/media/app/brand/logo-sticker-750.png';
+const STICKER_RATIO = 365 / 750;
 
-export function Logo({ width, className, variant = 'auto' }: { width: number; className?: string; variant?: 'auto' | 'plaque' }) {
-  if (variant === 'plaque') {
+export function Logo({ width, className, variant = 'auto' }: { width: number; className?: string; variant?: 'auto' | 'sticker' }) {
+  if (variant === 'sticker') {
     // eslint-disable-next-line @next/next/no-img-element -- fichier de marque servi tel quel
-    return <img src={PLAQUE} alt="Boxing Center" width={width} height={Math.round((width * 400) / 750)} className={className} />;
+    return <img src={STICKER} alt="Boxing Center" width={width} height={Math.round(width * STICKER_RATIO)} className={className} />;
   }
   return (
     <span className={`logo${className ? ` ${className}` : ''}`} style={{ width }} role="img" aria-label="Boxing Center">
       {/* eslint-disable-next-line @next/next/no-img-element -- fichier de marque servi tel quel */}
       <img className="logo-light" src={TRANSPARENT} alt="" width={width} height={Math.round((width * 280) / 600)} />
-      <span className="logo-dark">
-        {/* eslint-disable-next-line @next/next/no-img-element -- fichier de marque servi tel quel */}
-        <img src={PLAQUE} alt="" width={width - 24} height={Math.round(((width - 24) * 400) / 750)} />
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- fichier de marque servi tel quel */}
+      <img className="logo-dark" src={STICKER} alt="" width={width} height={Math.round(width * STICKER_RATIO)} />
     </span>
   );
 }

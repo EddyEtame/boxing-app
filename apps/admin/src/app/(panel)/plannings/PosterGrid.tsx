@@ -26,6 +26,8 @@ export type PosterProps = {
   /** Les sept dates (lundi → dimanche) de la semaine montrée : les annulations s'y lisent. */
   weekDates?: string[];
   exceptions?: SlotException[];
+  /** Les jours de la semaine montrée où le club ferme (férié, gala) : l'accès libre y tombe aussi. */
+  closedJours?: ReadonlySet<number>;
   todayJour?: number | null;
   nowMin?: number | null;
   highlightId?: string | null;
@@ -38,7 +40,7 @@ export type PosterProps = {
   onAdd?: (at: { jour: number; debut: number; fin: number }) => void;
 };
 
-export function PosterGrid({ slots, club, espace, variant = 'admin', weekDates, exceptions = [], todayJour = null, nowMin = null, highlightId, focusCoach, compact, canEdit, onOpen, onMove, onCancel, onAdd }: PosterProps) {
+export function PosterGrid({ slots, club, espace, variant = 'admin', weekDates, exceptions = [], closedJours, todayJour = null, nowMin = null, highlightId, focusCoach, compact, canEdit, onOpen, onMove, onCancel, onAdd }: PosterProps) {
   const { t } = useI18n();
   const grid = useMemo(() => buildWeekGrid(slots, club, espace), [slots, club, espace]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -90,8 +92,8 @@ export function PosterGrid({ slots, club, espace, variant = 'admin', weekDates, 
       const area: CSSProperties = { gridRow: `${r + 2} / span ${cell.rowSpan}`, gridColumn: `${c + 2}` };
       if (cell.kind === 'free') {
         blocks.push(
-          <div key={`f-${r}-${c}`} className="pfree" style={area} aria-hidden="true">
-            {cell.rowSpan > 1 || !compact ? <span>{t('planning.free')}</span> : null}
+          <div key={`f-${r}-${c}`} className="pfree" style={area} aria-hidden="true" data-closed={closedJours?.has(col.jour) || undefined}>
+            {cell.rowSpan > 1 || !compact ? <span>{closedJours?.has(col.jour) ? t('planning.closedDay') : t('planning.free')}</span> : null}
           </div>,
         );
         return;

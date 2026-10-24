@@ -5,11 +5,13 @@ import {
   FEATURE_KEYS,
   NEWS_KINDS,
   NIVEAUX,
+  NOTIF_OPTIONAL,
   NOTIF_TYPES,
   OBJECTIFS,
   SECURITES,
   SUJETS,
   TRAINING_TYPES,
+  isNotifEssential,
   type Audience,
   type DemoPattern,
   type EventKind,
@@ -31,7 +33,7 @@ import {
  * types d'entraînement, interrupteurs…) sont définies une seule fois dans @bc/contract (admin.ts) :
  * l'admin les réexporte ici sous les mêmes noms.
  */
-export { EVENT_KINDS, FAMILLES, FEATURE_KEYS, NEWS_KINDS, NIVEAUX, NOTIF_TYPES, OBJECTIFS, SECURITES, SUJETS, TRAINING_TYPES };
+export { EVENT_KINDS, FAMILLES, FEATURE_KEYS, NEWS_KINDS, NIVEAUX, NOTIF_OPTIONAL, NOTIF_TYPES, OBJECTIFS, SECURITES, SUJETS, TRAINING_TYPES, isNotifEssential };
 export type { Audience, EventKind, Famille, FeatureKey, NewsKind, Niveau, NotifType, Objectif, Securite, Sujet, TrainingType };
 
 export type { ClubId, Statut };
@@ -157,7 +159,6 @@ export type VideoItem = Stamp & {
   /** Identifiant de l'hébergeur (Cloudflare Stream) ou adresse de la vidéo. */
   source: { kind: 'stream' | 'url'; ref: string };
   poster?: Media;
-  coach?: string;
   status: PublishStatus;
   publishedAt?: string;
   demo?: boolean;
@@ -170,11 +171,6 @@ export type VideoItem = Stamp & {
 
 /** Ceux que l'admin envoie à la main ; les autres partent tout seuls, d'après une donnée (Deciplus, propositions). */
 export const NOTIF_MANUAL: readonly NotifType[] = ['direction', 'evenement', 'promo', 'video', 'club'];
-/**
- * Non essentiels : l'adhérent peut les couper dans ses préférences (CDC §14). Même règle que l'app
- * (apps/mobile/src/app/notifications.tsx) : seuls les messages de la direction restent « toujours actifs ».
- */
-export const NOTIF_OPTIONAL: readonly NotifType[] = NOTIF_TYPES.filter((t) => t !== 'direction');
 
 export type Target = { clubs: ClubId[] | 'all'; statuts: Statut[] };
 
@@ -244,7 +240,7 @@ export type OutgoingMessage = {
 export const SPARRING: readonly TrainingType[] = ['sparring-anglaise', 'sparring-pieds-poings', 'sparring-sol'];
 
 export type TrainingCheck = {
-  code: 'coordonnees' | 'hors-acces-libre' | 'sparring-mineur' | 'categorie-coupee' | 'passee' | 'mots-sensibles';
+  code: 'coordonnees' | 'hors-acces-libre' | 'club-ferme' | 'sparring-mineur' | 'categorie-coupee' | 'passee' | 'mots-sensibles';
   level: 'bloquant' | 'attention';
 };
 
@@ -307,11 +303,19 @@ export type Slot = {
 /** Une séance annulée un jour précis : le cours reste au planning. */
 export type SlotException = { id: string; slotId: string; date: string; motif: string; createdAt: string; createdBy: string };
 
+/** Les heures d'ouverture d'un jour, en minutes depuis minuit ; `null` : le club est fermé ce jour-là. */
+export type DayHours = { debut: number; fin: number } | null;
+/** Une semaine d'ouverture, du lundi (0) au dimanche (6). L'accès libre la suit (CDC §11 A.3, Eddy, 24/10/2026). */
+export type WeekHours = DayHours[];
+
+/** Un club fermé un jour précis (férié, gala, travaux) : ni cours ni accès libre. */
+export type Closure = { id: string; date: string; clubs: ClubId[]; motif: string; createdAt: string; createdBy: string };
+
 export type PlanningChange = {
   id: string;
   at: string;
   by: string;
-  kind: 'import' | 'reprise' | 'ajout' | 'deplacement' | 'annulation' | 'retablissement' | 'suppression' | 'restauration' | 'fermeture';
+  kind: 'import' | 'reprise' | 'ajout' | 'deplacement' | 'annulation' | 'retablissement' | 'suppression' | 'restauration' | 'fermeture' | 'horaires';
   slotId?: string;
   before?: Slot;
   after?: Slot;
@@ -319,7 +323,11 @@ export type PlanningChange = {
   note?: string;
   /** Une fermeture annule plusieurs séances d'un coup : on garde lesquelles, pour pouvoir la défaire. */
   exceptionIds?: string[];
+  /** La fermeture elle-même (le jour sans accès libre), pour la défaire avec ses séances. */
+  closureId?: string;
   clubs?: ClubId[];
+  /** Pour des horaires : la semaine de chaque club avant et après. */
+  hours?: { before: Partial<Record<ClubId, WeekHours>>; after: Partial<Record<ClubId, WeekHours>> };
   /** Pour une restauration : le changement qu'elle défait. */
   undoOf?: string;
 };
@@ -332,6 +340,12 @@ export type PlanningState = {
   source: { path: string; hash: string; importedAt: string; count: number };
   /** Les créneaux de l'app au moment de l'import : la base commune pour dire qui a changé quoi depuis. */
   base?: Slot[];
+  /** Les heures d'ouverture de chaque club, reprises de l'app (data/clubs.ts) puis réglées ici. */
+  horaires?: Record<ClubId, WeekHours>;
+  /** D'où viennent les heures de départ : le fichier de l'app, ou la règle publiée du réseau s'il était illisible. */
+  horairesSource?: { path: string; importedAt: string; from: 'app' | 'regle'; error?: string };
+  /** Les jours de fermeture (férié, gala, travaux) : leurs séances sont dans `exceptions`, le jour lui-même ici. */
+  closures?: Closure[];
 };
 
 /* ------------------------------------------------------------------ */

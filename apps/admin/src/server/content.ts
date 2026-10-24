@@ -246,7 +246,6 @@ export async function saveVideo(user: SessionUser, d: VideoDraft): Promise<Saved
       gratuite: d.gratuite,
       source: d.sourceKind === 'aucune' ? { kind: 'stream', ref: '' } : { kind: d.sourceKind, ref: d.sourceRef.trim() },
       poster: { kind: d.poster!.kind, file: d.poster!.file, alt: cleanLine(d.poster!.alt) },
-      coach: opt(cleanLine(d.coach)),
       status: d.mode,
       publishedAt: d.mode === 'publie' ? (prev?.status === 'publie' && prev.publishedAt ? prev.publishedAt : stamp) : undefined,
       demo: prev?.demo,

@@ -43,16 +43,16 @@
 .rail-logo {
   display: block;
   width: 120px;
-  border-radius: 14px;
-  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
   transition: width var(--d-round) var(--e-standard);
 }
 
+/* L'autocollant : son ombre suit la silhouette des lettres, pas un rectangle. */
 .rail-logo img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 14px;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
 }
 
 .rail-scroll {
@@ -286,11 +286,6 @@
 
 .shell[data-collapsed='true'] .rail-logo {
   width: 56px;
-  border-radius: 10px;
-}
-
-.shell[data-collapsed='true'] .rail-logo img {
-  border-radius: 10px;
 }
 
 .shell[data-collapsed='true'] .nav-item,

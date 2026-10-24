@@ -14,6 +14,7 @@ import { useNow } from '@/components/useNow';
 import { IconAlert, IconArrow, IconBan, IconCheck, IconClose, IconInfo, IconRing, IconSearch, IconShieldCheck, IconSliders, IconSparkle, IconTrash, IconUndo, IconUsers } from '@/components/icons';
 import { Choices, Field, Segmented, Select, TextArea } from '@/components/wizard/fields';
 import { useI18n } from '@/i18n/client';
+import { motifLabel } from '@/lib/planning/motifs';
 import type { MessageKey, Translate } from '@/i18n/messages';
 import { CLUB_LABEL } from '@/lib/clubs';
 import { fmtDate, hhmm, relative } from '@/lib/format';
@@ -52,8 +53,11 @@ function checkText(t: Translate, c: ModerationCheck, type: TrainingType): string
       return t('team.check.coordonnees.body', { hits: (c.hits ?? []).join(' · ') });
     case 'mots-sensibles':
       return t('team.check.mots-sensibles.body', { hits: (c.hits ?? []).join(' · ') });
+    case 'club-ferme':
+      return t(type === 'footing' ? 'team.check.club-ferme.footing' : 'team.check.club-ferme.body', { motif: motifLabel(t, String(v.motif ?? '')) });
     case 'hors-acces-libre':
       if (v.none) return type === 'footing' ? t('team.check.hors-acces-libre.noneFooting') : t('team.check.hors-acces-libre.none');
+      if (v.closedDay) return type === 'footing' ? t('team.check.hors-acces-libre.closedDayFooting') : t('team.check.hors-acces-libre.closedDay');
       return type === 'footing' ? t('team.check.hors-acces-libre.footing', { day: String(v.day ?? '—') }) : t('team.check.hors-acces-libre.body', { day: String(v.day ?? '—') });
     default:
       return t(`team.check.${c.code}.body` as MessageKey, v);

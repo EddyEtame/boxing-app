@@ -47,10 +47,10 @@ Dans `apps/mobile/.env`, `EXPO_PUBLIC_API_URL` = l'adresse de cet admin vue du t
 | Route | Méthode | Ce qu'elle fait |
 |---|---|---|
 | `/api/events` | POST | Lots d'événements d'usage anonymes (contrat `EventBatch`). |
-| `/api/plannings` | GET | Les créneaux des cinq clubs et les séances annulées (8 semaines). Jamais le nom d'un coach. `ETag` / 304. |
-| `/api/actualites`, `/api/evenements`, `/api/videos` | GET | Les contenus publiés, avec leur audience (invité ou adhérent actif). |
+| `/api/plannings` | GET | Les créneaux des cinq clubs, les séances annulées (8 semaines), les heures d'ouverture de chaque club (`horaires`) et ses jours de fermeture (`fermetures`, 13 semaines). L'accès libre se calcule avec `plagesLibres` du contrat. Jamais le nom d'un coach. `ETag` / 304. |
+| `/api/actualites`, `/api/evenements`, `/api/videos` | GET | Les contenus publiés, avec leur audience (invité ou adhérent actif). Une vidéo ne nomme jamais de coach. |
 | `/api/fonctions` | GET | Les interrupteurs de l'app, tels qu'ils s'appliquent. |
-| `/api/notifications?club=&statut=` | GET | Les notifications des 30 derniers jours pour ce club et ce statut. |
+| `/api/notifications?club=&statut=` | GET | Les notifications des 30 derniers jours pour ce club et ce statut. Seules les offres et les nouvelles vidéos se coupent dans l'app (`NOTIF_OPTIONAL` du contrat) ; tout le reste est essentiel. |
 | `/api/messages` | POST | Un message d'un adhérent à la direction (CDC §10) ; identité déclarée tant que Deciplus n'est pas branché. |
 | `/api/messages/:id` | GET | Le fil de l'adhérent (en-tête `x-bc-thread-token`), sans les notes internes. |
 | `/api/entrainements?club=` | GET, POST | Les entraînements entre membres publiés ; une proposition depuis l'app (CDC §11). |
@@ -64,7 +64,7 @@ Les routes publiques acceptent les origines locales (Expo, réseau local) ; les 
 |---|---|
 | Aujourd'hui — ce qui attend, la journée des clubs, la vitrine, les branchements | §15 |
 | Actualités, Événements, Vidéos — assistants, photothèque, aperçu dans l'app, reprise du contenu de l'app | §8, §9 |
-| Plannings — l'affiche de chaque club, réseau, contrôles, « comme l'adhérent », assistants d'ajout, de déplacement, d'annulation et de fermeture | §7 |
+| Plannings — l'affiche de chaque club, les horaires et l'accès libre, réseau, contrôles, « comme l'adhérent », assistants d'ajout, de déplacement, d'annulation et de fermeture | §7, §11 |
 | Messages, Notifications — boîte de réception, envois ciblés, aperçus sur écran verrouillé | §10, §14 |
 | Modération, Fonctions — propositions d'entraînement, règles, interrupteurs | §11, §15 |
 | Statistiques, Démo des stats — mesure d'usage (les non-membres d'abord), compte de démonstration | §6, §15 |

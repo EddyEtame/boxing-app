@@ -21,7 +21,6 @@ export const LIMITS = {
   weightClass: 40,
   beltTitle: 80,
   broadcaster: 60,
-  coach: 40,
   alt: 160,
   url: 500,
 } as const;
@@ -95,7 +94,6 @@ export type VideoDraft = {
   rev?: string;
   famille: Exclude<Famille, 'accesLibre'> | null;
   title: string;
-  coach: string;
   numero: number;
   niveau: Niveau;
   dureeMin: number;

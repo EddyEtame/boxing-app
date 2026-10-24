@@ -78,7 +78,6 @@ function toVideo(origin: string, v: VideoItem): PublicVideo {
     objectif: v.objectif,
     securite: v.securite,
     gratuite: v.gratuite,
-    coach: v.coach ?? null,
     poster: media(origin, v.poster),
     // Une vidéo réservée ne donne jamais son adresse ici : elle se lira par une adresse signée, demandée connecté.
     source: v.gratuite && v.source.ref ? { kind: v.source.kind, ref: v.source.ref } : null,

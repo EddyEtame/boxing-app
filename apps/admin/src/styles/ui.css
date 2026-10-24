@@ -1103,7 +1103,7 @@ dialog[open]::backdrop {
   white-space: nowrap;
 }
 
-/* --- Le logo : transparent sur le clair, plaque blanche sur le sombre ------ */
+/* --- Le logo : transparent sur le clair, autocollant sur le sombre --------- */
 .logo {
   display: inline-block;
 }
@@ -1113,7 +1113,7 @@ dialog[open]::backdrop {
   height: auto;
 }
 
-/* Le fichier « plaque » porte déjà sa plaque blanche arrondie. */
+/* L'autocollant porte déjà son fond blanc, qui suit la silhouette des lettres. */
 .logo-dark {
   display: none;
 }

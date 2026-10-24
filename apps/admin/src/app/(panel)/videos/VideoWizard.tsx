@@ -21,7 +21,7 @@ import { NIVEAUX, OBJECTIFS, SECURITES, type Niveau, type Objectif, type Securit
 
 const FIELDS: Record<string, string[]> = {
   discipline: ['famille'],
-  contenu: ['title', 'coach', 'numero'],
+  contenu: ['title', 'numero'],
   reglages: ['niveau', 'dureeMin', 'objectif', 'securite'],
   source: ['sourceRef'],
   vignette: ['poster', 'alt'],
@@ -37,7 +37,6 @@ export function VideoWizard({
   library,
   onUploaded,
   takenNumbers,
-  coaches,
   freeCount,
   total,
   streamConfigured,
@@ -52,7 +51,6 @@ export function VideoWizard({
   onUploaded: (u: Upload) => void;
   /** Les numéros déjà pris par les autres vidéos. */
   takenNumbers: number[];
-  coaches: string[];
   freeCount: number;
   total: number;
   streamConfigured: boolean;
@@ -95,19 +93,9 @@ export function VideoWizard({
           <Field id="title" label={t('vid.f.title')} hint={t('vid.f.title.help')} error={errors.title} counter={{ n: state.title.trim().length, max: LIMITS.videoTitle }}>
             <TextInput id="title" value={state.title} error={errors.title} hint maxLength={LIMITS.videoTitle + 20} onChange={(e) => set({ title: e.target.value })} />
           </Field>
-          <div className="form-grid ct-grid">
-            <Field id="coach" label={t('vid.f.coach')} hint={t('vid.f.coach.help')} error={errors.coach} optional>
-              <TextInput id="coach" list="ct-coaches" value={state.coach} error={errors.coach} hint maxLength={LIMITS.coach + 10} onChange={(e) => set({ coach: e.target.value })} />
-              <datalist id="ct-coaches">
-                {coaches.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </Field>
-            <Field id="numero" label={t('vid.f.numero')} hint={t('vid.f.numero.help')} error={errors.numero}>
-              <TextInput id="numero" type="number" inputMode="numeric" min={1} max={999} value={Number.isNaN(state.numero) ? '' : state.numero} error={errors.numero} hint style={{ maxWidth: 140 }} onChange={(e) => set({ numero: num(e.target.value) })} />
-            </Field>
-          </div>
+          <Field id="numero" label={t('vid.f.numero')} hint={t('vid.f.numero.help')} error={errors.numero}>
+            <TextInput id="numero" type="number" inputMode="numeric" min={1} max={999} value={Number.isNaN(state.numero) ? '' : state.numero} error={errors.numero} hint style={{ maxWidth: 140 }} onChange={(e) => set({ numero: num(e.target.value) })} />
+          </Field>
           <TypoNote texts={[state.title]} />
         </>
       ),
@@ -241,7 +229,6 @@ export function VideoWizard({
             rows={[
               { label: t('vid.r.discipline'), step: 'discipline', value: state.famille ? t(`vid.famille.${state.famille}` as MessageKey) : '—' },
               { label: t('vid.r.title'), step: 'contenu', value: <span className="strong">{frTypo(state.title.trim())}</span> },
-              { label: t('vid.r.coach'), step: 'contenu', value: state.coach.trim() || t('contenu.r.none') },
               { label: t('vid.r.numero'), step: 'contenu', value: Number.isNaN(state.numero) ? '—' : `n° ${state.numero}` },
               { label: t('vid.r.reglages'), step: 'reglages', value: [t(niveauKey(state.niveau)), Number.isNaN(state.dureeMin) ? null : t('vid.minutes', { n: state.dureeMin }), state.objectif ? t(objectifKey(state.objectif)) : null].filter(Boolean).join(' · ') },
               { label: t('vid.r.securite'), step: 'reglages', value: state.securite ? t(`vid.sec.${state.securite}` as MessageKey) : '—' },

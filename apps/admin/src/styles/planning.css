@@ -1768,3 +1768,443 @@
     print-color-adjust: exact;
   }
 }
+
+/* --- Les horaires et l'accès libre ------------------------------------------------------- */
+/* Sept lignes : le jour, ouvert ou fermé, les deux heures, la journée dessinée, l'accès libre
+   qui en découle. Sous 900 px de large (rail ouvert sur un portable, téléphone), chaque jour
+   devient une carte : la mise en page suit la place du panneau, pas celle de l'écran. */
+.hours-panel {
+  container-type: inline-size;
+}
+
+/* Le résumé de la semaine reste sur une ligne : s'il manque de place, il passe sous le titre. */
+.hours-panel > .panel-head {
+  flex-wrap: wrap;
+}
+
+.hours-summary {
+  flex: none;
+  height: 26px;
+}
+
+.hours-grid {
+  --hours-cols: 104px 112px 112px 148px minmax(180px, 1fr) minmax(150px, 220px);
+  display: grid;
+}
+
+.hours-head,
+.hours-day {
+  display: grid;
+  grid-template-columns: var(--hours-cols);
+  align-items: center;
+  column-gap: 14px;
+}
+
+.hours-head {
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.hours-days {
+  display: grid;
+  list-style: none;
+}
+
+.hours-day {
+  row-gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.hours-day:last-child {
+  border-bottom: 0;
+}
+
+.hours-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hours-day[data-closed] .hours-name b {
+  color: var(--text-muted);
+}
+
+.hours-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.hours-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hours-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hours-time .input {
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hours-day[data-closed] .hours-time .input {
+  opacity: 0.38;
+}
+
+.hours-copy {
+  flex: none;
+  opacity: 0;
+  transition: opacity var(--d-jab) var(--e-standard);
+}
+
+.hours-day:hover .hours-copy,
+.hours-copy:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .hours-copy {
+    opacity: 1;
+  }
+}
+
+.hours-copy[data-off] {
+  visibility: hidden;
+}
+
+/* La journée : l'ouverture en fond (hachurée quand l'accès libre la suit), les lignes
+   « Accès libre » du planning en creux, les cours en barres de leur couleur. */
+.hours-bar {
+  position: relative;
+  height: 30px;
+  min-width: 0;
+  border-radius: 8px;
+  background: var(--tint);
+  overflow: hidden;
+}
+
+.hours-bar[data-closed] {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(135deg, transparent 0 7px, var(--hatch) 7px 9px);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.hours-closed {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.hours-open,
+.hours-line,
+.hours-course {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.hours-open {
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--positive) 14%, var(--card));
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--positive) 42%, transparent);
+}
+
+.hours-open[data-free] {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in oklab, var(--positive) 18%, transparent) 7px 9px),
+    color-mix(in oklab, var(--positive) 11%, var(--card));
+}
+
+.hours-line {
+  top: 3px;
+  bottom: 3px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 5px, var(--hatch) 5px 7px),
+    var(--card);
+}
+
+.hours-course {
+  top: auto;
+  bottom: 4px;
+  height: 10px;
+  min-width: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--c);
+  box-shadow: 0 0 0 1.5px var(--card);
+  cursor: pointer;
+  transform-origin: bottom;
+  transition: transform var(--d-jab) var(--e-standard);
+}
+
+.hours-course:hover,
+.hours-course:focus-visible {
+  z-index: 2;
+  transform: scaleY(1.7);
+}
+
+.hours-course[data-outside] {
+  box-shadow:
+    0 0 0 1.5px var(--card),
+    0 0 0 3.5px var(--negative);
+}
+
+.hours-ticks {
+  height: 16px;
+  background: none;
+  overflow: visible;
+}
+
+.hours-ticks span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.hours-ticks span:first-child {
+  transform: none;
+}
+
+.hours-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.hours-free {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.hours-free-times {
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.hours-free-src {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hours-free-src[data-src='planning'] {
+  color: var(--warning);
+}
+
+.hours-courses {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.hours-err {
+  grid-column: 3 / 5;
+}
+
+.hours-legend {
+  margin-top: 14px;
+}
+
+.hours-sw-open {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 3px, color-mix(in oklab, var(--positive) 24%, transparent) 3px 5px),
+    color-mix(in oklab, var(--positive) 11%, var(--card));
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--positive) 42%, transparent);
+}
+
+.hours-sw-line {
+  border: 1.5px dashed var(--line-strong);
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--hatch) 3px 5px);
+}
+
+.legend .hours-sw-course,
+.legend .hours-sw-outside {
+  height: 6px;
+  background: var(--primary);
+}
+
+.legend .hours-sw-outside {
+  box-shadow:
+    0 0 0 1.5px var(--card),
+    0 0 0 3px var(--negative);
+}
+
+.hours-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 20px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.hours-also {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hours-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.hours-source {
+  margin-top: 12px;
+}
+
+.hours-closures {
+  display: grid;
+  list-style: none;
+}
+
+.hours-closures li {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(0, 1.2fr) auto;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.hours-closures li:last-child {
+  border-bottom: 0;
+}
+
+.hours-outside {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.hours-outside li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+@container (max-width: 900px) {
+  .hours-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hours-head > :not(.hours-ticks) {
+    display: none;
+  }
+
+  .hours-day {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'name switch'
+      'from to'
+      'bar bar'
+      'free free'
+      'err err';
+    row-gap: 8px;
+    padding: 12px 0;
+  }
+
+  .hours-day > :nth-child(1) {
+    grid-area: name;
+  }
+
+  .hours-day > :nth-child(2) {
+    grid-area: switch;
+    justify-self: end;
+  }
+
+  .hours-day > :nth-child(3) {
+    grid-area: from;
+  }
+
+  .hours-day > :nth-child(4) {
+    grid-area: to;
+  }
+
+  .hours-time .input {
+    max-width: 150px;
+  }
+
+  .hours-day > .hours-bar {
+    grid-area: bar;
+  }
+
+  .hours-day > .hours-free {
+    grid-area: free;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    column-gap: 10px;
+  }
+
+  .hours-day > .hours-err {
+    grid-area: err;
+  }
+
+  .hours-closures li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Un jour de fermeture sur l'affiche et dans l'aperçu de l'adhérent : l'accès libre tombe aussi. */
+.pfree[data-closed] {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--negative) 32%, transparent);
+  background: repeating-linear-gradient(135deg, transparent 0 9px, var(--negative-soft) 9px 11px);
+}
+
+.pfree[data-closed] span {
+  color: var(--negative);
+}
+
+.mp-closed {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--negative-soft);
+  color: var(--negative);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.course-dot-free {
+  border: 1.5px dashed var(--line-strong);
+  background: repeating-linear-gradient(135deg, transparent 0 2px, var(--hatch) 2px 4px);
+}

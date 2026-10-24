@@ -82,7 +82,7 @@ export function Rail({
     <nav className="rail" aria-label={t('nav.label')} data-tour="rail">
       <div className="rail-brand">
         <Link href="/" className="rail-logo" aria-label={`Boxing Center — ${t('nav.aujourdhui')}`}>
-          <Logo variant="plaque" width={120} />
+          <Logo variant="sticker" width={120} />
         </Link>
         <button type="button" className="rail-toggle" onClick={onToggle} aria-label={collapsed ? t('nav.expand') : t('nav.collapse')} title={collapsed ? t('nav.expand') : t('nav.collapse')} aria-expanded={!collapsed}>
           {collapsed ? <IconChevron size={16} /> : <IconBack size={16} />}

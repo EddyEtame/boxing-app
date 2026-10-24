@@ -10,7 +10,7 @@ import type { MessageKey } from '@/i18n/messages';
 import { CLUB_LABEL } from '@/lib/clubs';
 import { coachLoads, planningChecks, type CoachLoad, type PlanningCheck } from '@/lib/planning/checks';
 import { duree, heure, isFree } from '@/lib/planning/model';
-import type { Slot } from '@/lib/types';
+import type { PlanningState, Slot } from '@/lib/types';
 
 /**
  * LES CONTRÔLES — l'admin relit le planning à chaque ouverture : un coach à
@@ -18,9 +18,21 @@ import type { Slot } from '@/lib/types';
  * libellé qui contredit son horaire, un doublon, des cours sans coach. Et la
  * charge de chaque coach sur la semaine type, pour équilibrer avant la rentrée.
  */
-export function ControlsView({ slots, onOpen, onFocusCoach, onMove }: { slots: Slot[]; onOpen: (s: Slot) => void; onFocusCoach: (coach: string, club: Slot['club']) => void; onMove?: (s: Slot) => void }) {
+export function ControlsView({
+  slots,
+  horaires,
+  onOpen,
+  onFocusCoach,
+  onMove,
+}: {
+  slots: Slot[];
+  horaires: PlanningState['horaires'];
+  onOpen: (s: Slot) => void;
+  onFocusCoach: (coach: string, club: Slot['club']) => void;
+  onMove?: (s: Slot) => void;
+}) {
   const { t } = useI18n();
-  const checks = useMemo(() => planningChecks(slots), [slots]);
+  const checks = useMemo(() => planningChecks(slots, horaires), [slots, horaires]);
   const loads = useMemo(() => coachLoads(slots), [slots]);
   const courses = slots.filter((s) => !isFree(s));
   const minutes = courses.reduce((n, s) => n + s.fin - s.debut, 0);
@@ -103,6 +115,7 @@ function CheckCard({ check, line, onOpen, onMove }: { check: PlanningCheck; line
               a: check.names?.[0] ?? '',
               b: check.names?.[1] ?? '',
               n: check.slots.length,
+              club: check.club ? CLUB_LABEL[check.club] : '',
               written: check.written ? `${heure(check.written.debut)}–${heure(check.written.fin)}` : '',
             })}
           </span>

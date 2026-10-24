@@ -1,15 +1,18 @@
-import type { PlanningResponse, PublicSlot } from '@bc/contract';
+import type { PlanningResponse, PublicHoraire, PublicSlot } from '@bc/contract';
 import { readFile, stat } from 'node:fs/promises';
 import vm from 'node:vm';
 
+import { readAppHours } from './app-clubs';
 import { audit, type Actor } from './audit';
 import { read, update } from './collections';
 import { newId, sha256 } from './crypto';
 import { displayPath, mobilePath } from './paths';
 import { ActionError } from './session';
+import { extractArray } from './ts-literal';
 import { CLUB_IDS, isClubId } from '@/lib/clubs';
+import { freeRanges, hoursOf, sameWeek, toPublic, weekSummary } from '@/lib/planning/hours';
 import { conflictsFor, espacesFor, isFree, type Conflicts, type SlotDraft } from '@/lib/planning/model';
-import type { ClubId, PlanningChange, PlanningState, SessionUser, Slot, SlotException } from '@/lib/types';
+import type { ClubId, Closure, PlanningChange, PlanningState, SessionUser, Slot, SlotException, WeekHours } from '@/lib/types';
 
 /**
  * LES PLANNINGS, côté serveur (CDC §7 : « mis à jour facilement par la
@@ -30,34 +33,6 @@ const SOURCE = () => mobilePath('src', 'data', 'planning.ts');
 /* ------------------------------------------------------------------ */
 /* Lecture du fichier de l'app                                          */
 /* ------------------------------------------------------------------ */
-
-/** Le littéral `[ … ]` qui suit `marker`, en sautant chaînes et commentaires. */
-function extractArray(text: string, marker: string): string {
-  const at = text.indexOf(marker);
-  if (at < 0) throw new Error(`« ${marker} » introuvable dans le fichier`);
-  const open = text.indexOf('[', text.indexOf('=', at));
-  if (open < 0) throw new Error('tableau introuvable après « = »');
-  let depth = 0;
-  let quote: string | null = null;
-  for (let i = open; i < text.length; i++) {
-    const c = text[i];
-    if (quote) {
-      if (c === '\\') i++;
-      else if (c === quote) quote = null;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') quote = c;
-    else if (c === '/' && text[i + 1] === '/') {
-      const nl = text.indexOf('\n', i);
-      i = nl < 0 ? text.length : nl;
-    } else if (c === '/' && text[i + 1] === '*') {
-      const end = text.indexOf('*/', i + 2);
-      i = end < 0 ? text.length : end + 1;
-    } else if (c === '[') depth++;
-    else if (c === ']' && --depth === 0) return text.slice(open, i + 1);
-  }
-  throw new Error('tableau non refermé');
-}
 
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 const int = (v: unknown, min: number, max: number): v is number => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
@@ -116,24 +91,55 @@ export async function readAppPlanning(): Promise<AppPlanning> {
 
 const SYSTEME: Actor = { id: 'systeme', name: 'Système', role: 'systeme' };
 
-/** Le planning servi. Au tout premier accès, il reprend les créneaux de l'app. */
+const DAY_SHORT = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+const hoursNote = (week: WeekHours) => weekSummary(week, (j) => DAY_SHORT[j]!, 'fermé');
+
+/**
+ * Le planning servi. Au tout premier accès, il reprend les créneaux de l'app ;
+ * les heures d'ouverture aussi (data/clubs.ts), y compris pour un planning
+ * importé avant qu'elles existent ici.
+ */
 export async function readPlanning(): Promise<PlanningState> {
   const state = await read('plannings');
-  if (state.source.hash) return state;
-  const src = await readAppPlanning();
-  const imported = await update('plannings', (cur) => {
-    if (cur.source.hash) return { next: cur, result: false };
-    const at = new Date().toISOString();
-    const next: PlanningState = {
-      slots: src.slots,
-      base: src.slots,
-      exceptions: [],
-      history: [{ id: newId('chg'), at, by: 'Système', kind: 'import', note: `${src.slots.length} créneaux repris de ${src.path}` }],
-      source: { path: src.path, hash: src.hash, importedAt: at, count: src.slots.length },
-    };
-    return { next, result: true };
+  if (state.source.hash && state.horaires) return state;
+  const hours = await readAppHours();
+  const hoursEntry = (at: string): PlanningChange => ({
+    id: newId('chg'),
+    at,
+    by: 'Système',
+    kind: 'import',
+    note:
+      hours.from === 'app'
+        ? `Heures d’ouverture reprises de ${hours.path} : ${hoursNote(hours.hours.minimes)}`
+        : `Heures d’ouverture : règle du réseau (${hoursNote(hours.hours.minimes)}), ${hours.path} illisible — ${hours.error ?? ''}`,
   });
-  if (imported) await audit(SYSTEME, 'planning.import', src.path, `${src.slots.length} créneaux`);
+  const horairesSource = (at: string): NonNullable<PlanningState['horairesSource']> => ({ path: hours.path, importedAt: at, from: hours.from, ...(hours.error ? { error: hours.error } : {}) });
+  if (!state.source.hash) {
+    const src = await readAppPlanning();
+    const imported = await update('plannings', (cur) => {
+      if (cur.source.hash) return { next: cur, result: false };
+      const at = new Date().toISOString();
+      const next: PlanningState = {
+        slots: src.slots,
+        base: src.slots,
+        exceptions: [],
+        history: [hoursEntry(at), { id: newId('chg'), at, by: 'Système', kind: 'import', note: `${src.slots.length} créneaux repris de ${src.path}` }],
+        source: { path: src.path, hash: src.hash, importedAt: at, count: src.slots.length },
+        horaires: hours.hours,
+        horairesSource: horairesSource(at),
+        closures: [],
+      };
+      return { next, result: true };
+    });
+    if (imported) await audit(SYSTEME, 'planning.import', src.path, `${src.slots.length} créneaux · heures d’ouverture (${hours.from})`);
+    return read('plannings');
+  }
+  const seeded = await update('plannings', (cur) => {
+    if (cur.horaires) return { next: cur, result: false };
+    const at = new Date().toISOString();
+    return { next: { ...cur, horaires: hours.hours, horairesSource: horairesSource(at), history: [hoursEntry(at), ...cur.history].slice(0, MAX_HISTORY) }, result: true };
+  });
+  if (seeded) await audit(SYSTEME, 'planning.horaires.import', hours.path, hours.from);
   return read('plannings');
 }
 
@@ -291,6 +297,28 @@ function pushHistory(st: PlanningState, entry: Omit<PlanningChange, 'id' | 'at'>
   return { state: { ...st, history: [change, ...st.history].slice(0, MAX_HISTORY) }, change };
 }
 
+/** Les sept jours de chaque club, la règle du réseau pour un club jamais réglé. */
+const allHours = (st: PlanningState) => Object.fromEntries(CLUB_IDS.map((c) => [c, hoursOf(st.horaires, c)])) as Record<ClubId, WeekHours>;
+
+/**
+ * Règle les heures d'ouverture d'un ou de plusieurs clubs (la même semaine pour
+ * tous) : un seul changement d'historique, qui se défait d'un coup. L'accès
+ * libre les suit aussitôt, dans l'admin comme dans l'app.
+ */
+export async function saveHours(user: SessionUser, clubs: ClubId[], week: WeekHours): Promise<{ change: PlanningChange; changed: ClubId[] }> {
+  const out = await update('plannings', (st) => {
+    const changed = clubs.filter((c) => !sameWeek(hoursOf(st.horaires, c), week));
+    if (!changed.length) throw new ActionError('invalide', 'rien à changer');
+    const before = Object.fromEntries(changed.map((c) => [c, hoursOf(st.horaires, c)])) as Partial<Record<ClubId, WeekHours>>;
+    const after = Object.fromEntries(changed.map((c) => [c, week])) as Partial<Record<ClubId, WeekHours>>;
+    const horaires = { ...allHours(st), ...after };
+    const { state, change } = pushHistory({ ...st, horaires }, { by: user.name, kind: 'horaires', clubs: changed, hours: { before, after }, note: hoursNote(week) });
+    return { next: state, result: { change, changed } };
+  });
+  await audit(user, 'planning.horaires', out.changed.join(','), hoursNote(week));
+  return out;
+}
+
 export async function addSlot(user: SessionUser, draft: SlotDraft): Promise<{ slot: Slot; change: PlanningChange }> {
   const out = await update('plannings', (st) => {
     const slot: Slot = { ...draft, id: newId('adm') };
@@ -359,21 +387,31 @@ export async function restoreOccurrence(user: SessionUser, exceptionId: string):
 
 /**
  * Ferme une journée (férié, gala, travaux) : toutes les séances de ce jour de la
- * semaine dans les clubs choisis sont annulées pour cette date, en un geste et
- * un seul changement d'historique — qui se défait d'un coup.
+ * semaine dans les clubs choisis sont annulées pour cette date, et le jour
+ * lui-même est noté fermé — l'accès libre aussi, puisqu'il suit l'ouverture.
+ * Un geste, un seul changement d'historique, qui se défait d'un coup.
  */
 export async function closeDay(user: SessionUser, date: string, clubs: ClubId[], motif: string): Promise<{ change: PlanningChange; count: number }> {
   const [y, m, d] = date.split('-').map(Number);
   const jour = (new Date(y, m - 1, d, 12).getDay() + 6) % 7;
   const out = await update('plannings', (st) => {
-    const targets = st.slots.filter((s) => clubs.includes(s.club) && s.jour === jour && !isFree(s) && !st.exceptions.some((e) => e.slotId === s.id && e.date === date));
-    if (!targets.length) throw new ActionError('invalide', 'aucune séance ce jour-là');
+    const closed = new Set((st.closures ?? []).filter((c) => c.date === date).flatMap((c) => c.clubs));
+    const fresh = clubs.filter((c) => !closed.has(c));
+    if (!fresh.length) throw new ActionError('conflit', 'déjà fermé ce jour-là');
+    const targets = st.slots.filter((s) => fresh.includes(s.club) && s.jour === jour && !isFree(s) && !st.exceptions.some((e) => e.slotId === s.id && e.date === date));
+    // Un club sans cours ce jour-là se ferme quand même s'il devait ouvrir : son accès libre tombe.
+    const concerned = fresh.filter((c) => targets.some((s) => s.club === c) || freeRanges(st.slots, hoursOf(st.horaires, c), c, jour).length > 0);
+    if (!concerned.length) throw new ActionError('invalide', 'aucune séance ni ouverture ce jour-là');
     const at = new Date().toISOString();
     const created: SlotException[] = targets.map((s) => ({ id: newId('exc'), slotId: s.id, date, motif, createdAt: at, createdBy: user.name }));
-    const { state, change } = pushHistory({ ...st, exceptions: [...st.exceptions, ...created] }, { by: user.name, kind: 'fermeture', date, note: motif, clubs, exceptionIds: created.map((e) => e.id) });
+    const closure: Closure = { id: newId('clo'), date, clubs: concerned, motif, createdAt: at, createdBy: user.name };
+    const { state, change } = pushHistory(
+      { ...st, exceptions: [...st.exceptions, ...created], closures: [...(st.closures ?? []), closure] },
+      { by: user.name, kind: 'fermeture', date, note: motif, clubs: concerned, exceptionIds: created.map((e) => e.id), closureId: closure.id },
+    );
     return { next: state, result: { change, count: created.length } };
   });
-  await audit(user, 'planning.fermeture', clubs.join(','), `${date} · ${out.count} séances · ${motif}`);
+  await audit(user, 'planning.fermeture', (out.change.clubs ?? []).join(','), `${date} · ${out.count} séances · ${motif}`);
   return out;
 }
 
@@ -383,16 +421,30 @@ export async function undoChange(user: SessionUser, changeId: string): Promise<P
     const ch = st.history.find((h) => h.id === changeId);
     if (!ch) throw new ActionError('introuvable');
     if (st.history.some((h) => h.undoOf === ch.id)) throw new ActionError('conflit', 'déjà défait');
-    const later = st.history.slice(0, st.history.indexOf(ch)).some((h) => (h.slotId && h.slotId === ch.slotId) || (ch.kind === 'fermeture' && h.kind === 'fermeture' && h.date === ch.date));
+    const touchesHours = (h: PlanningChange) => Boolean(h.hours) && (h.clubs ?? []).some((c) => (ch.clubs ?? []).includes(c));
+    const later = st.history
+      .slice(0, st.history.indexOf(ch))
+      .some((h) => (h.slotId && h.slotId === ch.slotId) || (ch.kind === 'fermeture' && h.kind === 'fermeture' && h.date === ch.date) || (ch.kind === 'horaires' && touchesHours(h)));
     if (later) throw new ActionError('conflit', 'le créneau a changé depuis');
     let next = st;
     if (ch.kind === 'ajout' && ch.slotId) next = { ...st, slots: st.slots.filter((s) => s.id !== ch.slotId) };
     else if (ch.kind === 'deplacement' && ch.before) next = { ...st, slots: st.slots.map((s) => (s.id === ch.slotId ? ch.before! : s)) };
     else if (ch.kind === 'suppression' && ch.before) next = st.slots.some((s) => s.id === ch.before!.id) ? st : { ...st, slots: [...st.slots, ch.before] };
     else if (ch.kind === 'annulation') next = { ...st, exceptions: st.exceptions.filter((e) => !(e.slotId === ch.slotId && e.date === ch.date)) };
-    else if (ch.kind === 'fermeture' && ch.exceptionIds) next = { ...st, exceptions: st.exceptions.filter((e) => !ch.exceptionIds!.includes(e.id)) };
+    else if (ch.kind === 'fermeture' && ch.exceptionIds) next = { ...st, exceptions: st.exceptions.filter((e) => !ch.exceptionIds!.includes(e.id)), closures: (st.closures ?? []).filter((c) => c.id !== ch.closureId) };
+    else if (ch.kind === 'horaires' && ch.hours) next = { ...st, horaires: { ...allHours(st), ...ch.hours.before } };
     else throw new ActionError('invalide', 'ce changement ne se défait pas');
-    const { state, change } = pushHistory(next, { by: user.name, kind: 'restauration', slotId: ch.slotId, before: ch.after, after: ch.before, date: ch.date, note: `défait : ${ch.kind}`, undoOf: ch.id });
+    const { state, change } = pushHistory(next, {
+      by: user.name,
+      kind: 'restauration',
+      slotId: ch.slotId,
+      before: ch.after,
+      after: ch.before,
+      date: ch.date,
+      ...(ch.kind === 'horaires' && ch.hours ? { clubs: ch.clubs, hours: { before: ch.hours.after, after: ch.hours.before } } : {}),
+      note: `défait : ${ch.kind}`,
+      undoOf: ch.id,
+    });
     return { next: state, result: change };
   });
   await audit(user, 'planning.restauration', out.slotId, out.note);
@@ -403,21 +455,29 @@ export async function undoChange(user: SessionUser, changeId: string): Promise<P
 /* Ce que l'app lit                                                     */
 /* ------------------------------------------------------------------ */
 
-export type { PlanningResponse, PublicSlot } from '@bc/contract';
+export type { PlanningResponse, PublicHoraire, PublicSlot } from '@bc/contract';
 
-/** Le planning public : jamais le nom d'un coach (il reste dans l'admin). */
+/** Le planning public : jamais le nom d'un coach (il reste dans l'admin), avec les heures d'ouverture et les jours de fermeture. */
 export function publicPlanning(st: PlanningState, todayYmd: string): PlanningResponse {
   // Liste blanche des champs : un champ ajouté demain au créneau (le coach aujourd'hui) ne sort jamais par mégarde.
   const slots: PublicSlot[] = st.slots
     .map((s): PublicSlot => ({ id: s.id, club: s.club, ...(s.espace ? { espace: s.espace } : {}), jour: s.jour, debut: s.debut, fin: s.fin, activite: s.activite }))
     .sort((a, b) => a.club.localeCompare(b.club) || a.jour - b.jour || a.debut - b.debut);
-  const horizon = (() => {
+  const ahead = (days: number) => {
     const [y, m, d] = todayYmd.split('-').map(Number);
-    const x = new Date(y, m - 1, d + 56, 12);
+    const x = new Date(y, m - 1, d + days, 12);
     return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-  })();
+  };
+  const horizon = ahead(56);
+  // Les fermetures voient plus loin que les annulations : un adhérent propose un entraînement jusqu'à 60 jours à l'avance.
+  const closuresHorizon = ahead(91);
   const cancellations = st.exceptions.filter((e) => e.date >= todayYmd && e.date <= horizon).map(({ slotId, date, motif }) => ({ slotId, date, motif })).sort((a, b) => a.date.localeCompare(b.date));
-  const version = sha256(JSON.stringify({ slots, cancellations })).slice(0, 16);
+  const horaires = Object.fromEntries(CLUB_IDS.map((c) => [c, toPublic(hoursOf(st.horaires, c))])) as Record<ClubId, PublicHoraire[]>;
+  const fermetures = (st.closures ?? [])
+    .filter((c) => c.date >= todayYmd && c.date <= closuresHorizon)
+    .flatMap((c) => c.clubs.map((club) => ({ club, date: c.date, motif: c.motif })))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.club.localeCompare(b.club));
+  const version = sha256(JSON.stringify({ slots, cancellations, horaires, fermetures })).slice(0, 16);
   const updatedAt = st.history[0]?.at ?? st.source.importedAt;
-  return { version, updatedAt, clubs: CLUB_IDS, slots, cancellations };
+  return { version, updatedAt, clubs: CLUB_IDS, slots, cancellations, horaires, fermetures };
 }

@@ -19,7 +19,7 @@ export const fr = {
   'comms.type.essential': 'Toujours reçue',
   'comms.type.mutable': 'Peut être coupée',
   'comms.type.mutableWhere': 'L’adhérent peut la couper dans l’app : Plus → Notifications → « {pref} ».',
-  'comms.type.essentialWhere': 'Les messages de l’équipe ne se coupent pas dans l’app : ils concernent l’accès au club.',
+  'comms.type.essentialWhere': 'Elle arrive toujours : dans l’app, seules les offres et les nouvelles vidéos se coupent.',
 
   'comms.pref.direction': 'Messages de l’équipe',
   'comms.pref.coach': 'Messages des coachs',
@@ -374,7 +374,7 @@ export const en: Record<keyof typeof fr, string> = {
   'comms.type.essential': 'Always received',
   'comms.type.mutable': 'Can be turned off',
   'comms.type.mutableWhere': 'Members can turn it off in the app: Plus → Notifications → “{pref}”.',
-  'comms.type.essentialWhere': 'Team messages cannot be turned off in the app: they concern access to the club.',
+  'comms.type.essentialWhere': 'Always delivered: in the app, only offers and new videos can be turned off.',
 
   'comms.pref.direction': 'Messages from the team',
   'comms.pref.coach': 'Coach messages',
