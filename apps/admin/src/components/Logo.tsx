@@ -10,7 +10,8 @@
  */
 const TRANSPARENT = '/api/media/app/brand/logo-transparent-600.png';
 const STICKER = '/api/media/app/brand/logo-sticker-750.png';
-const STICKER_RATIO = 365 / 750;
+// Liseré affiné le 24/10/2026 (app) : 750 × 358.
+const STICKER_RATIO = 358 / 750;
 
 export function Logo({ width, className, variant = 'auto' }: { width: number; className?: string; variant?: 'auto' | 'sticker' }) {
   if (variant === 'sticker') {

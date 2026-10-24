@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, TextInput, View, type KeyboardTypeOptions, type StyleProp, type ViewStyle } from 'react-native';
+import { useRef, useState, type ComponentRef, type Ref } from 'react';
+import { ScrollView, TextInput, View, type KeyboardTypeOptions, type ReturnKeyTypeOptions, type StyleProp, type ViewStyle } from 'react-native';
 
 import { CLUBS } from '@/data/clubs';
 import { track } from '@/features/analytics';
@@ -14,6 +14,20 @@ import { Body } from '@/ui/Text';
 type Mode = 'creation' | 'connexion';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** « 14031999 » devient « 14/03/1999 » pendant la frappe ; les barres ne se tapent pas. */
+export function formatBirth(input: string): string {
+  const d = input.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}
+
+/** « 0612345678 » devient « 06 12 34 56 78 » ; un numéro en +33 reste tel quel. */
+export function formatPhone(input: string): string {
+  if (input.trim().startsWith('+')) return input;
+  return input.replace(/\D/g, '').slice(0, 10).replace(/(\d{2})(?=\d)/g, '$1 ');
+}
 
 /**
  * Création de compte et connexion (CDC §2) : nom, prénom, e-mail, téléphone,
@@ -37,6 +51,11 @@ export default function ConnexionScreen() {
   const [club, setClub] = useState<ClubId | null>(null);
   const [motDePasse, setMotDePasse] = useState('');
   const [tried, setTried] = useState(false);
+  const nomRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const emailRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const phoneRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const birthRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const birth = parseBirthDate(naissance);
   const errors = {
@@ -87,15 +106,15 @@ export default function ConnexionScreen() {
         />
         {mode === 'creation' ? (
           <View style={s.row}>
-            <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder="Camille" error={show('prenom') ? T('auth.errName') : undefined} style={{ flex: 1 }} autoComplete="given-name" />
-            <Field label={T('auth.lastName')} value={nom} onChange={setNom} placeholder="Durand" error={show('nom') ? T('auth.errName') : undefined} style={{ flex: 1 }} autoComplete="family-name" />
+            <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder={T('auth.firstNamePh')} error={show('prenom') ? T('auth.errName') : undefined} style={{ flex: 1 }} autoComplete="given-name" onNext={() => nomRef.current?.focus()} />
+            <Field inputRef={nomRef} label={T('auth.lastName')} value={nom} onChange={setNom} placeholder={T('auth.lastNamePh')} error={show('nom') ? T('auth.errName') : undefined} style={{ flex: 1 }} autoComplete="family-name" onNext={() => emailRef.current?.focus()} />
           </View>
         ) : null}
-        <Field label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" error={show('email') ? T('auth.errEmail') : undefined} autoComplete="email" />
+        <Field inputRef={emailRef} label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" error={show('email') ? T('auth.errEmail') : undefined} autoComplete="email" onNext={() => (mode === 'creation' ? phoneRef : passwordRef).current?.focus()} />
         {mode === 'creation' ? (
           <>
-            <Field label={T('auth.phone')} value={telephone} onChange={setTelephone} placeholder="06 12 34 56 78" keyboard="phone-pad" error={show('telephone') ? T('auth.errPhone') : undefined} autoComplete="tel" />
-            <Field label={T('auth.birth')} value={naissance} onChange={setNaissance} placeholder={T('auth.birthPh')} keyboard="numbers-and-punctuation" error={show('naissance') ? T('auth.errBirth') : undefined} autoComplete="birthdate-full" />
+            <Field inputRef={phoneRef} label={T('auth.phone')} value={telephone} onChange={(v) => setTelephone(formatPhone(v))} placeholder="06 12 34 56 78" keyboard="phone-pad" maxLength={18} error={show('telephone') ? T('auth.errPhone') : undefined} autoComplete="tel" onNext={() => birthRef.current?.focus()} />
+            <Field inputRef={birthRef} label={T('auth.birth')} value={naissance} onChange={(v) => setNaissance(formatBirth(v))} placeholder={T('auth.birthPh')} keyboard="number-pad" maxLength={10} error={show('naissance') ? T('auth.errBirth') : undefined} autoComplete="birthdate-full" onNext={() => passwordRef.current?.focus()} />
             <View style={s.field}>
               <Body size="caption" weight="bold" tone={show('club') ? 'negative' : 'muted'}>
                 {T('auth.club')}
@@ -113,7 +132,7 @@ export default function ConnexionScreen() {
             </View>
           </>
         ) : null}
-        <Field label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure error={show('motDePasse') ? T('auth.errPassword') : undefined} autoComplete={mode === 'creation' ? 'new-password' : 'current-password'} />
+        <Field inputRef={passwordRef} label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure error={show('motDePasse') ? T('auth.errPassword') : undefined} autoComplete={mode === 'creation' ? 'new-password' : 'current-password'} returnKey="go" onNext={submit} />
         <Body size="caption" tone="muted">
           {mode === 'creation' ? T('auth.createNote') : T('auth.forgot')}
         </Body>
@@ -136,9 +155,14 @@ type FieldProps = {
   error?: string;
   autoComplete?: 'given-name' | 'family-name' | 'email' | 'tel' | 'birthdate-full' | 'new-password' | 'current-password';
   style?: StyleProp<ViewStyle>;
+  inputRef?: Ref<ComponentRef<typeof TextInput>>;
+  maxLength?: number;
+  /** Le bouton du clavier : « Suivant » passe au champ d'après, « OK » envoie. */
+  returnKey?: ReturnKeyTypeOptions;
+  onNext?: () => void;
 };
 
-function Field({ label, value, onChange, placeholder, keyboard, secure, error, autoComplete, style }: FieldProps) {
+function Field({ label, value, onChange, placeholder, keyboard, secure, error, autoComplete, style, inputRef, maxLength, returnKey = 'next', onNext }: FieldProps) {
   const s = useStyles();
   const t = useTheme();
   const [focus, setFocus] = useState(false);
@@ -148,6 +172,11 @@ function Field({ label, value, onChange, placeholder, keyboard, secure, error, a
         {label}
       </Body>
       <TextInput
+        ref={inputRef}
+        returnKeyType={returnKey}
+        submitBehavior={returnKey === 'next' ? 'submit' : 'blurAndSubmit'}
+        onSubmitEditing={onNext}
+        maxLength={maxLength}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}

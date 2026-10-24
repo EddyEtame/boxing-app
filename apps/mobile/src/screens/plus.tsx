@@ -6,7 +6,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { CLUBS, clubById } from '@/data/clubs';
 import { SECTIONS, PLUS_GRID, type SectionId } from '@/features/sections';
 import { track } from '@/features/analytics';
-import { useI18nStore, useT, type Locale } from '@/i18n';
+import { ANGLAIS_ACTIF, useI18nStore, useT, type Locale } from '@/i18n';
 import { usePrefs, type Appearance } from '@/state/prefs';
 import { deleteLocalAccount } from '@/state/account';
 import { useUsage } from '@/state/usage';
@@ -33,6 +33,7 @@ export function Screen() {
   const actif = member.statut === 'actif';
   const invite = member.statut === 'invite';
   const signOut = useSession((st) => st.signOut);
+  const setOnboarded = usePrefs((st) => st.setOnboarded);
   const { width } = useWindowDimensions();
   const tileW = Math.floor((Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2 - space[3] * 2) / 3);
 
@@ -63,11 +64,13 @@ export function Screen() {
         </Section>
       </Reveal>
 
-      <Reveal>
-        <Section title={T('plus.language')}>
-          <LanguagePicker />
-        </Section>
-      </Reveal>
+      {ANGLAIS_ACTIF ? (
+        <Reveal>
+          <Section title={T('plus.language')}>
+            <LanguagePicker />
+          </Section>
+        </Reveal>
+      ) : null}
 
       <Reveal>
         <Section title={T('plus.settings')}>
@@ -75,6 +78,7 @@ export function Screen() {
             <Row icon={IconBell} title={T('plus.notifications')} subtitle={T('plus.notificationsSub')} onPress={() => router.push('/notifications')} />
             <MyClubs />
             <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} />
+            <Row icon={IconPhone} title={T('plus.replayIntro')} subtitle={T('plus.replayIntroSub')} onPress={() => setOnboarded(false)} />
             <AnalyticsRow />
           </Card>
         </Section>

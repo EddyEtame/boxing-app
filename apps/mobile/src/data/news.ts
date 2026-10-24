@@ -37,7 +37,7 @@ export const NEWS: NewsItem[] = [
   {
     id: 'portet-salle-combat',
     kind: 'club',
-    titre: 'Portet : la nouvelle salle de combat',
+    titre: 'Portet : la nouvelle salle de combat',
     accroche: '160 m², une cage MMA de 7 × 7 m sur podium, un ring neuf sur mesure.',
     en: { titre: 'Portet: the new fight room', accroche: '160 m², a 7 × 7 m MMA cage on a podium, a brand-new custom ring.' },
     date: '2026-10-10',
@@ -48,7 +48,7 @@ export const NEWS: NewsItem[] = [
   {
     id: 'fight-event-4',
     kind: 'resultat',
-    titre: 'Fight Event 4 : les résultats',
+    titre: 'Fight Event 4 : les résultats',
     accroche: 'Rani Tabal, Mael Montagne, Jefferson Vargas, Valentin Guth. Le gala en images.',
     en: { titre: 'Fight Event 4: the results', accroche: 'Rani Tabal, Mael Montagne, Jefferson Vargas, Valentin Guth. The gala in pictures.' },
     date: '2026-03-28',

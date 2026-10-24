@@ -66,7 +66,7 @@ export const usePrefs = create<PrefsState>()(
           onboarded: p.onboarded === true,
           appearance: p.appearance === 'light' || p.appearance === 'dark' || p.appearance === 'system' ? p.appearance : current.appearance,
           bar: cleanBar(p.bar),
-          notif: p.notif && typeof p.notif === 'object' ? p.notif : {},
+          notif: notifFrom(p.notif),
         };
       },
       onRehydrateStorage: () => () => {
@@ -75,3 +75,14 @@ export const usePrefs = create<PrefsState>()(
     },
   ),
 );
+
+/** Les choix gardés sur le téléphone, sous les noms du contrat (avant le 24/10 : « promos », « videos »). */
+function notifFrom(raw: unknown): Record<string, boolean> {
+  if (!raw || typeof raw !== 'object') return {};
+  const old = raw as Record<string, unknown>;
+  const out: Record<string, boolean> = {};
+  for (const [from, to] of [['promo', 'promo'], ['promos', 'promo'], ['video', 'video'], ['videos', 'video']] as const) {
+    if (typeof old[from] === 'boolean') out[to] = old[from] as boolean;
+  }
+  return out;
+}

@@ -12,24 +12,27 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import { useEffect, useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/global.css';
 
+import { confierAmbiance } from '@/features/ambiance';
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { usePrefs } from '@/state/prefs';
 import { useSession } from '@/state/session';
 import { useUsage } from '@/state/usage';
+import { BootScreen } from '@/ui/BootScreen';
 import { useTheme } from '@/ui/theme';
 
+// L'écran natif reste jusqu'à ce que l'écran de lancement (identique) soit dessiné : c'est lui qui le congédie.
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ fade: true, duration: 360 });
+SplashScreen.setOptions({ fade: true, duration: 220 });
 
 /**
  * Quand l'ambiance change (clair ↔ sombre), l'ancien fond s'efface en 320 ms
@@ -79,6 +82,7 @@ export default function RootLayout() {
   // La session décide de la vitrine ou de l'espace membre : on l'attend, sinon l'invité verrait un instant « Salut Camille ».
   const sessionReady = useSession((s) => s.hydrated);
   const onboarded = usePrefs((s) => s.onboarded);
+  const appearance = usePrefs((s) => s.appearance);
   const [loaded, error] = useFonts({
     BebasNeue_400Regular,
     Montserrat_400Regular,
@@ -89,17 +93,29 @@ export default function RootLayout() {
     IBMPlexMono_500Medium,
   });
   const ready = (loaded || !!error) && prefsReady && localeReady && sessionReady;
-
-  useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
+  const [booted, setBooted] = useState(false);
+  const onBooted = useCallback(() => setBooted(true), []);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.bg);
   }, [t.bg]);
 
-  if (!ready) return null;
+  // Le système garde l'ambiance de l'app : l'écran natif du prochain lancement la reprend.
+  useEffect(() => {
+    if (prefsReady) confierAmbiance(appearance);
+  }, [appearance, prefsReady]);
 
+  return (
+    <View style={[styles.fill, { backgroundColor: t.bg }]}>
+      {ready ? <AppTree onboarded={onboarded} /> : null}
+      {booted ? null : <BootScreen ready={ready} onDone={onBooted} />}
+    </View>
+  );
+}
+
+/** L'app elle-même, dessinée sous l'écran de lancement dès que tout est prêt. */
+function AppTree({ onboarded }: { onboarded: boolean }) {
+  const t = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
       <SafeAreaProvider>
@@ -130,3 +146,7 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+});

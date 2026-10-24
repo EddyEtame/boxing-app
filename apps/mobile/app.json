@@ -42,7 +42,7 @@
         {
           "backgroundColor": "#F4F2EE",
           "image": "./assets/brand/logo-transparent-600.png",
-          "imageWidth": 220,
+          "imageWidth": 168,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#0D1120",

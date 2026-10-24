@@ -12,24 +12,26 @@ type Props = {
   bar?: string;
   style?: StyleProp<ViewStyle>;
   compact?: boolean;
+  /** Couleur du texte sur un fond plein (bouton), quand le ton du thème ne convient pas. */
+  ink?: string;
 };
 
 /**
  * Le lower-third de la charte : une barre verticale et deux lignes.
  * C'est l'habillage de diffusion, pas une carte.
  */
-export function LowerThird({ title, meta, bar, style, compact }: Props) {
+export function LowerThird({ title, meta, bar, style, compact, ink }: Props) {
   const t = useTheme();
   return (
     <View style={[styles.row, style]}>
       <View style={[styles.bar, { backgroundColor: bar ?? t.accent }, compact && styles.barCompact]} />
       <View style={styles.text}>
         {title ? (
-          <Body size={compact ? 'bodySmall' : 'body'} weight="semi" numberOfLines={1}>
+          <Body size={compact ? 'bodySmall' : 'body'} weight="semi" numberOfLines={1} style={ink ? { color: ink } : undefined}>
             {title}
           </Body>
         ) : null}
-        <Mono size="micro" numberOfLines={2}>
+        <Mono size="micro" numberOfLines={2} style={ink ? { color: ink, opacity: 0.8 } : undefined}>
           {meta}
         </Mono>
       </View>

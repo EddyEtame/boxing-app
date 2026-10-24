@@ -10,7 +10,7 @@ import { useCombats } from '@/features/combats/useCombats';
 import { clubsProposant, heure } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
 import { track } from '@/features/analytics';
-import { useI18nStore, useInLocale, useLocale, useT } from '@/i18n';
+import { ANGLAIS_ACTIF, useI18nStore, useInLocale, useLocale, useT } from '@/i18n';
 import { GlassSurface } from '@/ui/Glass';
 import { IconChevron, IconGlobe } from '@/ui/icons';
 import { Button, Card, Section } from '@/ui/kit';
@@ -46,7 +46,7 @@ export function HomeInvite() {
   const portraits = PERSONNES.filter((p) => p.photo).slice(0, 10);
 
   return (
-    <Page trailing={<LangPill />}>
+    <Page trailing={ANGLAIS_ACTIF ? <LangPill /> : undefined}>
       <Reveal style={s.head}>
         <Logo width={132} style={s.logo} />
         <Display size="display2" tight>

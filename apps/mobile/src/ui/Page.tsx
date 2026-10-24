@@ -225,9 +225,10 @@ export function RoundButton({ label, onPress, children, badge }: PropsWithChildr
 }
 
 /**
- * Une section qui monte quand elle entre à l'écran (24 pt, 520 ms, décalage
+ * Une section qui monte quand elle entre à l'écran (16 pt, 380 ms, décalage
  * optionnel). À poser comme enfant direct de la page. Rien ne bouge si le
- * téléphone demande de réduire les animations.
+ * téléphone demande de réduire les animations. Raccourcie le 24/10/2026 (520 ms, 24 pt) :
+ * l'écran doit paraître prêt tout de suite, le mouvement ne fait que l'accompagner.
  */
 export function Reveal({ children, delay = 0, style }: PropsWithChildren<{ delay?: number; style?: StyleProp<ViewStyle> }>) {
   const scrollState = useContext(ScrollStateContext);
@@ -241,13 +242,13 @@ export function Reveal({ children, delay = 0, style }: PropsWithChildren<{ delay
     () => scrollY.value + viewport - layoutY.value,
     (visible) => {
       if (visible > 32 && shown.value === 0) {
-        shown.value = withDelay(delay, withTiming(1, { duration: 520, easing: ARRIVE }));
+        shown.value = withDelay(delay, withTiming(1, { duration: 380, easing: ARRIVE }));
       }
     },
   );
   const animated = useAnimatedStyle(() => ({
     opacity: shown.value,
-    transform: [{ translateY: (1 - shown.value) * 24 }],
+    transform: [{ translateY: (1 - shown.value) * 16 }],
   }));
   return (
     <Animated.View

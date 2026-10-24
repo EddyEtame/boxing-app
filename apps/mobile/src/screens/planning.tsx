@@ -7,7 +7,7 @@ import type { Slot } from '@/data/planning';
 import { track } from '@/features/analytics';
 import { espaceLabel, espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor } from '@/features/planning/model';
 import { shareWeek } from '@/features/planning/share';
-import { duree, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
+import { duree, relativeDay, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { SessionSheet, useSessionSheet } from '@/screens/planning/SessionSheet';
 import { WeekPoster } from '@/screens/planning/WeekPoster';
@@ -35,6 +35,15 @@ function firstDayWithCourses(club: ClubId, from: number): number {
     if (coursesOn(club, j).length) return j;
   }
   return from;
+}
+
+/**
+ * Le jour où un cours reste à venir : aujourd'hui tant qu'un cours n'est pas fini, sinon le
+ * prochain jour qui en a. À 21 h, le planning ne s'ouvre plus sur une journée toute grisée.
+ */
+function firstDayAhead(club: ClubId, today: number, nowMin: number): number {
+  if (coursesOn(club, today).some((sl) => sl.fin > nowMin)) return today;
+  return firstDayWithCourses(club, (today + 1) % 7);
 }
 
 /** Les dates de la semaine en cours, lundi en premier. */
@@ -80,7 +89,7 @@ export function Screen() {
   const [club, setClub] = useState<ClubId>(startClub);
   const [espace, setEspace] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>('jour');
-  const [jour, setJour] = useState(() => firstDayWithCourses(startClub, today));
+  const [jour, setJour] = useState(() => firstDayAhead(startClub, today, nowMin));
   const sheet = useSessionSheet();
   const [copied, setCopied] = useState(false);
   const openSession = (slot: Slot, j: number) => {
@@ -104,7 +113,8 @@ export function Screen() {
   const espaceActif = espaces.length ? (espace && espaces.includes(espace) ? espace : espaces[0]) : undefined;
   const slots = slotsFor(club, jour, espaceActif);
   const index = Math.max(0, ordered.findIndex((c) => c.id === club));
-  const todayEmpty = coursesOn(club, today).length === 0;
+  // Plus rien à venir aujourd'hui (aucun cours, ou tous finis) : le planning a sauté au prochain jour et le dit.
+  const todayOver = !coursesOn(club, today).some((sl) => sl.fin > nowMin);
   const firstCourse = coursesOn(club, jour)[0];
   const nextToday = jour === today ? slots.find((sl) => sl.debut > nowMin && normaliseActivite(sl.activite).famille !== 'accesLibre') : undefined;
 
@@ -113,7 +123,7 @@ export function Screen() {
     bump('clubs', id);
     track('planning_view', { club: id, mode });
     setEspace(undefined);
-    if (coursesOn(id, jour).length === 0) setJour(firstDayWithCourses(id, today));
+    if (jour === today || coursesOn(id, jour).length === 0) setJour(firstDayAhead(id, today, nowMin));
     if (scrollTo !== undefined) scroller.current?.scrollTo({ x: scrollTo * step, animated: true });
   };
   const onSettle = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -221,11 +231,11 @@ export function Screen() {
             </ScrollView>
           </Reveal>
 
-          {todayEmpty && jour !== today ? (
+          {todayOver && jour !== today ? (
             <View style={s.deduction}>
               <View style={s.deductionBar} />
               <Body size="bodySmall" weight="semi" tone="muted" style={{ flex: 1 }}>
-                {clubById(club).ouverture.jours.includes(today) ? T('planning.nothingToday', { day: WEEKDAYS[lang][today] }) : T('planning.closedToday', { day: WEEKDAYS[lang][today] })} {T('planning.resume', { day: weekdayIn(jour, lang), h: firstCourse ? heure(firstCourse.debut) : '' })}
+                {clubById(club).ouverture.jours.includes(today) ? T('planning.nothingToday', { day: WEEKDAYS[lang][today] }) : T('planning.closedToday', { day: WEEKDAYS[lang][today] })} {T('planning.resume', { day: jour === (today + 1) % 7 ? relativeDay(1, jour, lang, true) : weekdayIn(jour, lang), h: firstCourse ? heure(firstCourse.debut) : '' })}
               </Body>
             </View>
           ) : null}

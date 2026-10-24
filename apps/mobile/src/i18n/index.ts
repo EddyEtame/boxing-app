@@ -13,10 +13,18 @@ export type Locale = 'fr' | 'en';
 export type MessageKey = Path<typeof fr>;
 type Params = Record<string, string | number>;
 
+/**
+ * L'anglais est prêt mais en sommeil (Eddy, 24/10/2026) : l'app parle français tant
+ * que la direction n'a pas validé une version anglaise. À `true`, le choix de la
+ * langue revient dans Plus et la langue du téléphone est suivie.
+ */
+export const ANGLAIS_ACTIF = false;
+
 /** Le français fait foi ; l'anglais doit avoir exactement les mêmes clés (vérifié par le typage). */
 const dictionaries: Record<Locale, Translation> = { fr, en };
 
 function detectLocale(): Locale {
+  if (!ANGLAIS_ACTIF) return 'fr';
   try {
     const code = getLocales()[0]?.languageCode ?? 'fr';
     return code === 'en' ? 'en' : 'fr';
@@ -37,7 +45,7 @@ export const useI18nStore = create<I18nState>()(
     (set) => ({
       locale: detectLocale(),
       hydrated: false,
-      setLocale: (locale) => set({ locale }),
+      setLocale: (locale) => set({ locale: ANGLAIS_ACTIF ? locale : 'fr' }),
     }),
     {
       name: 'bc-locale',
@@ -47,7 +55,8 @@ export const useI18nStore = create<I18nState>()(
       partialize: (s) => ({ locale: s.locale }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<I18nState>;
-        return { ...current, locale: p.locale === 'en' || p.locale === 'fr' ? p.locale : current.locale };
+        // Un « en » enregistré par une version précédente ne compte plus tant que l'anglais dort.
+        return { ...current, locale: ANGLAIS_ACTIF && (p.locale === 'en' || p.locale === 'fr') ? p.locale : current.locale };
       },
       onRehydrateStorage: () => () => {
         useI18nStore.setState({ hydrated: true });

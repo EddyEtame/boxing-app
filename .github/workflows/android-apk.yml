@@ -14,6 +14,11 @@ name: APK Android
 
 on:
   workflow_dispatch:
+    inputs:
+      abis:
+        description: "Architectures (ajouter x86_64 pour l’émulateur Android de test)"
+        required: false
+        default: "arm64-v8a,armeabi-v7a"
   push:
     tags: ['v*']
 
@@ -70,7 +75,8 @@ jobs:
           {
             echo ""
             echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
-            echo "reactNativeArchitectures=arm64-v8a,armeabi-v7a"
+            # Les téléphones par défaut ; x86_64 seulement sur demande (émulateur de test, 24/10/2026).
+            echo "reactNativeArchitectures=${{ inputs.abis || 'arm64-v8a,armeabi-v7a' }}"
           } >> gradle.properties
           tail -n 6 gradle.properties
 
