@@ -32,7 +32,9 @@ import { useTheme } from '@/ui/theme';
 
 // L'écran natif reste jusqu'à ce que l'écran de lancement (identique) soit dessiné : c'est lui qui le congédie.
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ fade: true, duration: 220 });
+// Sans fondu : l'écran de lancement est identique au pixel près, un fondu ne ferait que ralentir
+// (sur Android, il passe par un transfert de la fenêtre qui expirait sur les téléphones lents, 24/10/2026).
+SplashScreen.setOptions({ fade: false });
 
 /**
  * Quand l'ambiance change (clair ↔ sombre), l'ancien fond s'efface en 320 ms

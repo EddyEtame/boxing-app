@@ -28,8 +28,8 @@ const BAR_GAP = 30;
 const BAR_HEIGHT = 3;
 /** Filet : si le logo ne signale pas son affichage, l'écran natif part quand même. */
 const DISPLAY_FALLBACK_MS = 900;
-/** Assez pour que la barre se lise comme un chargement, pas assez pour faire attendre. */
-const MIN_VISIBLE_MS = 520;
+/** Assez pour que la barre se lise comme un chargement (Eddy : « a little bar below, loading »), pas assez pour faire attendre. */
+const MIN_VISIBLE_MS = 950;
 const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2], easing.arrive[3]);
 
 type Props = {
