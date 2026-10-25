@@ -1,0 +1,30 @@
+# Projet Supabase de l'application (region Paris, compte de la SAS Boxing Center).
+# Le projet heberge se regle dans le tableau de bord ; ce fichier sert a
+# `supabase start` et `supabase db push`.
+
+project_id = "boxing-center"
+
+[db]
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "boxingcenter://"
+minimum_password_length = 8
+jwt_expiry = 900
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+otp_length = 6
+otp_expiry = 3600
+
+# Les e-mails de compte (code de verification, mot de passe oublie) partent
+# par le serveur applicatif, qui les envoie avec le Brevo de la boutique.
+[auth.hook.send_email]
+enabled = true
+uri = "env(SEND_EMAIL_HOOK_URI)"
+secrets = "env(SEND_EMAIL_HOOK_SECRET)"
