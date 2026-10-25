@@ -1,0 +1,27 @@
+{
+  "name": "bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serveur applicatif Boxing Center : comptes, rapprochement Deciplus via le robot BOXPLUS, e-mails de compte, mesure d'usage.",
+  "type": "module",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "node --experimental-strip-types --import ./src/register.mjs --env-file-if-exists=.env src/server.ts",
+    "dev": "node --watch --experimental-strip-types --import ./src/register.mjs --env-file-if-exists=.env src/server.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --experimental-strip-types --import ./src/register.mjs --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^10.0.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "fastify": "^5.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^6.0.3"
+  }
+}
