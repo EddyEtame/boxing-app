@@ -24,10 +24,14 @@ import { confierAmbiance } from '@/features/ambiance';
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
+import { configReady } from '@/lib/config';
+import '@/lib/background';
+import { ConfigManquante } from '@/screens/ConfigManquante';
 import { usePrefs } from '@/state/prefs';
-import { useSession } from '@/state/session';
+import { bootSession, useSession } from '@/state/session';
 import { useUsage } from '@/state/usage';
 import { BootScreen } from '@/ui/BootScreen';
+import { BandeauHorsLigne } from '@/ui/Offline';
 import { useTheme } from '@/ui/theme';
 
 // L'écran natif reste jusqu'à ce que l'écran de lancement (identique) soit dessiné : c'est lui qui le congédie.
@@ -37,7 +41,7 @@ SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: false });
 
 /**
- * Quand l'ambiance change (clair ↔ sombre), l'ancien fond s'efface en 320 ms
+ * Quand l'ambiance change (clair ou sombre), l'ancien fond s'efface en 320 ms
  * par-dessus le nouveau : un fondu, pas un clignement.
  */
 function ThemeFade() {
@@ -81,8 +85,8 @@ export default function RootLayout() {
   const t = useTheme();
   const prefsReady = usePrefs((s) => s.hydrated);
   const localeReady = useI18nStore((s) => s.hydrated);
-  // La session décide de la vitrine ou de l'espace membre : on l'attend, sinon l'invité verrait un instant « Salut Camille ».
-  const sessionReady = useSession((s) => s.hydrated);
+  const clubsReady = useSession((s) => s.clubsHydrated);
+  const auth = useSession((s) => s.auth);
   const onboarded = usePrefs((s) => s.onboarded);
   const appearance = usePrefs((s) => s.appearance);
   const [loaded, error] = useFonts({
@@ -94,9 +98,13 @@ export default function RootLayout() {
     Montserrat_800ExtraBold,
     IBMPlexMono_500Medium,
   });
-  const ready = (loaded || !!error) && prefsReady && localeReady && sessionReady;
+  const ready = (loaded || !!error) && prefsReady && localeReady && clubsReady && (!configReady || auth !== 'chargement');
   const [booted, setBooted] = useState(false);
   const onBooted = useCallback(() => setBooted(true), []);
+
+  useEffect(() => {
+    if (configReady) bootSession();
+  }, []);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.bg);
@@ -109,7 +117,7 @@ export default function RootLayout() {
 
   return (
     <View style={[styles.fill, { backgroundColor: t.bg }]}>
-      {ready ? <AppTree onboarded={onboarded} /> : null}
+      {ready ? (configReady ? <AppTree onboarded={onboarded} /> : <ConfigManquante />) : null}
       {booted ? null : <BootScreen ready={ready} onDone={onBooted} />}
     </View>
   );
@@ -144,6 +152,7 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
           </Stack.Protected>
         </Stack>
         <ThemeFade />
+        <BandeauHorsLigne />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

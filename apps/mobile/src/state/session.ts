@@ -1,136 +1,218 @@
-import type { Passage } from '@bc/contract';
+import { SNAPSHOT_REFRESH_MS, type Me, type Statut } from '@bc/contract';
+import { AppState } from 'react-native';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { MEMBER, type Member } from '@/data/member';
+import { ApiError, lireMe, rafraichirMe, supprimerCompte } from '@/lib/api';
+import { activerRafraichissementFond, arreterRafraichissementFond } from '@/lib/background';
+import { configReady } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
+import { IS_SERVER, persistStorage } from '@/state/storage';
 import type { ClubId } from '@/ui/theme';
 
-import { IS_SERVER, persistStorage } from './storage';
+export type AuthPhase = 'chargement' | 'deconnecte' | 'connecte';
 
-/**
- * La session, gardée sur le téléphone (23/10/2026, Eddy, après l'essai de l'APK :
- * « l'invité doit rester invité ; pas de "Salut Camille" quand on n'a pas créé de
- * compte »). Sans serveur, trois cas :
- * - aucun compte : la vitrine (invité), et elle le reste d'un lancement à l'autre ;
- * - compte créé sur ce téléphone : prénom, nom, e-mail, date de naissance et club
- *   saisis (jamais le mot de passe), avec l'abonnement de démonstration ;
- * - connexion : le compte de démonstration (Camille Durand), annoncé comme tel
- *   sur l'écran de connexion.
- * En production : jeton signé lié à l'appareil, fiche lue dans Deciplus, secret
- * du badge en SecureStore (.research/08-SECURITE.md). Rien de tout cela ici.
- */
-export type Account =
-  | { kind: 'none' }
-  | { kind: 'created'; prenom: string; nom: string; email: string; dateNaissance: string; club: ClubId }
-  | { kind: 'demo'; email: string };
-
-export type NewAccount = { prenom: string; nom: string; email: string; dateNaissance: string; club: ClubId };
+const CLUBS: ClubId[] = ['minimes', 'saint-cyprien', 'etats-unis', 'ramonville', 'portet'];
+const CLUB_DEFAUT: ClubId = 'minimes';
 
 type SessionState = {
-  hydrated: boolean;
-  account: Account;
-  /** Statut forcé par l'interrupteur de démonstration (développement) ; sinon déduit du compte. */
-  statut: Member['statut'];
-  member: Member;
-  deviceSecret: string;
-  /** Les clubs que l'adhérent a choisis, dans son ordre. Le premier est le club habituel. */
+  auth: AuthPhase;
+  me: Me | null;
+  erreur: ApiError['code'] | null;
   clubsChoisis: ClubId[];
-  /** Le club que l'accueil et le planning montrent en ce moment. */
   clubActif: ClubId;
-  setStatut: (statut: Member['statut']) => void;
+  /** Vrai des que l'adherent a touche la liste (on ne l'ecrase plus avec la fiche). */
+  clubsChoisisParLui: boolean;
+  clubsHydrated: boolean;
   setClubs: (clubs: ClubId[]) => void;
   setClubActif: (club: ClubId) => void;
-  /** Démonstration : rejoue un historique de passages fabriqué (jamais enregistré). */
-  setPassages: (passages: Passage[]) => void;
-  createAccount: (a: NewAccount) => void;
-  signIn: (email: string) => void;
-  signOut: () => void;
+  applyMe: (me: Me) => void;
+  boot: () => Promise<void>;
+  recharger: () => Promise<void>;
+  signOut: () => Promise<void>;
+  supprimer: () => Promise<void>;
 };
 
-function demoSecret(): string {
-  // Un secret par lancement, de démonstration ; jamais celui de production.
-  return 'demo-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+function estClub(id: unknown): id is ClubId {
+  return CLUBS.includes(id as ClubId);
 }
 
-/** La fiche affichée, déduite du compte et du statut. Les passages restent ceux du moment. */
-function memberFor(account: Account, statut: Member['statut'], passages: Passage[]): Member {
-  if (account.kind === 'created') {
-    return { ...MEMBER, prenom: account.prenom, nom: account.nom, dateNaissance: account.dateNaissance, clubPrincipal: account.club, statut, passages };
+function nettoyerClubs(value: unknown): ClubId[] {
+  if (!Array.isArray(value)) return [CLUB_DEFAUT];
+  const liste = value.filter(estClub);
+  const uniques = liste.filter((id, i) => liste.indexOf(id) === i);
+  return uniques.length ? uniques : [CLUB_DEFAUT];
+}
+
+function clubsApresFiche(
+  actuel: { clubsChoisis: ClubId[]; clubActif: ClubId; clubsChoisisParLui: boolean },
+  principal: ClubId | null,
+): { clubsChoisis: ClubId[]; clubActif: ClubId } {
+  if (!actuel.clubsChoisisParLui && principal) {
+    return { clubsChoisis: [principal], clubActif: principal };
   }
-  // Sans compte, l'interrupteur de développement peut montrer l'adhérent de démonstration.
-  return { ...MEMBER, statut, passages };
+  const clubs = principal && !actuel.clubsChoisis.includes(principal) ? [principal, ...actuel.clubsChoisis] : actuel.clubsChoisis;
+  return { clubsChoisis: clubs, clubActif: clubs.includes(actuel.clubActif) ? actuel.clubActif : clubs[0] };
 }
 
-const GUEST_CLUBS: ClubId[] = [MEMBER.clubPrincipal];
+let demarre = false;
+let ecoutePosee = false;
+
+function attendreClubs(): Promise<void> {
+  if (useSession.getState().clubsHydrated) return Promise.resolve();
+  return new Promise((resolve) => {
+    const arret = useSession.subscribe((s) => {
+      if (!s.clubsHydrated) return;
+      arret();
+      resolve();
+    });
+  });
+}
 
 export const useSession = create<SessionState>()(
   persist(
     (set, get) => ({
-      hydrated: false,
-      account: { kind: 'none' },
-      statut: 'invite',
-      member: memberFor({ kind: 'none' }, 'invite', MEMBER.passages),
-      deviceSecret: demoSecret(),
-      clubsChoisis: GUEST_CLUBS,
-      clubActif: MEMBER.clubPrincipal,
-      setStatut: (statut) => set((s) => ({ statut, member: memberFor(s.account, statut, s.member.passages) })),
+      auth: 'chargement',
+      me: null,
+      erreur: null,
+      clubsChoisis: [CLUB_DEFAUT],
+      clubActif: CLUB_DEFAUT,
+      clubsChoisisParLui: false,
+      clubsHydrated: IS_SERVER,
       setClubs: (clubs) => {
-        const list = clubs.length ? clubs : [get().member.clubPrincipal];
-        set({ clubsChoisis: list, clubActif: list.includes(get().clubActif) ? get().clubActif : list[0] });
+        const base = get().me?.clubPrincipal ?? get().clubActif;
+        const liste = clubs.length ? clubs : [base];
+        set({
+          clubsChoisis: liste,
+          clubsChoisisParLui: true,
+          clubActif: liste.includes(get().clubActif) ? get().clubActif : liste[0],
+        });
       },
       setClubActif: (clubActif) => set({ clubActif }),
-      setPassages: (passages) => set((s) => ({ member: { ...s.member, passages } })),
-      createAccount: (a) => {
-        const account: Account = { kind: 'created', ...a, email: a.email.trim().toLowerCase() };
-        set((s) => ({ account, statut: 'actif', member: memberFor(account, 'actif', s.member.passages), clubsChoisis: [a.club], clubActif: a.club }));
+      applyMe: (me) => {
+        const clubs = clubsApresFiche(get(), me.clubPrincipal);
+        set({ me, auth: 'connecte', erreur: null, ...clubs });
       },
-      signIn: (email) => {
-        const account: Account = { kind: 'demo', email: email.trim().toLowerCase() };
-        set((s) => ({
-          account,
-          statut: 'actif',
-          member: memberFor(account, 'actif', s.member.passages),
-          clubsChoisis: [MEMBER.clubPrincipal, 'saint-cyprien'],
-          clubActif: MEMBER.clubPrincipal,
-        }));
+      boot: async () => {
+        if (demarre) return;
+        demarre = true;
+        try {
+          await attendreClubs();
+          if (!configReady || !supabase) {
+            set({ auth: 'deconnecte', me: null });
+            return;
+          }
+          const { data } = await supabase.auth.getSession();
+          if (!data.session) set({ auth: 'deconnecte', me: null });
+          else await chargerMe(get, set);
+          if (!ecoutePosee) {
+            ecoutePosee = true;
+            supabase.auth.onAuthStateChange((event, session) => {
+              if (event === 'SIGNED_OUT' || !session) {
+                set({ auth: 'deconnecte', me: null, erreur: null });
+                return;
+              }
+              if (event === 'SIGNED_IN') void chargerMe(get, set);
+            });
+            AppState.addEventListener('change', (state) => {
+              if (state === 'active') void rafraichirSiAncien();
+            });
+          }
+          if (data.session) void rafraichirSiAncien();
+        } catch {
+          set({ auth: 'deconnecte', me: null, erreur: 'hors_ligne' });
+        }
       },
-      signOut: () =>
-        set((s) => ({ account: { kind: 'none' }, statut: 'invite', member: memberFor({ kind: 'none' }, 'invite', s.member.passages), clubsChoisis: GUEST_CLUBS, clubActif: MEMBER.clubPrincipal })),
+      recharger: async () => {
+        if (get().auth !== 'connecte') return;
+        await chargerMe(get, set);
+      },
+      signOut: async () => {
+        await arreterRafraichissementFond();
+        await supabase?.auth.signOut();
+        set({ auth: 'deconnecte', me: null, erreur: null });
+      },
+      supprimer: async () => {
+        await supprimerCompte();
+        await get().signOut();
+      },
     }),
     {
-      name: 'bc-session',
+      name: 'bc-clubs',
       version: 1,
       storage: persistStorage,
       skipHydration: IS_SERVER,
-      partialize: (s) => ({ account: s.account, statut: s.statut, clubsChoisis: s.clubsChoisis, clubActif: s.clubActif }),
+      partialize: (s) => ({ clubsChoisis: s.clubsChoisis, clubActif: s.clubActif, clubsChoisisParLui: s.clubsChoisisParLui }),
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<Pick<SessionState, 'account' | 'statut' | 'clubsChoisis' | 'clubActif'>>;
-        const account: Account = p.account && (p.account.kind === 'created' || p.account.kind === 'demo' || p.account.kind === 'none') ? p.account : { kind: 'none' };
-        const statut: Member['statut'] = p.statut === 'actif' || p.statut === 'restreint' || p.statut === 'invite' ? p.statut : account.kind === 'none' ? 'invite' : 'actif';
-        const clubsChoisis = Array.isArray(p.clubsChoisis) && p.clubsChoisis.length ? p.clubsChoisis : current.clubsChoisis;
-        const clubActif = p.clubActif && clubsChoisis.includes(p.clubActif) ? p.clubActif : clubsChoisis[0];
-        return { ...current, account, statut, clubsChoisis, clubActif, member: memberFor(account, statut, current.member.passages) };
+        const p = (persisted ?? {}) as Partial<SessionState>;
+        const clubsChoisis = nettoyerClubs(p.clubsChoisis);
+        const clubActif = estClub(p.clubActif) && clubsChoisis.includes(p.clubActif) ? p.clubActif : clubsChoisis[0];
+        return { ...current, clubsChoisis, clubActif, clubsChoisisParLui: p.clubsChoisisParLui === true };
       },
       onRehydrateStorage: () => () => {
-        useSession.setState({ hydrated: true });
+        useSession.setState({ clubsHydrated: true });
       },
     },
   ),
 );
 
-/** Invité = pas de compte : la vitrine. Adhérent (actif ou restreint) = l’espace personnel. */
-export function useProfil(): 'invite' | 'adherent' {
-  return useSession((s) => (s.member.statut === 'invite' ? 'invite' : 'adherent'));
+type Get = () => SessionState;
+type Set = (partial: Partial<SessionState>) => void;
+
+async function chargerMe(get: Get, set: Set): Promise<void> {
+  try {
+    const me = await lireMe();
+    get().applyMe(me);
+    await activerRafraichissementFond();
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'non_autorise') {
+      await arreterRafraichissementFond();
+      await supabase?.auth.signOut();
+      set({ auth: 'deconnecte', me: null, erreur: null });
+      return;
+    }
+    set({ auth: 'connecte', me: get().me, erreur: e instanceof ApiError ? e.code : 'serveur' });
+  }
 }
 
-/** « 12/04/1996 » → « 1996-04-12 », ou null si la date n'existe pas ou donne un âge impossible. */
-export function parseBirthDate(input: string, now = new Date()): string | null {
-  const m = input.trim().match(/^(\d{1,2})[/.\-\s](\d{1,2})[/.\-\s](\d{4})$/);
-  if (!m) return null;
-  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(y, mo - 1, d);
-  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
-  const age = now.getFullYear() - y - (now < new Date(now.getFullYear(), mo - 1, d) ? 1 : 0);
-  if (age < 3 || age > 100) return null;
-  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+/** Relit la fiche si la derniere lecture a plus de 6 heures. Utilise aussi par la tache de fond. */
+export async function rafraichirSiAncien(): Promise<boolean> {
+  if (!supabase) return true;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return true;
+  try {
+    let me = useSession.getState().me;
+    if (!me) {
+      me = await lireMe();
+      useSession.getState().applyMe(me);
+    }
+    const lu = me.snapshot?.readAt ? Date.parse(me.snapshot.readAt) : NaN;
+    if (Number.isFinite(lu) && Date.now() - lu < SNAPSHOT_REFRESH_MS) return true;
+    const suivant = await rafraichirMe();
+    useSession.getState().applyMe(suivant);
+    return true;
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'non_autorise') {
+      await useSession.getState().signOut();
+    }
+    return false;
+  }
+}
+
+export function selectStatut(s: { auth: AuthPhase; me: Me | null }): Statut {
+  if (s.auth === 'connecte' && s.me) return s.me.statut;
+  return 'invite';
+}
+
+/** Invite sans session. Des qu'une session existe, c'est l'espace adherent. */
+export function useProfil(): 'invite' | 'adherent' {
+  return useSession((s) => (s.auth === 'connecte' ? 'adherent' : 'invite'));
+}
+
+export function bootSession(): void {
+  if (IS_SERVER) {
+    useSession.setState({ auth: 'deconnecte', clubsHydrated: true });
+    return;
+  }
+  void useSession.getState().boot();
 }

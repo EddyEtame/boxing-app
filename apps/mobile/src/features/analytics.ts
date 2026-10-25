@@ -5,20 +5,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { useI18nStore } from '@/i18n';
-import { useSession } from '@/state/session';
+import { API_URL } from '@/lib/config';
+import { selectStatut, useSession } from '@/state/session';
 import { IS_SERVER, persistStorage } from '@/state/storage';
 import { useUsage } from '@/state/usage';
 
 /**
- * La mesure d'usage (CDC §15 ; Eddy, 20/10/2026 : « surtout les non-membres »).
- * Chaque geste compte deux fois : sur le téléphone, pour personnaliser l'app
- * (state/usage), et, anonymement, vers l'admin, pour comprendre l'expérience.
- *
- * Rien ne part sans EXPO_PUBLIC_API_URL ; rien ne part si la personne a coupé
- * la mesure ; les événements attendent en file (500 au plus) et partent par
- * lots. Aucune donnée nominative : voir le contrat (packages/contract/events).
+ * La mesure d'usage (CDC §15). Rien ne part sans EXPO_PUBLIC_API_URL, rien ne
+ * part si la personne a coupe la mesure. File de 500 evenements au plus.
  */
-const API_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
 const VISIT_GAP = 30 * 60 * 1000;
 const MAX_QUEUE = 500;
 const BATCH = 25;
@@ -43,7 +38,7 @@ function newId(): string {
 }
 
 let scheme: 'light' | 'dark' = 'light';
-/** L'ambiance affichée, posée par la racine (le store ne connaît que la préférence). */
+/** L'ambiance affichee, posee par la racine. */
 export function setAnalyticsScheme(s: 'light' | 'dark') {
   scheme = s;
 }
@@ -61,7 +56,7 @@ export function track(name: EventName, props?: Record<string, unknown>, path?: s
     at: new Date(now).toISOString(),
     anonId: usage.anonId,
     visit,
-    statut: useSession.getState().member.statut,
+    statut: selectStatut(useSession.getState()),
     locale: useI18nStore.getState().locale,
     scheme,
     platform: Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : 'web',
@@ -90,7 +85,6 @@ export async function flush(): Promise<void> {
   }
 }
 
-/** Le dernier chemin vu, pour éviter de compter deux fois le même écran. */
 let lastPath = '';
 export function trackScreen(path: string) {
   if (path === lastPath) return;
@@ -100,7 +94,6 @@ export function trackScreen(path: string) {
   track('screen_view', { section }, path);
 }
 
-/** Démarre l'envoi périodique ; à appeler une fois depuis la racine. */
 export function startAnalytics() {
   if (IS_SERVER || !API_URL) return () => {};
   const id = setInterval(() => void flush(), 20_000);
@@ -108,8 +101,6 @@ export function startAnalytics() {
   return () => clearInterval(id);
 }
 
-/** Vide la file (suppression du compte, désactivation de la mesure). */
 export function clearAnalytics() {
   useQueue.setState({ queue: [], visit: '', lastAt: 0 });
 }
-

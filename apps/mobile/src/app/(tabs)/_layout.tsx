@@ -5,7 +5,6 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { Screen } from 'react-native-screens';
 
 import { GlassTabBar } from '@/ui/GlassTabBar';
-import { ProfileSwitch } from '@/ui/ProfileSwitch';
 import { easing, useTheme } from '@/ui/theme';
 
 type RenderTab = NonNullable<ComponentProps<typeof TabSlot>['renderFn']>;
@@ -71,7 +70,6 @@ export default function TabsLayout() {
         </TabList>
         <GlassTabBar />
       </Tabs>
-      <ProfileSwitch />
     </View>
   );
 }

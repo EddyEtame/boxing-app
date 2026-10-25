@@ -9,7 +9,7 @@ import { SECTIONS, type SectionId } from '@/features/sections';
 import { useT } from '@/i18n';
 import { usePrefs } from '@/state/prefs';
 import { useUnreadCount } from '@/state/messages';
-import { useSession } from '@/state/session';
+import { selectStatut, useSession } from '@/state/session';
 import { GlassSurface } from '@/ui/Glass';
 import { IconLock } from '@/ui/icons';
 import { scrollActiveToTop } from '@/ui/scrollTop';
@@ -29,8 +29,7 @@ export function GlassTabBar() {
   const pathname = usePathname();
   const bar = usePrefs((s) => s.bar);
   const unread = useUnreadCount();
-  const statut = useSession((s) => s.member.statut);
-  const badgeOk = useSession((s) => s.member.statut === 'actif' && s.member.badge.enregistre);
+  const statut = useSession(selectStatut);
   const insets = useSafeAreaInsets();
   const { width: screen } = useWindowDimensions();
 
@@ -64,7 +63,7 @@ export function GlassTabBar() {
               label={T(SECTIONS[id].label)}
               count={id === 'messages' && statut === 'actif' ? unread : 0}
               locked={!!SECTIONS[id].members && statut !== 'actif'}
-              live={id === 'badge' && badgeOk}
+              live={false}
             />
           ))}
         </View>

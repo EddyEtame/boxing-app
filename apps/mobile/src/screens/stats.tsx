@@ -1,4 +1,4 @@
-import { DEFAULT_DEMO, generatePassages, type DemoPattern, type Moment } from '@bc/contract';
+import type { Moment } from '@bc/contract';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -10,10 +10,11 @@ import { useStats } from '@/features/stats/model';
 import { auClub } from '@/features/planning/model';
 import { longDate, monthName, monthShort, shortDay, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT, type MessageKey } from '@/i18n';
-import { useSession } from '@/state/session';
+import { selectStatut, useSession } from '@/state/session';
+import { HorsLigne } from '@/ui/Offline';
 import { useUsage } from '@/state/usage';
 import { IconShare } from '@/ui/icons';
-import { Button, Card, Chip, Section, Segmented } from '@/ui/kit';
+import { Button, Card, Chip, Section } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { ProgressRing } from '@/ui/ProgressRing';
 import { Tap } from '@/ui/Tap';
@@ -34,7 +35,10 @@ const MOMENT_KEY: Record<Moment, MessageKey> = { matin: 'stats.moments.matin', m
  */
 export function Screen() {
   const T = useT();
-  const statut = useSession((s) => s.member.statut);
+  const auth = useSession((s) => s.auth);
+  const me = useSession((s) => s.me);
+  const statut = useSession(selectStatut);
+  if (auth === 'connecte' && !me) return <HorsLigne />;
   if (statut === 'invite') {
     return (
       <Page title={T('stats.title')}>
@@ -50,14 +54,15 @@ function StatsBody() {
   const s = useStyles();
   const t = useTheme();
   const lang = useLocale();
-  const member = useSession((st) => st.member);
+  const clubActif = useSession((st) => st.clubActif);
+  const me = useSession((st) => st.me);
   const goal = useUsage((st) => st.weeklyGoal);
   const setGoal = useUsage((st) => st.setGoal);
   const now = new Date();
   const stats = useStats({ weeks: 8, heatWeeks: 15 });
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const delta = stats.month - stats.monthPrev;
-  const topClub = clubById(stats.byClub[0]?.club ?? member.clubPrincipal);
+  const topClub = clubById(stats.byClub[0]?.club ?? me?.clubPrincipal ?? clubActif);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -87,8 +92,9 @@ function StatsBody() {
             {stats.streak > 0 ? T('stats.streak', { n: stats.streak }) : T('stats.streakZero')}
           </Body>
           <Body size="bodySmall" tone="muted" style={s.heroSub}>
-            {stats.bestStreak > 1 ? `${T('stats.best', { n: stats.bestStreak })} · ` : ''}
-            {T('stats.mostly', { club: lang === 'en' ? topClub.court : auClub(topClub.id, topClub.court) })}
+            {stats.total === 0
+              ? T('stats.empty')
+              : `${stats.bestStreak > 1 ? `${T('stats.best', { n: stats.bestStreak })} · ` : ''}${T('stats.mostly', { club: lang === 'en' ? topClub.court : auClub(topClub.id, topClub.court) })}`}
           </Body>
           <View style={s.goalRow}>
             <Body size="caption" weight="bold" eyebrow tone="muted">
@@ -164,7 +170,8 @@ function StatsBody() {
       <Reveal>
         <Section title={T('stats.logbook')} note={T('stats.logbookNote')}>
           <Card padded={false} style={s.list}>
-            {stats.recent.slice(0, 6).map((p, i, arr) => (
+            {stats.recent.length ? (
+              stats.recent.slice(0, 6).map((p, i, arr) => (
               <View key={p.date + p.heure} style={[s.entry, i < arr.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
                 <Mono size="caption" tone="dim" style={s.entryNo}>
                   {String(stats.total - i).padStart(3, '0')}
@@ -179,16 +186,21 @@ function StatsBody() {
                 </View>
                 <Stamp label={T('stats.present')} ink={i === 0} delay={i === 0 ? 400 : 0} />
               </View>
-            ))}
+              ))
+            ) : (
+              <View style={s.entry}>
+                <Body tone="muted">{T('stats.empty')}</Body>
+              </View>
+            )}
           </Card>
         </Section>
       </Reveal>
 
-      <Reveal style={s.shareBlock}>
-        <Button label={copied ? T('planning.copied') : T('stats.shareMonth')} icon={IconShare} variant="secondary" onPress={share} />
-      </Reveal>
-
-      {__DEV__ ? <DemoScenario /> : null}
+      {stats.total > 0 ? (
+        <Reveal style={s.shareBlock}>
+          <Button label={copied ? T('planning.copied') : T('stats.shareMonth')} icon={IconShare} variant="secondary" onPress={share} />
+        </Reveal>
+      ) : null}
     </Page>
   );
 }
@@ -326,45 +338,6 @@ function ClubBar({ club, value, share, index, last }: { club: ClubId; value: num
   );
 }
 
-/* ------------------------------------------------------------------ */
-
-type Scenario = 'reguliere' | 'reprise' | 'baisse' | 'nouvelle';
-const SCENARIOS: Record<Scenario, DemoPattern> = {
-  reguliere: DEFAULT_DEMO,
-  reprise: { ...DEFAULT_DEMO, perWeek: 2, gaps: [3, 4, 5, 6], seed: 7 },
-  baisse: { ...DEFAULT_DEMO, perWeek: 1, jitter: 1, gaps: [1], seed: 11 },
-  nouvelle: { ...DEFAULT_DEMO, perWeek: 3, weeks: 2, gaps: [], seed: 3 },
-};
-
-/** Développement seulement : les scénarios que l'admin saura rejouer, pour montrer les stats bouger. */
-function DemoScenario() {
-  const T = useT();
-  const s = useStyles();
-  const setPassages = useSession((st) => st.setPassages);
-  const [scenario, setScenario] = useState<Scenario>('reguliere');
-  return (
-    <Reveal>
-      <Section title={T('stats.demo')} note={T('stats.demoNote')}>
-        <Segmented<Scenario>
-          full
-          value={scenario}
-          onChange={(v) => {
-            setScenario(v);
-            setPassages(generatePassages(SCENARIOS[v]));
-          }}
-          options={[
-            { value: 'reguliere', label: T('stats.scenario.reguliere') },
-            { value: 'reprise', label: T('stats.scenario.reprise') },
-            { value: 'baisse', label: T('stats.scenario.baisse') },
-            { value: 'nouvelle', label: T('stats.scenario.nouvelle') },
-          ]}
-          style={s.demo}
-        />
-      </Section>
-    </Reveal>
-  );
-}
-
 const useStyles = makeStyles((t) => ({
   hero: { alignItems: 'center', paddingVertical: space[6] },
   heroLine: { marginTop: space[5], textAlign: 'center' },
@@ -407,5 +380,4 @@ const useStyles = makeStyles((t) => ({
   entry: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 64, paddingVertical: space[3] },
   entryNo: { width: 34 },
   shareBlock: { marginTop: space[6] },
-  demo: { marginTop: space[1] },
 }));

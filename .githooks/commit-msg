@@ -21,6 +21,7 @@ f="$1"
 # 1. les lignes de signature, quelle que soit leur forme
 sed -i \
   -e '/^[[:space:]]*Co-[Aa]uthored-[Bb]y:.*[Cc]laude/d' \
+  -e '/^[[:space:]]*Co-[Aa]uthored-[Bb]y:.*[Cc]ursor/d' \
   -e '/^[[:space:]]*Co-[Aa]uthored-[Bb]y:.*anthropic/Id' \
   -e '/[Gg]enerated with \[\?Claude/d' \
   -e '/^[[:space:]]*🤖/d' \

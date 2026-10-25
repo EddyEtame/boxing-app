@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
@@ -8,16 +8,16 @@ import { SECTIONS, PLUS_GRID, type SectionId } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { ANGLAIS_ACTIF, useI18nStore, useT, type Locale } from '@/i18n';
 import { usePrefs, type Appearance } from '@/state/prefs';
-import { deleteLocalAccount } from '@/state/account';
 import { useUsage } from '@/state/usage';
 import { useSession } from '@/state/session';
+import { HorsLigne } from '@/ui/Offline';
 import { GlassSurface } from '@/ui/Glass';
 import { IconBell, IconChart, IconGlobe, IconLock, IconLogout, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
 import { Button, Card, Chip, IconTile, Row, Section, Segmented, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body, Heading, Mono } from '@/ui/Text';
-import { duration, easing, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stagger, stroke, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
+import { easing, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stagger, stroke, TAB_BAR_HEIGHT, useTheme } from '@/ui/theme';
 
 const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2], easing.arrive[3]);
 
@@ -29,9 +29,10 @@ const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2
 export function Screen() {
   const T = useT();
   const s = useStyles();
-  const member = useSession((st) => st.member);
-  const actif = member.statut === 'actif';
-  const invite = member.statut === 'invite';
+  const auth = useSession((st) => st.auth);
+  const me = useSession((st) => st.me);
+  const actif = me?.statut === 'actif';
+  const invite = auth !== 'connecte';
   const signOut = useSession((st) => st.signOut);
   const setOnboarded = usePrefs((st) => st.setOnboarded);
   const { width } = useWindowDimensions();
@@ -39,7 +40,7 @@ export function Screen() {
 
   return (
     <Page title={T('plus.title')}>
-      <Reveal>{invite ? <GuestCard /> : <MemberCard />}</Reveal>
+      <Reveal>{invite ? <GuestCard /> : me ? <MemberCard /> : <HorsLigne page={false} />}</Reveal>
 
       <Reveal>
         <Section title={T('plus.all')}>
@@ -97,16 +98,8 @@ export function Screen() {
                   router.navigate('/');
                 }}
               />
-              <HoldToDelete />
+              <SupprimerCompte />
             </Card>
-          </Section>
-        </Reveal>
-      ) : null}
-
-      {__DEV__ ? (
-        <Reveal>
-          <Section title={T('plus.demo')}>
-            <DemoStatut />
           </Section>
         </Reveal>
       ) : null}
@@ -122,30 +115,38 @@ function MemberCard() {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
-  const member = useSession((st) => st.member);
-  const account = useSession((st) => st.account);
-  const club = clubById(member.clubPrincipal);
-  const actif = member.statut === 'actif';
-  const impaye = member.abonnement.impaye > 0;
+  const me = useSession((st) => st.me);
+  if (!me) return null;
+  const clubId = me.clubPrincipal ?? me.snapshot?.club ?? null;
+  const club = clubId ? clubById(clubId) : null;
+  const actif = me.statut === 'actif';
+  const lien =
+    me.link.status === 'lie'
+      ? T('plus.linked')
+      : me.link.status === 'a_revoir'
+        ? T('plus.review')
+        : me.link.status === 'prospect'
+          ? T('plus.prospect')
+          : T('plus.pending');
   return (
-    <Card onPress={() => router.navigate('/abonnement')} accessibilityLabel={`${member.prenom} ${member.nom}`}>
+    <Card onPress={() => router.navigate('/abonnement')} accessibilityLabel={`${me.prenom} ${me.nom}`}>
       <View style={s.me}>
         <View style={[s.meAvatar, { backgroundColor: t.primary }]}>
           <Heading level="section" tone="onPrimary">
-            {member.prenom[0]}
-            {member.nom[0]}
+            {me.prenom.slice(0, 1)}
+            {me.nom.slice(0, 1)}
           </Heading>
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Heading level="section" numberOfLines={1}>
-            {member.prenom} {member.nom}
+            {me.prenom} {me.nom}
           </Heading>
-          <Body size="bodySmall" tone="muted" numberOfLines={1}>
-            {club.court} · {account.kind === 'demo' ? T('plus.demoAccount') : account.kind === 'created' ? T('plus.localAccount') : `Nº ${member.deciplusId}`}
+          <Body size="bodySmall" tone="muted" numberOfLines={2}>
+            {club ? club.court : T('plus.noClub')} · {lien}
           </Body>
-          <View style={[s.status, { backgroundColor: !actif || impaye ? t.negativeSoft : t.positiveSoft }]}>
-            <Body size="caption" weight="bold" tone={!actif || impaye ? 'negative' : 'positive'}>
-              {!actif ? T('plus.statusEnded') : impaye ? T('plus.statusUnpaid') : T('plus.statusActive')}
+          <View style={[s.status, { backgroundColor: actif ? t.positiveSoft : t.negativeSoft }]}>
+            <Body size="caption" weight="bold" tone={actif ? 'positive' : 'negative'}>
+              {me.consentementParentalRequis ? T('plus.parental') : actif ? T('plus.statusActive') : T('plus.statusEnded')}
             </Body>
           </View>
         </View>
@@ -305,57 +306,38 @@ function MyClubs() {
   );
 }
 
-/** Suppression de compte (Apple 5.1.1(v)) : maintenir 600 ms, le remplissage confirme. */
-function HoldToDelete() {
+/** Deux confirmations, puis DELETE /v1/me et deconnexion. */
+function SupprimerCompte() {
   const T = useT();
   const s = useStyles();
-  const t = useTheme();
-  const fill = useSharedValue(0);
-  const style = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
+  const [confirme, setConfirme] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [echec, setEchec] = useState(false);
+  const supprimer = useSession((st) => st.supprimer);
+  if (!confirme) {
+    return <Row icon={IconTrash} title={T('plus.delete')} subtitle={T('plus.deleteSub')} onPress={() => setConfirme(true)} />;
+  }
   return (
-    <View style={s.delete}>
-      <IconTile icon={IconTrash} size={36} tone="accent" />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Body weight="semi">{T('plus.delete')}</Body>
-        <Body size="caption" tone="muted">
-          {T('plus.deleteSub')}
-        </Body>
-      </View>
-      <Pressable
-        onPressIn={() => fill.set(withTiming(1, { duration: 600 }))}
-        onPressOut={() => fill.set(withTiming(0, { duration: duration.jab }))}
-        onLongPress={() => {
-          deleteLocalAccount();
-          router.navigate('/');
+    <View style={s.compte}>
+      <Body weight="semi">{T('plus.delete')}</Body>
+      <Body tone="muted">{T('plus.deleteConfirmBody')}</Body>
+      {echec ? <Body tone="negative">{T('plus.deleteFail')}</Body> : null}
+      <Button
+        label={T('plus.deleteForever')}
+        disabled={busy}
+        onPress={() => {
+          setBusy(true);
+          setEchec(false);
+          void supprimer()
+            .then(() => router.navigate('/'))
+            .catch(() => {
+              setEchec(true);
+              setBusy(false);
+            });
         }}
-        delayLongPress={600}
-        style={[s.hold, { borderColor: t.negative }]}
-        accessibilityRole="button"
-        accessibilityLabel={T('plus.deleteHold')}>
-        <Animated.View style={[s.holdFill, { backgroundColor: t.negative }, style]} />
-        <Body size="caption" weight="bold" tone="negative" style={{ zIndex: 1 }}>
-          {T('plus.deleteHold')}
-        </Body>
-      </Pressable>
+      />
+      <Button label={T('plus.cancel')} variant="secondary" disabled={busy} onPress={() => { setConfirme(false); setEchec(false); }} />
     </View>
-  );
-}
-
-function DemoStatut() {
-  const T = useT();
-  const statut = useSession((st) => st.member.statut);
-  const setStatut = useSession((st) => st.setStatut);
-  return (
-    <Segmented
-      full
-      value={statut}
-      onChange={setStatut}
-      options={[
-        { value: 'actif', label: T('plus.statuses.actif') },
-        { value: 'restreint', label: T('plus.statuses.restreint') },
-        { value: 'invite', label: T('plus.statuses.invite') },
-      ]}
-    />
   );
 }
 
@@ -386,8 +368,7 @@ const useStyles = makeStyles((t) => ({
   list: { paddingHorizontal: space[4], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
   clubs: { gap: 4, paddingVertical: space[4], borderBottomWidth: stroke.hair },
   clubChips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[2] },
-  delete: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
-  hold: { minWidth: 112, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, paddingHorizontal: 12, borderRadius: radius.control, borderWidth: 1.5, overflow: 'hidden' },
-  holdFill: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   footer: { textAlign: 'center', marginTop: space[8] },
+  compte: { gap: space[3] },
+  compteTitre: { marginTop: space[3] },
 }));

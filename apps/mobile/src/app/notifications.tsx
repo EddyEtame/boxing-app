@@ -1,10 +1,12 @@
 import { isNotifEssential, NOTIF_OPTIONAL, NOTIF_TYPES } from '@bc/contract';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, View } from 'react-native';
 
 import { useT } from '@/i18n';
+import { demanderNotifications, lireDroitNotifications, preparerCanalNotifications, type DroitNotifications } from '@/lib/notifications';
 import { usePrefs } from '@/state/prefs';
 import { IconCheck } from '@/ui/icons';
-import { Card, Section, Toggle } from '@/ui/kit';
+import { Button, Card, Section, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Body } from '@/ui/Text';
 import { makeStyles, space, stroke, useTheme } from '@/ui/theme';
@@ -24,8 +26,32 @@ export default function NotificationsScreen() {
   const t = useTheme();
   const notif = usePrefs((st) => st.notif);
   const setNotif = usePrefs((st) => st.setNotif);
+  const [droit, setDroit] = useState<DroitNotifications>('undetermined');
+  useEffect(() => {
+    void preparerCanalNotifications();
+    void lireDroitNotifications().then(setDroit);
+  }, []);
   return (
     <Page title={T('notif.title')} subtitle={T('notif.sub')} leading="back" tabBar={false}>
+      <Reveal>
+        <Card>
+          <Body>{T('notif.explain')}</Body>
+          {droit === 'granted' ? (
+            <Body size="bodySmall" weight="bold" tone="positive" style={s.explainNote}>
+              {T('notif.enabled')}
+            </Body>
+          ) : droit === 'denied' ? (
+            <View style={s.explainNote}>
+              <Body size="bodySmall" tone="muted">
+                {T('notif.denied')}
+              </Body>
+              <Button label={T('notif.openSettings')} variant="secondary" onPress={() => void Linking.openSettings()} style={s.explainBtn} />
+            </View>
+          ) : (
+            <Button label={T('notif.enable')} onPress={() => void demanderNotifications().then(setDroit)} style={s.explainBtn} />
+          )}
+        </Card>
+      </Reveal>
       <Reveal>
         <Section title={T('notif.optional')}>
           <Card padded={false} style={s.list}>
@@ -75,4 +101,6 @@ const useStyles = makeStyles((t) => ({
   rowAlways: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
   text: { flex: 1, gap: 2 },
   check: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  explainNote: { marginTop: space[3] },
+  explainBtn: { marginTop: space[4], width: '100%' },
 }));

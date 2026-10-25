@@ -5,7 +5,6 @@ import { Linking, ScrollView, View, useWindowDimensions } from 'react-native';
 import { CLUBS, estOuvert } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
 import { DISCIPLINES } from '@/data/disciplines';
-import { NEWS, OFFRES } from '@/data/news';
 import { useCombats } from '@/features/combats/useCombats';
 import { clubsProposant, heure } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
@@ -21,7 +20,7 @@ import { Tap } from '@/ui/Tap';
 import { Body, Display, Heading } from '@/ui/Text';
 import { GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke, useTheme } from '@/ui/theme';
 
-import { CarouselHead, NewsRow, Poster } from './parts';
+import { CarouselHead } from './parts';
 
 /**
  * L'accueil de l'invité : la vitrine (CDC §3A, outil commercial). Le choix de
@@ -39,7 +38,6 @@ export function HomeInvite() {
   const combats = useCombats();
   const [clubIndex, setClubIndex] = useState(0);
   const loc = useInLocale();
-  const [offre, ...others] = OFFRES.map(loc);
   const plateW = Math.round(col * 0.82);
   const discW = Math.round(col * 0.56);
   const portraitW = Math.round(col * 0.5);
@@ -58,10 +56,6 @@ export function HomeInvite() {
       </Reveal>
 
       <Reveal delay={80} style={s.block}>
-        <Poster index={0} height={Math.round(col * 1.02)} photo={offre.photo} cornerLeft={T('guest.offer')} cornerRight={T('guest.shop')} title={offre.titre} meta={offre.meta} sub={offre.accroche} onPress={() => void Linking.openURL(offre.lien)} />
-      </Reveal>
-
-      <Reveal delay={120} style={s.block}>
         <Card>
           <Heading level="section">{T('guest.ctaTitle')}</Heading>
           <Body tone="muted" style={s.ctaBody}>
@@ -75,16 +69,8 @@ export function HomeInvite() {
               track('cta_sign_in', { from: 'home' });
               router.push('/connexion?mode=connexion');
             }} style={s.ctaSecond} />
+          <Button label={T('guest.shop')} variant="secondary" onPress={() => void Linking.openURL('https://boutique.boxingcenter.fr/')} style={s.ctaSecond} />
         </Card>
-      </Reveal>
-
-      <Reveal style={s.section}>
-        <CarouselHead title={T('guest.offers')} index={0} total={others.length} action={{ label: T('guest.shop'), onPress: () => void Linking.openURL('https://boutique.boxingcenter.fr/') }} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={plateW + space[3]} decelerationRate="fast" style={s.carousel} contentContainerStyle={s.carouselContent}>
-          {others.map((o, i) => (
-            <Poster key={o.id} index={i + 1} width={plateW} height={Math.round(plateW * 1.1)} photo={o.photo} cornerLeft={T('guest.offer')} title={o.titre} meta={o.meta} sub={o.accroche} onPress={() => void Linking.openURL(o.lien)} />
-          ))}
-        </ScrollView>
       </Reveal>
 
       <Reveal style={s.section}>
@@ -192,15 +178,6 @@ export function HomeInvite() {
         </Section>
       </Reveal>
 
-      <Reveal>
-        <Section title={T('guest.now')}>
-          <Card padded={false} style={s.listCard}>
-            {NEWS.filter((n) => n.publique).map((n, i, arr) => (
-              <NewsRow key={n.id} item={n} last={i === arr.length - 1} onPress={n.lien ? () => void Linking.openURL(n.lien!) : undefined} />
-            ))}
-          </Card>
-        </Section>
-      </Reveal>
     </Page>
   );
 }

@@ -58,8 +58,38 @@ jobs:
           npx tsc --noEmit -p .
           npx eslint . --max-warnings=0
 
-      - name: Tests du contrat partagé (statistiques, démo, événements)
-        run: npm test --workspace packages/contract
+      - name: Tests du contrat, du serveur et des droits de la base
+        run: |
+          npm test --workspace packages/contract
+          npm test --workspace apps/bridge
+          npm run test:db
+
+      # Variables du dépôt (Settings, Secrets and variables, Actions, onglet Variables).
+      # Absentes : l'APK se construit quand même et affiche l'écran de configuration.
+      # Présente mais pas en https : le build s'arrête, Android refuse le clair.
+      - name: Adresses du serveur et de Supabase
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_MEMBER_API_URL: ${{ vars.EXPO_PUBLIC_MEMBER_API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::warning::Variable de dépôt $v absente : l'APK affichera l'écran de configuration"
+            else
+              echo "$v=${!v}" >> "$GITHUB_ENV"
+            fi
+          done
+          for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL; do
+            val="${!v}"
+            if [ -n "$val" ]; then
+              case "$val" in
+                https://*) ;;
+                *) echo "::error::$v doit être en https"; exit 1 ;;
+              esac
+            fi
+          done
 
       - name: Projet Android natif (prebuild Expo)
         working-directory: apps/mobile

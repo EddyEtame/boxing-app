@@ -11,7 +11,7 @@ import { duree, relativeDay, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/featu
 import { useLocale, useT } from '@/i18n';
 import { SessionSheet, useSessionSheet } from '@/screens/planning/SessionSheet';
 import { WeekPoster } from '@/screens/planning/WeekPoster';
-import { useSession } from '@/state/session';
+import { selectStatut, useSession } from '@/state/session';
 import { topKeys, useUsage } from '@/state/usage';
 import { IconShare, IconStar } from '@/ui/icons';
 import { Button, Card, Chip, Segmented } from '@/ui/kit';
@@ -68,7 +68,7 @@ export function Screen() {
   const s = useStyles();
   const lang = useLocale();
   const clubActif = useSession((st) => st.clubActif);
-  const statut = useSession((st) => st.member.statut);
+  const statut = useSession(selectStatut);
   const favorites = useUsage((st) => st.favorites);
   const bump = useUsage((st) => st.bump);
   // L'invité retrouve le club qu'il regarde le plus ; l'adhérent, son club actif.

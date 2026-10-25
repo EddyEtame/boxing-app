@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
-import type { Member } from '@/data/member';
 import { BOUTIQUE_URL } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useT, type MessageKey } from '@/i18n';
@@ -15,21 +14,12 @@ import { Body, Display } from '@/ui/Text';
 import { GUTTER, makeStyles, radius, space, stroke, useTheme } from '@/ui/theme';
 
 /**
- * Ce que le cahier des charges impose (§4) : pas de badge virtuel sans badge
- * physique enregistré sur la fiche Deciplus, et pas de badge sans abonnement
- * actif. En mode invité (§3A), l'écran reste un outil commercial : il montre la
- * porte, dit l'ordre des choses, et mène au compte et à la boutique.
+ * Pas de badge virtuel sans badge physique enregistre, et pas de badge sans
+ * abonnement actif. L'invite voit comment ouvrir un compte.
  */
-export function badgeLocked(member: Member): 'ok' | 'sans-badge' | 'restreint' | 'invite' {
-  if (member.statut === 'invite') return 'invite';
-  if (member.statut !== 'actif') return 'restreint';
-  if (!member.badge.enregistre) return 'sans-badge';
-  return 'ok';
-}
+export type BadgeReason = 'sans-badge' | 'restreint' | 'invite';
 
-type Reason = Exclude<ReturnType<typeof badgeLocked>, 'ok'>;
-
-const STEPS: Record<Reason, { key: MessageKey; done: boolean }[]> = {
+const STEPS: Record<BadgeReason, { key: MessageKey; done: boolean }[]> = {
   invite: [
     { key: 'badge.stepSubscribe', done: false },
     { key: 'badge.stepBuy', done: false },
@@ -47,7 +37,7 @@ const STEPS: Record<Reason, { key: MessageKey; done: boolean }[]> = {
   ],
 };
 
-export function BadgeLockedView({ reason, member }: { reason: Reason; member: Member }) {
+export function BadgeLockedView({ reason }: { reason: BadgeReason }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
@@ -61,7 +51,6 @@ export function BadgeLockedView({ reason, member }: { reason: Reason; member: Me
         <View style={s.heroBottom}>
           <Body size="bodySmall" weight="bold" tone="muted">
             {T('badge.title')} · {club.court}
-            {reason === 'invite' ? '' : ` · Nº ${member.deciplusId}`}
           </Body>
           <Display size="display2" tight>
             {title}

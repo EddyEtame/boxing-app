@@ -5,14 +5,12 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSpri
 
 import type { Club } from '@/data/clubs';
 import type { Personne } from '@/data/coachs';
-import type { NewsItem } from '@/data/news';
 import type { NextSession } from '@/features/planning/model';
 import { heure } from '@/features/planning/model';
 import type { Stats } from '@/features/stats/model';
-import { duree, relativeDay, shortDay } from '@/features/time';
-import { useInLocale, useLocale, useT } from '@/i18n';
+import { duree, relativeDay } from '@/features/time';
+import { useLocale, useT } from '@/i18n';
 import type { IconProps } from '@/ui/icons';
-import { IconChevron } from '@/ui/icons';
 import { Chip, IconTile, LiveDot } from '@/ui/kit';
 import { LowerThird } from '@/ui/LowerThird';
 import { usePageScrollY } from '@/ui/Page';
@@ -122,34 +120,6 @@ export function QuickTile({ icon, title, sub, subTone = 'muted', tone = 'neutral
         </Body>
       </Tap>
     </Animated.View>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Les actualités en lignes                                               */
-/* ------------------------------------------------------------------ */
-
-export function NewsRow({ item: source, onPress, last }: { item: NewsItem; onPress?: () => void; last?: boolean }) {
-  const s = useStyles();
-  const t = useTheme();
-  const lang = useLocale();
-  const item = useInLocale()(source);
-  return (
-    <Tap onPress={onPress} disabled={!onPress} scaleTo={0.985} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={item.titre} style={[s.news, !last && s.newsLine]}>
-      <Image source={item.photo} style={s.newsThumb} contentFit="cover" cachePolicy="memory-disk" transition={duration.cross} />
-      <View style={s.newsBody}>
-        <Body weight="bold" numberOfLines={2}>
-          {item.titre}
-        </Body>
-        <Body size="caption" tone="muted" numberOfLines={2}>
-          {item.accroche}
-        </Body>
-        <Body size="caption" weight="semi" tone="dim">
-          {shortDay(item.date, lang)}
-        </Body>
-      </View>
-      {onPress ? <IconChevron size={18} color={t.textDim} /> : null}
-    </Tap>
   );
 }
 
@@ -379,10 +349,6 @@ const useStyles = makeStyles((t) => ({
     ...(t.scheme === 'light' ? { boxShadow: t.shadowCard } : { borderWidth: stroke.hair, borderColor: t.line }),
   },
   tileHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: space[1] },
-  news: { flexDirection: 'row', alignItems: 'center', gap: space[4], paddingVertical: space[4] },
-  newsLine: { borderBottomWidth: stroke.hair, borderBottomColor: t.line },
-  newsThumb: { width: 76, height: 76, borderRadius: radius.tile, backgroundColor: t.cardAlt },
-  newsBody: { flex: 1, gap: 3 },
   faces: { flexDirection: 'row' },
   face: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: t.cardAlt, borderWidth: 2.5, borderColor: t.card, alignItems: 'center', justifyContent: 'center' },
   faceOverlap: { marginLeft: -12 },
