@@ -16,6 +16,7 @@ export type SectionId =
   | 'messages'
   | 'notifications'
   | 'moderation'
+  | 'adherents'
   | 'statistiques'
   | 'demo'
   | 'fonctions'
@@ -39,6 +40,7 @@ export type IconName =
   | 'plug'
   | 'database'
   | 'users'
+  | 'me'
   | 'journal';
 
 export type Group = 'contenus' | 'club' | 'pilotage' | 'equipe';
@@ -65,6 +67,7 @@ export const SECTIONS: Section[] = [
   { id: 'messages', href: '/messages', label: 'nav.messages', icon: 'chat', capability: 'messages', group: 'club', cdc: '§10, §15', mobile: true },
   { id: 'notifications', href: '/notifications', label: 'nav.notifications', icon: 'bell', capability: 'notifications', group: 'club', cdc: '§14, §15' },
   { id: 'moderation', href: '/moderation', label: 'nav.moderation', icon: 'shieldCheck', capability: 'moderation', group: 'club', cdc: '§11, §15', mobile: true },
+  { id: 'adherents', href: '/adherents', label: 'nav.adherents', icon: 'me', capability: 'adherents', group: 'club', cdc: '§2, §15' },
   { id: 'statistiques', href: '/statistiques', label: 'nav.statistiques', icon: 'chart', capability: 'statistiques', group: 'pilotage', cdc: '§15' },
   { id: 'demo', href: '/statistiques/demo', label: 'nav.demo', icon: 'sliders', capability: 'demo', group: 'pilotage', cdc: '§6' },
   { id: 'fonctions', href: '/fonctions', label: 'nav.fonctions', icon: 'toggle', capability: 'fonctions', group: 'pilotage', cdc: '§11E, §15' },

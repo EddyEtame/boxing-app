@@ -143,6 +143,14 @@ export const fr = {
   'help.journal.s2': 'Exportez en CSV pour un contrôle.',
   'help.journal.r1': 'Les 5 000 dernières entrées sont gardées.',
   'help.journal.r2': 'Aucun mot de passe ni secret n’y est jamais écrit.',
+  'help.adherents.intro': 'Les comptes créés dans l’app : ce que chacun a déclaré, ce que le robot a lu sur sa fiche Deciplus, l’abonnement pris depuis l’app, et la file des rapprochements que l’accueil tranche.',
+  'help.adherents.cdc': '§2 — « La correspondance devra reposer sur une identification fiable, et non simplement un nom identique. »',
+  'help.adherents.s1': 'La file en tête : chaque demande montre ce que l’adhérent a déclaré et ce que le robot a trouvé, les désaccords soulignés.',
+  'help.adherents.s2': '« Lier » donne au compte l’abonnement de la fiche ; « Refuser » le laisse prospect. Les deux se confirment devant les deux identités.',
+  'help.adherents.s3': 'Cherchez un adhérent par nom, e-mail, numéro de fiche ou téléphone ; sa fiche s’ouvre d’un clic, avec ses rapprochements.',
+  'help.adherents.r1': 'Jamais sur le nom seul : homonymes, fautes de frappe, et un adhérent qui verrait l’abonnement d’un autre.',
+  'help.adherents.r2': 'L’admin lit la base de l’app ; chaque décision passe par le serveur applicatif, qui écrit et relance la lecture de la fiche.',
+  'help.adherents.r3': 'Tant que la base n’est pas branchée, des exemples jouent le parcours entier, sans toucher personne.',
 } as const;
 
 export const en: Record<keyof typeof fr, string> = {
@@ -286,4 +294,12 @@ export const en: Record<keyof typeof fr, string> = {
   'help.journal.s2': 'Export as CSV for an audit.',
   'help.journal.r1': 'The last 5,000 entries are kept.',
   'help.journal.r2': 'No password or secret is ever written there.',
+  'help.adherents.intro': 'Accounts created in the app: what each declared, what the robot read on their Deciplus record, the plan taken from the app, and the matching queue the front desk decides.',
+  'help.adherents.cdc': '§2 — “Matching must rely on a reliable identification, not simply on an identical name.”',
+  'help.adherents.s1': 'The queue first: each request shows what the member declared and what the robot found, mismatches underlined.',
+  'help.adherents.s2': '“Link” gives the account the record’s plan; “Refuse” leaves it a prospect. Both are confirmed in front of the two identities.',
+  'help.adherents.s3': 'Search a member by name, email, record number or phone; their card opens in one click, with their matches.',
+  'help.adherents.r1': 'Never on the name alone: namesakes, typos, and a member who would see someone else’s plan.',
+  'help.adherents.r2': 'The admin reads the app’s database; every decision goes through the application server, which writes and re-reads the record.',
+  'help.adherents.r3': 'Until the database is connected, examples play the whole flow without touching anyone.',
 };

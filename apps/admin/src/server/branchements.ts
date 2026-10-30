@@ -7,8 +7,11 @@ import { apiReads } from './demo';
 import { configStatus } from './env';
 import { mobilePath } from './paths';
 import { sourceStatus } from './planning';
+import { adminBridge, queueCount } from './members';
 import { dataDir } from './store';
+import { supabaseAdmin } from './supabase-admin';
 import { readEvents } from './usage';
+import { signedHeaders } from '@/lib/bridge/sign';
 
 /**
  * LES BRANCHEMENTS — tout ce à quoi l'admin est relié, mesuré au moment où on
@@ -20,7 +23,7 @@ import { readEvents } from './usage';
  * branchée à tout ». Cette page est la preuve de ce branchement.
  */
 export type ConnState = 'ok' | 'attente' | 'off' | 'erreur';
-export type ConnId = 'session' | 'app-mesure' | 'app-lecture' | 'planning-source' | 'planning-regle' | 'deciplus' | 'push' | 'video' | 'erreurs' | 'base' | 'sauvegardes' | 'boutique' | 'combats';
+export type ConnId = 'session' | 'app-mesure' | 'app-lecture' | 'planning-source' | 'planning-regle' | 'deciplus' | 'pont' | 'push' | 'video' | 'erreurs' | 'base' | 'supabase' | 'realtime' | 'sauvegardes' | 'boutique' | 'combats';
 
 /** `as: 'key'` : la valeur est elle-même une clé du dictionnaire (« oui », « fichiers JSON locaux »…). */
 export type Fact = { k: string; v: string | number; as?: 'date' | 'num' | 'bytes' | 'text' | 'ms' | 'key' };
@@ -205,6 +208,57 @@ export async function checkDeciplus(): Promise<Connection> {
   }
 }
 
+/** Le serveur applicatif de Raphaël : un appel signé à sa route de santé commerce prouve l'adresse ET le secret. */
+async function checkPont(): Promise<Connection> {
+  const vars = env('MEMBER_BRIDGE_URL', 'ADMIN_BRIDGE_SECRET');
+  const bridge = adminBridge();
+  if (!bridge) return { id: 'pont', state: 'off', facts: [], env: vars, href: '/deciplus' };
+  const t0 = Date.now();
+  try {
+    const body = '{}';
+    const res = await withTimeout(4000, (signal) => fetch(`${bridge.base}/internal/admin/shop-health`, { method: 'POST', headers: signedHeaders(bridge.secret, body), body, signal, cache: 'no-store' }));
+    const ms = Date.now() - t0;
+    return {
+      id: 'pont',
+      state: res.ok ? 'ok' : 'erreur',
+      facts: [{ k: 'sys.fact.http', v: res.status, as: 'num' }, { k: 'sys.fact.latency', v: ms, as: 'ms' }],
+      env: vars,
+      error: res.ok ? undefined : res.status === 401 ? 'signature refusée (ADMIN_BRIDGE_SECRET)' : `HTTP ${res.status}`,
+      href: '/deciplus',
+    };
+  } catch (err) {
+    return { id: 'pont', state: 'erreur', facts: [{ k: 'sys.fact.latency', v: Date.now() - t0, as: 'ms' }], env: vars, error: shortError(err), href: '/deciplus' };
+  }
+}
+
+/** La base de l'app (comptes) : une lecture réelle, comptée, jamais supposée. */
+async function checkSupabase(): Promise<Connection> {
+  const vars = env('SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY');
+  const sb = supabaseAdmin();
+  if (!sb) return { id: 'supabase', state: 'off', facts: [{ k: 'sys.fact.mode', v: 'sys.val.examples', as: 'key' }], env: vars, href: '/adherents' };
+  const t0 = Date.now();
+  try {
+    const [{ count, error }, queue] = await Promise.all([sb.from('profiles').select('id', { count: 'exact', head: true }), queueCount()]);
+    if (error) throw new Error(error.message);
+    return {
+      id: 'supabase',
+      state: 'ok',
+      facts: [{ k: 'sys.fact.accounts', v: count ?? 0, as: 'num' }, { k: 'sys.fact.queue', v: queue, as: 'num' }, { k: 'sys.fact.latency', v: Date.now() - t0, as: 'ms' }],
+      env: vars,
+      href: '/adherents',
+    };
+  } catch (err) {
+    return { id: 'supabase', state: 'erreur', facts: [], env: vars, error: shortError(err), href: '/adherents' };
+  }
+}
+
+/** Le rafraîchissement en direct se joue dans le navigateur : ici, seulement si les deux clés publiques sont là. */
+async function checkRealtime(): Promise<Connection> {
+  const vars = env('NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const on = vars.every((v) => v.set);
+  return { id: 'realtime', state: on ? 'ok' : 'off', facts: [{ k: 'sys.fact.mode', v: on ? 'sys.val.liveSignals' : 'sys.val.manualRefresh', as: 'key' }], env: vars };
+}
+
 async function checkPush(): Promise<Connection> {
   const [notifications, envois] = await Promise.all([read('notifications'), read('envois')]);
   const queued = notifications.filter((n) => n.status === 'en-file').length + envois.filter((e) => e.status === 'en-file').length;
@@ -232,12 +286,13 @@ async function checkErreurs(): Promise<Connection> {
 async function checkBase(): Promise<Connection> {
   const dir = dataDir();
   const size = await dirSize(dir);
-  const vars = optionalEnv('SUPABASE_URL', 'ADMIN_DATA_DIR');
+  // Les données de l'admin (contenus, plannings, messages) restent des fichiers ; la base de l'app a sa propre ligne.
+  const vars = optionalEnv('ADMIN_DATA_DIR');
   return {
     id: 'base',
-    state: vars[0].set ? 'attente' : 'ok',
+    state: 'ok',
     facts: [
-      { k: 'sys.fact.storage', v: vars[0].set ? 'sys.val.supabase' : 'sys.val.jsonFiles', as: 'key' },
+      { k: 'sys.fact.storage', v: 'sys.val.jsonFiles', as: 'key' },
       { k: 'sys.fact.files', v: size.files, as: 'num' },
       { k: 'sys.fact.size', v: size.bytes, as: 'bytes' },
       { k: 'sys.fact.lastWrite', v: size.lastWrite ? new Date(size.lastWrite).toISOString() : '—', as: size.lastWrite ? 'date' : 'text' },
@@ -277,10 +332,13 @@ export async function checkConnections(now = Date.now()): Promise<ConnectionsRep
     ['planning-source', checkPlanningSource],
     ['planning-regle', checkPlanningRule],
     ['deciplus', checkDeciplus],
+    ['pont', checkPont],
     ['push', checkPush],
     ['video', checkVideo],
     ['erreurs', checkErreurs],
     ['base', checkBase],
+    ['supabase', checkSupabase],
+    ['realtime', checkRealtime],
     ['sauvegardes', checkSauvegardes],
     ['boutique', checkBoutique],
     ['combats', checkCombats],

@@ -1,4 +1,4 @@
-import { IconBell, IconChart, IconChat, IconDatabase, IconJournal, IconNews, IconPlanning, IconPlay, IconPlug, IconRing, IconShieldCheck, IconSliders, IconTicket, IconToggle, IconUsers } from './icons';
+import { IconBell, IconChart, IconChat, IconDatabase, IconJournal, IconMe, IconNews, IconPlanning, IconPlay, IconPlug, IconRing, IconShieldCheck, IconSliders, IconTicket, IconToggle, IconUsers } from './icons';
 import type { IconName } from '@/lib/nav';
 
 const MAP = {
@@ -16,6 +16,7 @@ const MAP = {
   plug: IconPlug,
   database: IconDatabase,
   users: IconUsers,
+  me: IconMe,
   journal: IconJournal,
 } as const;
 

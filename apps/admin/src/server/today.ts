@@ -17,7 +17,7 @@ import type { ClubId, SessionUser } from '@/lib/types';
  * peut pas dire autre chose que la page qu'il ouvre. Chaque bloc n'apparaît
  * que si le profil de la personne ouvre la rubrique correspondante.
  */
-export type TodoId = 'messages' | 'moderation' | 'planning' | 'source' | 'notifications' | 'contenus';
+export type TodoId = 'messages' | 'moderation' | 'adherents' | 'planning' | 'source' | 'notifications' | 'contenus';
 export type TodayClub = { club: ClubId; total: number; cancelled: number; next: { debut: number; fin: number; activite: string; espace?: string } | null; done: boolean };
 export type FirstStep = { id: 'planning' | 'equipe' | 'actualite' | 'app' | 'demo' | 'fonctions'; done: boolean; href: string };
 
@@ -46,6 +46,7 @@ export async function todayFor(user: SessionUser, now = new Date()): Promise<Tod
   const counts = await navCounts(user);
   if (counts.messages) todo.push({ id: 'messages', count: counts.messages, href: '/messages', level: 'urgent' });
   if (counts.moderation) todo.push({ id: 'moderation', count: counts.moderation, href: '/moderation', level: 'urgent' });
+  if (counts.adherents) todo.push({ id: 'adherents', count: counts.adherents, href: '/adherents', level: 'urgent' });
 
   let clubs: TodayClub[] | null = null;
   if (can(user, 'plannings')) {

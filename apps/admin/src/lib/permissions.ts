@@ -16,6 +16,7 @@ export const CAPABILITIES = [
   'messagerie',
   'messages',
   'moderation',
+  'adherents',
   'statistiques',
   'demo',
   'fonctions',
@@ -29,7 +30,7 @@ export type Capability = (typeof CAPABILITIES)[number];
 export const MATRIX: Record<Role, readonly Capability[]> = {
   direction: CAPABILITIES,
   communication: ['aujourdhui', 'actualites', 'evenements', 'videos', 'plannings', 'notifications', 'statistiques'],
-  administratif: ['aujourdhui', 'plannings', 'plannings.edit', 'messagerie', 'messages', 'moderation', 'deciplus'],
+  administratif: ['aujourdhui', 'plannings', 'plannings.edit', 'messagerie', 'messages', 'moderation', 'adherents', 'deciplus'],
   coach: ['aujourdhui', 'plannings', 'messages', 'moderation'],
 };
 

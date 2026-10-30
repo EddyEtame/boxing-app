@@ -81,6 +81,10 @@ export const KNOWN_ACTIONS = [
   'moderation.regles',
   'moderation.demo',
   'moderation.demo.retrait',
+  'adherent.lien.valide',
+  'adherent.lien.refuse',
+  'adherent.demo',
+  'adherent.demo.retrait',
   'fonction.allumage',
   'fonction.coupure',
   'journal.export',
@@ -90,7 +94,7 @@ export const KNOWN_ACTIONS = [
 const CONTENT_NOUNS = ['actualite', 'evenement', 'video'] as const;
 const CONTENT_VERBS = ['creation', 'modification', 'suppression', 'statut', 'duplication', 'annulation', 'reprise', 'demo', 'demo.ajout', 'demo.retrait'] as const;
 
-export const FAMILIES = ['connexion', 'compte', 'planning', 'contenu', 'comms', 'moderation', 'fonction', 'usage', 'demo', 'journal', 'autre'] as const;
+export const FAMILIES = ['connexion', 'compte', 'planning', 'contenu', 'comms', 'moderation', 'adherent', 'fonction', 'usage', 'demo', 'journal', 'autre'] as const;
 export type Family = (typeof FAMILIES)[number];
 
 /** La famille d'une action : son premier mot, regroupé quand plusieurs rubriques parlent du même domaine. */

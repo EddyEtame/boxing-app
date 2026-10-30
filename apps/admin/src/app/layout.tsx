@@ -18,6 +18,7 @@ import '@/styles/planning.css';
 import '@/styles/content.css';
 import '@/styles/comms.css';
 import '@/styles/team.css';
+import '@/styles/members.css';
 import '@/styles/system.css';
 
 /**

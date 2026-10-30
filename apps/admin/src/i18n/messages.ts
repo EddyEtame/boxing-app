@@ -4,6 +4,7 @@ import * as comms from './dict/comms';
 import * as content from './dict/content';
 import * as demo from './dict/demo';
 import * as help from './dict/help';
+import * as members from './dict/members';
 import * as planning from './dict/planning';
 import * as shell from './dict/shell';
 import * as stats from './dict/stats';
@@ -25,6 +26,7 @@ const FR_SOURCE = {
   ...content.fr,
   ...comms.fr,
   ...team.fr,
+  ...members.fr,
   ...system.fr,
 };
 
@@ -43,6 +45,7 @@ const EN: Messages = {
   ...content.en,
   ...comms.en,
   ...team.en,
+  ...members.en,
   ...system.en,
 };
 

@@ -1,4 +1,5 @@
 import { read } from './collections';
+import { queueCount } from './members';
 import { can, inScope } from '@/lib/permissions';
 import type { SectionId } from '@/lib/nav';
 import type { SessionUser } from '@/lib/types';
@@ -17,6 +18,10 @@ export async function navCounts(user: SessionUser): Promise<Partial<Record<Secti
   if (can(user, 'moderation')) {
     const proposals = await read('propositions');
     out.moderation = proposals.filter((p) => p.status === 'a-verifier' && inScope(user, p.club)).length;
+  }
+  if (can(user, 'adherents')) {
+    // Les rapprochements à trancher : la même file que la rubrique, comptée au plus toutes les 30 secondes.
+    out.adherents = await queueCount();
   }
   return out;
 }

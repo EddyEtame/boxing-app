@@ -1,6 +1,7 @@
 import { DEFAULT_DEMO, DEMO_MEMBER_ID, generatePassages } from '@bc/contract';
 
 import { readCollection, updateCollection } from './store';
+import type { DemoMembersState } from '@/lib/members/build';
 import type {
   ClubEvent,
   DemoState,
@@ -49,6 +50,8 @@ export const DEFAULTS = {
   plannings: (): PlanningState => ({ slots: [], exceptions: [], history: [], source: { path: '', hash: '', importedAt: '', count: 0 } }),
   /** Les fichiers déposés dans l'admin (la photothèque de l'app se lit sur le disque). */
   medias: (): (Media & { id: string; size: number; type: string; createdAt: string; createdBy: string })[] => [],
+  /** Les adhérents d'exemple (rubrique Adhérents tant que la base de l'app n'est pas branchée) ; vide au départ. */
+  adherents: (): DemoMembersState => ({ profiles: [], snapshots: [], subscriptions: [], requests: [], seededAt: null }),
   /** La démo de départ : exactement l'historique local de l'app (même graine, même calcul). */
   demo: (): DemoState => ({ memberId: DEMO_MEMBER_ID, pattern: DEFAULT_DEMO, rolling: true, passages: generatePassages(DEFAULT_DEMO), updatedAt: new Date().toISOString(), updatedBy: 'systeme' }),
 };

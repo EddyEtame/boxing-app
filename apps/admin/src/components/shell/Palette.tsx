@@ -12,7 +12,7 @@ import type { CreateAction } from '@/lib/actions-registry';
 import type { IconName } from '@/lib/nav';
 
 /** Ce que l'index du serveur renvoie (/api/admin/index) : de quoi retrouver un contenu, un cours, un fil. */
-export type IndexEntry = { group: 'content' | 'slots' | 'threads' | 'accounts'; id: string; title: string; meta: string; href: string; icon: IconName };
+export type IndexEntry = { group: 'content' | 'slots' | 'threads' | 'accounts' | 'members'; id: string; title: string; meta: string; href: string; icon: IconName };
 
 type Item = { key: string; group: 'create' | 'go' | IndexEntry['group']; title: string; meta: string; href: string; icon: IconName; haystack: string };
 
@@ -107,6 +107,7 @@ export function Palette({ open, onClose, sections, actions }: { open: boolean; o
     slots: t('pal.group.slots'),
     threads: t('pal.group.threads'),
     accounts: t('pal.group.accounts'),
+    members: t('pal.group.members'),
   };
 
   return (

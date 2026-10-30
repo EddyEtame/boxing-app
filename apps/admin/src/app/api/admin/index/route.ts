@@ -4,6 +4,7 @@ import { can, inScope } from '@/lib/permissions';
 import { heure } from '@/lib/planning/model';
 import { listAccounts } from '@/server/accounts';
 import { read } from '@/server/collections';
+import { readMembers } from '@/server/members';
 import { readPlanning } from '@/server/planning';
 import { getSession } from '@/server/session';
 
@@ -49,6 +50,19 @@ export async function GET() {
   }
   if (can(user, 'comptes')) {
     for (const a of await listAccounts()) entries.push({ group: 'accounts', id: a.id, title: a.name, meta: `${a.role} · ${a.status}`, href: `/comptes?compte=${encodeURIComponent(a.id)}`, icon: 'users' });
+  }
+  if (can(user, 'adherents')) {
+    // Le nom, le club et le numéro de fiche : jamais l'e-mail ni le téléphone dans l'index.
+    const LINK: Record<string, string> = { lie: 'Fiche liée', a_revoir: 'À revoir', en_attente: 'En attente', prospect: 'Prospect' };
+    try {
+      const members = (await readMembers()).members;
+      for (const m of members) {
+        const name = [m.prenom, m.nom].filter(Boolean).join(' ') || 'Compte sans nom';
+        entries.push({ group: 'members', id: m.id, title: name, meta: `${m.clubPrincipal ? CLUB_LABEL[m.clubPrincipal] : '—'} · ${LINK[m.linkStatus] ?? m.linkStatus}${m.deciplusMemberId ? ` · n° ${m.deciplusMemberId}` : ''}`, href: `/adherents?adherent=${encodeURIComponent(m.id)}`, icon: 'me' });
+      }
+    } catch {
+      // Base injoignable : la palette garde le reste.
+    }
   }
 
   return Response.json({ entries }, { headers: { 'cache-control': 'no-store' } });

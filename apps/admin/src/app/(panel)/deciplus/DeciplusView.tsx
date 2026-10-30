@@ -238,7 +238,11 @@ export function DeciplusView({
               </div>
               <div className="empty-mini">
                 <b>{t('deci.queue')}</b>
-                <span>{t('deci.queue.empty')}</span>
+                <span>{t('deci.queue.go')}</span>
+                <Link className="btn btn-secondary btn-sm" href="/adherents" style={{ justifySelf: 'start', marginTop: 6 }}>
+                  {t('deci.queue.open')}
+                  <IconArrow size={15} />
+                </Link>
               </div>
             </div>
           </section>

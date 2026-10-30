@@ -1,0 +1,179 @@
+/* =====================================================================
+   ADHÉRENTS — les comptes de l'app, leur fiche Deciplus, et la file des
+   rapprochements (CDC §2). La décision se prend devant les deux identités
+   côte à côte : ce que l'adhérent a déclaré, ce que le robot a lu, les
+   désaccords soulignés en ambre.
+   ===================================================================== */
+
+.adh-page > * {
+  min-width: 0;
+}
+
+.adh-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adh-neg {
+  color: var(--negative);
+}
+
+/* --- La file --------------------------------------------------------------- */
+.adh-queue {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.adh-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.adh-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.adh-card-head .tag {
+  flex: none;
+  margin-top: 2px;
+}
+
+.adh-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.adh-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 20px;
+}
+
+.adh-compare .eyebrow {
+  margin-bottom: 8px;
+}
+
+.adh-facts {
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+.adh-facts div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.adh-facts dt {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.adh-facts dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+/* Un champ que le robot n'a pas retrouvé sur la fiche : souligné, et dit tel quel. */
+.adh-facts div[data-off] dd {
+  color: var(--warning);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.adh-robot {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.adh-hint {
+  margin-top: 6px;
+}
+
+.adh-actions {
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+/* --- L'annuaire ------------------------------------------------------------ */
+.adh-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.adh-search {
+  flex: 1 1 280px;
+  max-width: 440px;
+}
+
+.adh-toolbar .seg {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.adh-toolbar .seg::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- Décisions et historique ---------------------------------------------- */
+.adh-decisions,
+.adh-history {
+  display: grid;
+  list-style: none;
+}
+
+.adh-decisions li,
+.adh-history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.adh-decisions li:last-child,
+.adh-history li:last-child {
+  border-bottom: 0;
+}
+
+.adh-history .adh-actions {
+  flex-basis: 100%;
+}
+
+.adh-tags {
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .adh-queue {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adh-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adh-facts div {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+}

@@ -15,8 +15,8 @@ import type { Connection, ConnectionsReport, ConnId, ConnState, Fact } from '@/s
 const GROUPS: { id: string; items: ConnId[] }[] = [
   { id: 'app', items: ['app-mesure', 'app-lecture'] },
   { id: 'planning', items: ['planning-source', 'planning-regle'] },
-  { id: 'services', items: ['deciplus', 'push', 'video', 'erreurs', 'boutique', 'combats'] },
-  { id: 'admin', items: ['session', 'base', 'sauvegardes'] },
+  { id: 'services', items: ['deciplus', 'pont', 'push', 'video', 'erreurs', 'boutique', 'combats'] },
+  { id: 'admin', items: ['session', 'base', 'supabase', 'realtime', 'sauvegardes'] },
 ];
 
 const STATES: ConnState[] = ['ok', 'attente', 'off', 'erreur'];
