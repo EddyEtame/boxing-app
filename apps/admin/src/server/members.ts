@@ -14,8 +14,10 @@ import type { SessionUser } from '@/lib/types';
  *    que SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont renseignées ; les
  *    décisions passent alors par le serveur applicatif (apps/bridge), qui écrit ;
  *  - sinon les exemples locaux (members-demo.ts), pour voir la rubrique à l'œuvre.
- * Ce fichier est la couture avec le serveur de Raphaël : les requêtes suivent
+ * Ce fichier est la couture avec le serveur : les requêtes suivent
  * supabase/migrations et apps/bridge/src/app.ts, et se remplacent ici seulement.
+ * Ce que le serveur doit encore fournir pour que l'admin cesse de lire la base
+ * lui-même (route des demandes, acteur des décisions) est tenu dans ./couture.md.
  */
 
 const PAGE = 1000;

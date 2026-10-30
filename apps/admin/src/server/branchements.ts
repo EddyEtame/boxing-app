@@ -20,7 +20,9 @@ import { signedHeaders } from '@/lib/bridge/sign';
  * NOM de la variable à renseigner, jamais sa valeur.
  *
  * Demande d'Eddy (22/10/2026) : « le back-office est une application à part,
- * branchée à tout ». Cette page est la preuve de ce branchement.
+ * branchée à tout ». Cette page est la preuve de ce branchement. Ce que chaque
+ * branchement attend encore du serveur, et les variables qu'il partage avec
+ * lui, sont tenus dans ./couture.md.
  */
 export type ConnState = 'ok' | 'attente' | 'off' | 'erreur';
 export type ConnId = 'session' | 'app-mesure' | 'app-lecture' | 'planning-source' | 'planning-regle' | 'deciplus' | 'pont' | 'push' | 'video' | 'erreurs' | 'base' | 'supabase' | 'realtime' | 'sauvegardes' | 'boutique' | 'combats';

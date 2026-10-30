@@ -117,7 +117,7 @@ npm run start --workspace apps/admin
 
 ## Pour le serveur : où l'admin se branche
 
-Tout ce qui lit ou écrit hors de l'admin passe par ces fichiers ; le reste de l'interface n'y touche pas.
+Tout ce qui lit ou écrit hors de l'admin passe par ces fichiers ; le reste de l'interface n'y touche pas. Le détail tenu à jour — les deux branches, ce que l'admin attend encore du serveur, le déploiement — est dans [`src/server/couture.md`](src/server/couture.md).
 
 | Fichier | Ce qu'il fait | Côté serveur |
 |---|---|---|
