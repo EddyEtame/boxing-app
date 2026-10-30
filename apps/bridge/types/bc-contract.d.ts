@@ -48,6 +48,7 @@ export const MEMBER_API: {
   readonly checkoutSessions: '/v1/checkout/sessions';
   checkoutSession: (id: string) => string;
   readonly invoices: '/v1/me/invoices';
+  readonly notices: '/v1/me/notices';
 };
 
 export const SNAPSHOT_REFRESH_MS: number;

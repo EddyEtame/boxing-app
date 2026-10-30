@@ -101,6 +101,24 @@ export type NewMemberPassage = {
   source: string;
 };
 
+export type MemberNotice = {
+  id: string;
+  event_id: string;
+  profile_id: string;
+  kind: 'prelevement_retry' | 'prelevement_resilie';
+  title: string;
+  body: string;
+  created_at: string;
+};
+
+export type NewMemberNotice = {
+  event_id: string;
+  profile_id: string;
+  kind: MemberNotice['kind'];
+  title: string;
+  body: string;
+};
+
 export type LinkRequestReview = {
   id: string;
   profile_id: string;
@@ -144,6 +162,9 @@ export type Store = {
   listLinkRequestsReview(limit?: number): Promise<LinkRequestReview[]>;
   insertPassageIfNewDay(row: NewMemberPassage): Promise<boolean>;
   listPassages(profileId: string, limit?: number): Promise<MemberPassage[]>;
+  findProfileIdByEmail(email: string): Promise<string | null>;
+  insertMemberNotice(row: NewMemberNotice): Promise<boolean>;
+  listMemberNotices(profileId: string, limit?: number): Promise<MemberNotice[]>;
   findOtherProfileByMemberId(memberId: string, exceptProfileId: string): Promise<boolean>;
   insertAudit(entry: AuditEntry): Promise<void>;
   insertEvents(events: StoredEvent[]): Promise<void>;
@@ -250,6 +271,19 @@ function asPassage(row: Row): MemberPassage {
     profile_id: String(row.profile_id),
     day: asText(row.day)?.slice(0, 10) ?? '',
     source: asText(row.source) ?? '',
+    created_at: asText(row.created_at) ?? new Date(0).toISOString(),
+  };
+}
+
+function asNotice(row: Row): MemberNotice {
+  const kind = asText(row.kind) === 'prelevement_resilie' ? 'prelevement_resilie' : 'prelevement_retry';
+  return {
+    id: String(row.id),
+    event_id: asText(row.event_id) ?? '',
+    profile_id: String(row.profile_id),
+    kind,
+    title: asText(row.title) ?? '',
+    body: asText(row.body) ?? '',
     created_at: asText(row.created_at) ?? new Date(0).toISOString(),
   };
 }
@@ -425,6 +459,28 @@ export function createSupabaseStore(supabase: SupabaseClient): Store {
         .limit(limit);
       if (error) fail(error, 'lecture passages');
       return (data ?? []).map((row) => asPassage(row as Row));
+    },
+    async findProfileIdByEmail(email) {
+      const { data, error } = await supabase.from('profiles').select('id').ilike('email', email.trim()).limit(1);
+      if (error) fail(error, 'lecture profil email');
+      const row = (data ?? [])[0] as Row | undefined;
+      return row ? asText(row.id) : null;
+    },
+    async insertMemberNotice(row) {
+      const { error } = await supabase.from('member_notices').insert(row);
+      if (isUnique(error)) return false;
+      if (error) fail(error, 'avis membre');
+      return true;
+    },
+    async listMemberNotices(profileId, limit = 20) {
+      const { data, error } = await supabase
+        .from('member_notices')
+        .select('id, event_id, profile_id, kind, title, body, created_at')
+        .eq('profile_id', profileId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'lecture avis');
+      return (data ?? []).map((item) => asNotice(item as Row));
     },
     async findOtherProfileByMemberId(memberId, exceptProfileId) {
       const { data, error } = await supabase

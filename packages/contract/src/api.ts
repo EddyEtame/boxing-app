@@ -43,4 +43,6 @@ export const MEMBER_API = {
   checkoutSession: (id: string) => `/v1/checkout/sessions/${encodeURIComponent(id)}`,
   /** GET -> InvoicesResponse. */
   invoices: '/v1/me/invoices',
+  /** GET -> avis personnels (prelevement, resiliation). */
+  notices: '/v1/me/notices',
 } as const;

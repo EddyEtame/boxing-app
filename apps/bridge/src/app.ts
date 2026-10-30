@@ -383,6 +383,21 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     });
   });
 
+  app.get('/v1/me/notices', async (req, reply) => {
+    const user = await authenticate(req, reply);
+    if (!user) return;
+    const rows = await deps.store.listMemberNotices(user.id);
+    reply.send({
+      items: rows.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        title: row.title,
+        body: row.body,
+        at: row.created_at,
+      })),
+    });
+  });
+
   app.post(MEMBER_API.checkoutSessions, async (req, reply) => {
     const user = await authenticate(req, reply);
     if (!user) return;
@@ -485,6 +500,44 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       },
     });
     reply.code(200).send({ ok: true });
+  });
+
+  app.post('/internal/member-notice', async (req, reply) => {
+    const nowSec = Math.floor(deps.now().getTime() / 1000);
+    if (!signed(req, deps.env.SHOP_BRIDGE_SECRET, nowSec)) {
+      reply.code(401).send({ error: 'signature_invalide' });
+      return;
+    }
+    const body = req.body as { event_id?: string; email?: string; kind?: string; title?: string; body?: string };
+    const eventId = typeof body?.event_id === 'string' ? body.event_id.trim() : '';
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const title = typeof body?.title === 'string' ? body.title.trim() : '';
+    const text = typeof body?.body === 'string' ? body.body.trim() : '';
+    const kind = body?.kind === 'prelevement_resilie' ? 'prelevement_resilie' : body?.kind === 'prelevement_retry' ? 'prelevement_retry' : '';
+    if (!eventId || !email || !title || !text || !kind) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    const profileId = await deps.store.findProfileIdByEmail(email);
+    if (!profileId) {
+      reply.send({ ok: true, delivered: false });
+      return;
+    }
+    const inserted = await deps.store.insertMemberNotice({
+      event_id: eventId,
+      profile_id: profileId,
+      kind,
+      title,
+      body: text,
+    });
+    if (inserted) {
+      await pushLiveSignal(deps.env, {
+        domain: 'comms.notifications',
+        action: kind,
+        profile_id: profileId,
+      });
+    }
+    reply.send({ ok: true, delivered: true, inserted });
   });
 
   app.post('/v1/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
