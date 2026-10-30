@@ -44,6 +44,9 @@ export const MEMBER_API: {
   readonly link: '/v1/link';
   readonly refresh: '/v1/me/refresh';
   readonly health: '/health';
+  readonly checkoutSessions: '/v1/checkout/sessions';
+  checkoutSession: (id: string) => string;
+  readonly invoices: '/v1/me/invoices';
 };
 
 export const SNAPSHOT_REFRESH_MS: number;

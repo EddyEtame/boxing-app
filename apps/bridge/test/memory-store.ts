@@ -3,14 +3,21 @@ import { randomUUID } from 'node:crypto';
 import {
   FicheDejaLieeError,
   type AuditEntry,
+  type CheckoutSession,
+  type CheckoutSessionPatch,
+  type InvoiceRow,
   type LinkRequest,
   type LinkRequestPatch,
+  type NewCheckoutSession,
+  type NewInvoiceRow,
   type NewLinkRequest,
+  type NewShopEvent,
   type Profile,
   type ProfilePatch,
   type Snapshot,
   type Store,
   type StoredEvent,
+  type SubscriptionPatch,
 } from '../src/store.ts';
 
 export class MemoryStore implements Store {
@@ -19,6 +26,10 @@ export class MemoryStore implements Store {
   readonly requests: LinkRequest[] = [];
   readonly audits: AuditEntry[] = [];
   readonly events: StoredEvent[] = [];
+  readonly checkouts: CheckoutSession[] = [];
+  readonly invoices: InvoiceRow[] = [];
+  readonly shopEvents = new Set<string>();
+  readonly subscriptions = new Map<string, Record<string, unknown>>();
   readonly deleted: string[] = [];
   private readonly now: () => Date;
 
@@ -126,6 +137,72 @@ export class MemoryStore implements Store {
       known.add(event.id);
       this.events.push(event);
     }
+  }
+
+  async insertCheckoutSession(row: NewCheckoutSession): Promise<CheckoutSession> {
+    const nowIso = this.now().toISOString();
+    const created: CheckoutSession = {
+      id: randomUUID(),
+      profile_id: row.profile_id,
+      boxplus_order_id: null,
+      offer_slug: row.offer_slug,
+      club: row.club,
+      payment_provider: null,
+      amount_cents: row.amount_cents ?? 0,
+      currency: 'EUR',
+      status: 'opened',
+      deciplus_member_id: null,
+      deciplus_sale_id: null,
+      error_code: null,
+      expires_at: row.expires_at,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    this.checkouts.push(created);
+    return created;
+  }
+
+  async getCheckoutSession(id: string): Promise<CheckoutSession | null> {
+    return this.checkouts.find((row) => row.id === id) ?? null;
+  }
+
+  async getCheckoutSessionForProfile(id: string, profileId: string): Promise<CheckoutSession | null> {
+    const row = this.checkouts.find((item) => item.id === id && item.profile_id === profileId);
+    return row ?? null;
+  }
+
+  async getCheckoutByBoxplusOrderId(orderId: string): Promise<CheckoutSession | null> {
+    return this.checkouts.find((row) => row.boxplus_order_id === orderId) ?? null;
+  }
+
+  async updateCheckoutSession(id: string, patch: CheckoutSessionPatch): Promise<void> {
+    const current = this.checkouts.find((row) => row.id === id);
+    if (!current) throw new Error('checkout introuvable');
+    Object.assign(current, patch, { updated_at: this.now().toISOString() });
+  }
+
+  async listInvoices(profileId: string, limit = 50): Promise<InvoiceRow[]> {
+    return this.invoices.filter((row) => row.profile_id === profileId).slice(0, limit);
+  }
+
+  async insertInvoice(row: NewInvoiceRow): Promise<InvoiceRow> {
+    if (this.invoices.some((item) => item.invoice_number === row.invoice_number)) {
+      throw new Error('facture_doublon');
+    }
+    const created: InvoiceRow = { ...row, id: randomUUID(), created_at: this.now().toISOString() };
+    this.invoices.push(created);
+    return created;
+  }
+
+  async upsertSubscription(profileId: string, patch: SubscriptionPatch): Promise<void> {
+    const current = this.subscriptions.get(profileId) ?? { profile_id: profileId };
+    this.subscriptions.set(profileId, { ...current, ...patch, updated_at: this.now().toISOString() });
+  }
+
+  async insertShopEvent(row: NewShopEvent): Promise<boolean> {
+    if (this.shopEvents.has(row.event_id)) return false;
+    this.shopEvents.add(row.event_id);
+    return true;
   }
 
   async deleteAccount(userId: string): Promise<void> {

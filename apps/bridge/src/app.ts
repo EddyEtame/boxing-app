@@ -9,8 +9,11 @@ import { applyMemberStatus, isDecided, profileIsComplete, type FichePayload, typ
 import { buildAuthEmail } from './emails.ts';
 import type { Env } from './env.ts';
 import { parseEventBatch } from './events-in.ts';
+import { applyShopEvent, profileReadyForCheckout } from './apply-shop.ts';
+import { buildCheckoutUrl, isClubId, normalizeOfferSlug } from './checkout.ts';
 import type { Mailer } from './mailer.ts';
 import { gymForClub, type Robot } from './robot.ts';
+import { parseShopEventBody } from './shop-in.ts';
 import { verifyBridgeSignature, verifyStandardWebhook } from './signature.ts';
 import { FicheDejaLieeError, type Profile, type Snapshot, type Store, type VerifyUser } from './store.ts';
 
@@ -345,6 +348,115 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     });
     await deps.store.deleteAccount(user.id);
     reply.code(204).send();
+  });
+
+  app.get(MEMBER_API.invoices, async (req, reply) => {
+    const user = await authenticate(req, reply);
+    if (!user) return;
+    const rows = await deps.store.listInvoices(user.id);
+    reply.send({
+      items: rows.map((row) => ({
+        id: row.id,
+        invoiceNumber: row.invoice_number,
+        label: row.label,
+        amountTtcCents: row.amount_ttc_cents,
+        issuedAt: row.issued_at,
+        status: row.status,
+      })),
+    });
+  });
+
+  app.post(MEMBER_API.checkoutSessions, async (req, reply) => {
+    const user = await authenticate(req, reply);
+    if (!user) return;
+    if (!user.emailConfirmed) {
+      reply.code(403).send({ error: 'email_non_verifie' });
+      return;
+    }
+    const profile = await deps.store.getProfile(user.id);
+    if (!profile) {
+      reply.code(404).send({ error: 'profil_introuvable' });
+      return;
+    }
+    if (!profileReadyForCheckout(profile)) {
+      reply.code(409).send({ error: 'profil_incomplet' });
+      return;
+    }
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    const offerSlug = normalizeOfferSlug((body as { offerSlug?: unknown }).offerSlug);
+    const clubRaw = typeof (body as { club?: unknown }).club === 'string' ? (body as { club: string }).club : '';
+    if (!offerSlug || !isClubId(clubRaw)) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    const now = deps.now();
+    const expires = new Date(now.getTime() + 45 * 60 * 1000);
+    const session = await deps.store.insertCheckoutSession({
+      profile_id: profile.id,
+      offer_slug: offerSlug,
+      club: clubRaw,
+      expires_at: expires.toISOString(),
+    });
+    const checkoutUrl = buildCheckoutUrl(
+      deps.env.BOUTIQUE_CHECKOUT_BASE_URL,
+      session.id,
+      profile.id,
+      Math.floor(expires.getTime() / 1000),
+      deps.env.APP_BRIDGE_SECRET,
+    );
+    reply.code(201).send({
+      id: session.id,
+      status: session.status,
+      checkoutUrl,
+      expiresAt: session.expires_at,
+    });
+  });
+
+  app.get('/v1/checkout/sessions/:id', async (req, reply) => {
+    const user = await authenticate(req, reply);
+    if (!user) return;
+    const id = typeof (req.params as { id?: unknown }).id === 'string' ? (req.params as { id: string }).id : '';
+    if (!id) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    const session = await deps.store.getCheckoutSessionForProfile(id, user.id);
+    if (!session) {
+      reply.code(404).send({ error: 'checkout_introuvable' });
+      return;
+    }
+    reply.send({
+      id: session.id,
+      status: session.status,
+      offerSlug: session.offer_slug,
+      club: session.club,
+      boxplusOrderId: session.boxplus_order_id,
+      updatedAt: session.updated_at,
+      expiresAt: session.expires_at,
+    });
+  });
+
+  app.post('/internal/shop-event', async (req, reply) => {
+    const nowSec = Math.floor(deps.now().getTime() / 1000);
+    if (!signed(req, deps.env.SHOP_BRIDGE_SECRET, nowSec)) {
+      reply.code(401).send({ error: 'signature_invalide' });
+      return;
+    }
+    const event = parseShopEventBody(req.body);
+    if (!event) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    const result = await applyShopEvent(deps.store, event, deps.now());
+    if (!result.ok) {
+      reply.code(404).send({ error: result.reason });
+      return;
+    }
+    reply.code(200).send({ ok: true });
   });
 
   app.post('/v1/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {

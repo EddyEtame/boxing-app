@@ -31,6 +31,8 @@ const env: Env = {
   BREVO_SENDER_EMAIL: 'suzinabot@gmail.com',
   BREVO_SENDER_NAME: 'Boxing Center',
   BREVO_REPLY_TO: 'boxingcenter31@gmail.com',
+  SHOP_BRIDGE_SECRET: 'shop-secret',
+  BOUTIQUE_CHECKOUT_BASE_URL: 'https://boutique.boxingcenter.fr/checkout/app',
 };
 
 const userA = { id: 'profil-a', email: 'ada@boxingcenter.fr', emailConfirmed: true };
@@ -134,6 +136,8 @@ test('PUBLIC_URL doit etre https', () => {
     ADMIN_BRIDGE_SECRET: 'admin',
     SEND_EMAIL_HOOK_SECRET: env.SEND_EMAIL_HOOK_SECRET,
     BREVO_API_KEY: 'brevo',
+    SHOP_BRIDGE_SECRET: 'shop',
+    BOUTIQUE_CHECKOUT_BASE_URL: 'https://boutique.boxingcenter.fr/checkout/app',
   }));
   const parsed = readEnv({
     PUBLIC_URL: 'https://api.boxingcenter.fr',
@@ -144,6 +148,8 @@ test('PUBLIC_URL doit etre https', () => {
     ADMIN_BRIDGE_SECRET: 'admin',
     SEND_EMAIL_HOOK_SECRET: env.SEND_EMAIL_HOOK_SECRET,
     BREVO_API_KEY: 'brevo',
+    SHOP_BRIDGE_SECRET: 'shop',
+    BOUTIQUE_CHECKOUT_BASE_URL: 'https://boutique.boxingcenter.fr/checkout/app',
   });
   assert.equal(parsed.PORT, 8080);
   assert.equal(parsed.BREVO_SENDER_EMAIL, 'suzinabot@gmail.com');
@@ -468,5 +474,87 @@ test('POST /v1/events filtre les props', async () => {
     assert.equal(store.events[0]?.id, 'evt-1');
     assert.equal(store.events[0]?.name, 'app_open');
     assert.deepEqual(store.events[0]?.props, { club: 'minimes', value: 'y'.repeat(64) });
+  });
+});
+
+test('POST /v1/checkout/sessions cree une session et une URL signee', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/checkout/sessions',
+      headers: { authorization: 'Bearer token-a' },
+      payload: { offerSlug: 'adulte-mensuel', club: 'minimes' },
+    });
+    assert.equal(res.statusCode, 201);
+    const body = res.json();
+    assert.match(body.checkoutUrl, /^https:\/\/boutique\.boxingcenter\.fr\/checkout\/app\?/);
+    assert.equal(body.status, 'opened');
+    assert.equal(store.checkouts.length, 1);
+    assert.equal(store.checkouts[0]?.profile_id, userA.id);
+  });
+});
+
+test('shop-event signature invalide -> 401', async () => {
+  await withApp(async ({ app }) => {
+    const raw = JSON.stringify({
+      event_id: 'evt-shop-1',
+      type: 'order.paid',
+      order_id: 'ord-1',
+      checkout_session_id: 'missing',
+    });
+    const bad = await postSigned(app, '/internal/shop-event', raw, 'wrong');
+    assert.equal(bad.statusCode, 401);
+  });
+});
+
+test('order.paid met a jour le checkout et l abonnement', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile());
+    const session = await store.insertCheckoutSession({
+      profile_id: userA.id,
+      offer_slug: 'adulte-mensuel',
+      club: 'minimes',
+      expires_at: new Date(NOW.getTime() + 3600_000).toISOString(),
+    });
+    const raw = JSON.stringify({
+      event_id: 'evt-paid-1',
+      type: 'order.paid',
+      order_id: 'box-99',
+      boxplus_order_id: 'box-99',
+      checkout_session_id: session.id,
+      amount_ttc_cents: 4900,
+    });
+    const res = await postSigned(app, '/internal/shop-event', raw, env.SHOP_BRIDGE_SECRET);
+    assert.equal(res.statusCode, 200);
+    const updated = await store.getCheckoutSession(session.id);
+    assert.equal(updated?.status, 'paid_pending_deciplus');
+    assert.equal(updated?.boxplus_order_id, 'box-99');
+    assert.equal(store.subscriptions.get(userA.id)?.status, 'activating');
+  });
+});
+
+test('GET /v1/me/invoices liste les factures du profil', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile());
+    await store.insertInvoice({
+      profile_id: userA.id,
+      invoice_number: 'FAC-2026-001',
+      boxplus_order_id: 'box-1',
+      deciplus_sale_id: null,
+      club: 'minimes',
+      label: 'Abonnement',
+      amount_ht_cents: 4083,
+      amount_tva_cents: 817,
+      amount_ttc_cents: 4900,
+      status: 'paid',
+      issued_at: NOW.toISOString(),
+      storage_path: 'invoices/a.pdf',
+      sha256_hex: 'abc',
+    });
+    const res = await app.inject({ method: 'GET', url: '/v1/me/invoices', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().items.length, 1);
+    assert.equal(res.json().items[0].invoiceNumber, 'FAC-2026-001');
   });
 });

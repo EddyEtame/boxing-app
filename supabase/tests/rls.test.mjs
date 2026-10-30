@@ -88,11 +88,38 @@ test('un adherent ne peut pas se donner le statut actif ni toucher la fiche', as
 
 test('les demandes de rapprochement, appareils et journaux restent au serveur', async () => {
   const db = await setup();
-  for (const t of ['link_requests', 'devices', 'audit_log', 'app_events']) {
+  for (const t of ['link_requests', 'devices', 'audit_log', 'app_events', 'shop_events']) {
     await assert.rejects(as(db, 'authenticated', A, `select * from public.${t}`), undefined, t);
   }
   const svc = await as(db, 'service_role', null, 'select order_id from public.link_requests');
   assert.equal(svc.rows.length, 1);
+});
+
+test('commerce : lecture Realtime des checkouts, abonnement et factures du profil uniquement', async () => {
+  const db = await setup();
+  await db.exec(`
+    insert into public.checkout_sessions (profile_id, offer_slug, club, expires_at)
+      values ('${A}', 'adulte-mensuel', 'minimes', now() + interval '1 hour'),
+             ('${B}', 'adulte-mensuel', 'minimes', now() + interval '1 hour');
+    insert into public.subscription_state (profile_id, status) values ('${A}', 'active'), ('${B}', 'none');
+    insert into public.invoices_index (
+      profile_id, invoice_number, boxplus_order_id, club, label,
+      amount_ht_cents, amount_tva_cents, amount_ttc_cents, issued_at, storage_path, sha256_hex
+    ) values (
+      '${A}', 'FAC-A-1', 'ord-a', 'minimes', 'Abonnement', 100, 20, 120, now(), 'a.pdf', 'aa'
+    ), (
+      '${B}', 'FAC-B-1', 'ord-b', 'minimes', 'Abonnement', 100, 20, 120, now(), 'b.pdf', 'bb'
+    );
+  `);
+  const checkouts = await as(db, 'authenticated', A, 'select profile_id from public.checkout_sessions');
+  assert.deepEqual(checkouts.rows.map((r) => r.profile_id), [A]);
+  const subs = await as(db, 'authenticated', A, 'select profile_id, status from public.subscription_state');
+  assert.deepEqual(subs.rows, [{ profile_id: A, status: 'active' }]);
+  const invoices = await as(db, 'authenticated', A, 'select invoice_number from public.invoices_index');
+  assert.deepEqual(invoices.rows.map((r) => r.invoice_number), ['FAC-A-1']);
+  await assert.rejects(
+    as(db, 'authenticated', A, `insert into public.checkout_sessions (profile_id, offer_slug, club, expires_at) values ('${A}', 'x', 'minimes', now() + interval '1 hour')`),
+  );
 });
 
 test('supprimer le compte efface profil, fiche et demandes', async () => {

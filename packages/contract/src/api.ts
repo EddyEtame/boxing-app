@@ -38,4 +38,9 @@ export const MEMBER_API = {
   refresh: '/v1/me/refresh',
   /** GET -> { ok: true } : le serveur répond. */
   health: '/health',
+  /** POST -> CheckoutSessionResponse ; GET /v1/checkout/sessions/:id -> CheckoutSessionView. */
+  checkoutSessions: '/v1/checkout/sessions',
+  checkoutSession: (id: string) => `/v1/checkout/sessions/${encodeURIComponent(id)}`,
+  /** GET -> InvoicesResponse. */
+  invoices: '/v1/me/invoices',
 } as const;

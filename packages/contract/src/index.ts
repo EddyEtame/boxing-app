@@ -5,3 +5,4 @@ export * from './events';
 export * from './api';
 export * from './admin';
 export * from './me';
+export * from './commerce';

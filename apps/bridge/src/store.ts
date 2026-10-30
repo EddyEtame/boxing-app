@@ -2,6 +2,18 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { LinkStatus } from '@bc/contract';
 
+import type {
+  CheckoutSession,
+  CheckoutSessionPatch,
+  InvoiceRow,
+  NewCheckoutSession,
+  NewInvoiceRow,
+  NewShopEvent,
+  SubscriptionPatch,
+} from './commerce-store.ts';
+
+export type { CheckoutSession, CheckoutSessionPatch, InvoiceRow, NewCheckoutSession, NewInvoiceRow, NewShopEvent, SubscriptionPatch };
+
 export class FicheDejaLieeError extends Error {
   constructor() {
     super('fiche_deja_liee');
@@ -112,6 +124,15 @@ export type Store = {
   insertAudit(entry: AuditEntry): Promise<void>;
   insertEvents(events: StoredEvent[]): Promise<void>;
   deleteAccount(userId: string): Promise<void>;
+  insertCheckoutSession(row: NewCheckoutSession): Promise<CheckoutSession>;
+  getCheckoutSession(id: string): Promise<CheckoutSession | null>;
+  getCheckoutSessionForProfile(id: string, profileId: string): Promise<CheckoutSession | null>;
+  getCheckoutByBoxplusOrderId(orderId: string): Promise<CheckoutSession | null>;
+  updateCheckoutSession(id: string, patch: CheckoutSessionPatch): Promise<void>;
+  listInvoices(profileId: string, limit?: number): Promise<InvoiceRow[]>;
+  insertInvoice(row: NewInvoiceRow): Promise<InvoiceRow>;
+  upsertSubscription(profileId: string, patch: SubscriptionPatch): Promise<void>;
+  insertShopEvent(row: NewShopEvent): Promise<boolean>;
 };
 
 export type AuthUser = {
@@ -189,6 +210,48 @@ function asLinkRequest(row: Row): LinkRequest {
     created_at: asText(row.created_at) ?? new Date(0).toISOString(),
     decided_at: asText(row.decided_at),
     resolved_at: asText(row.resolved_at),
+  };
+}
+
+function asCheckoutSession(row: Row): CheckoutSession {
+  const status = asText(row.status) ?? 'opened';
+  return {
+    id: String(row.id),
+    profile_id: String(row.profile_id),
+    boxplus_order_id: asText(row.boxplus_order_id),
+    offer_slug: asText(row.offer_slug) ?? '',
+    club: asText(row.club) ?? '',
+    payment_provider: asText(row.payment_provider),
+    amount_cents: typeof row.amount_cents === 'number' ? row.amount_cents : 0,
+    currency: asText(row.currency) ?? 'EUR',
+    status: status as CheckoutSession['status'],
+    deciplus_member_id: asText(row.deciplus_member_id),
+    deciplus_sale_id: asText(row.deciplus_sale_id),
+    error_code: asText(row.error_code),
+    expires_at: asText(row.expires_at) ?? new Date(0).toISOString(),
+    created_at: asText(row.created_at) ?? new Date(0).toISOString(),
+    updated_at: asText(row.updated_at) ?? new Date(0).toISOString(),
+  };
+}
+
+function asInvoiceRow(row: Row): InvoiceRow {
+  const status = asText(row.status) ?? 'paid';
+  return {
+    id: String(row.id),
+    profile_id: String(row.profile_id),
+    invoice_number: asText(row.invoice_number) ?? '',
+    boxplus_order_id: asText(row.boxplus_order_id) ?? '',
+    deciplus_sale_id: asText(row.deciplus_sale_id),
+    club: asText(row.club) ?? '',
+    label: asText(row.label) ?? '',
+    amount_ht_cents: typeof row.amount_ht_cents === 'number' ? row.amount_ht_cents : 0,
+    amount_tva_cents: typeof row.amount_tva_cents === 'number' ? row.amount_tva_cents : 0,
+    amount_ttc_cents: typeof row.amount_ttc_cents === 'number' ? row.amount_ttc_cents : 0,
+    status: status === 'refunded' || status === 'void' ? status : 'paid',
+    issued_at: asText(row.issued_at) ?? new Date(0).toISOString(),
+    storage_path: asText(row.storage_path) ?? '',
+    sha256_hex: asText(row.sha256_hex) ?? '',
+    created_at: asText(row.created_at) ?? new Date(0).toISOString(),
   };
 }
 
@@ -292,6 +355,73 @@ export function createSupabaseStore(supabase: SupabaseClient): Store {
       if (events.length === 0) return;
       const { error } = await supabase.from('app_events').upsert(events, { onConflict: 'id', ignoreDuplicates: true });
       if (error) fail(error, 'evenements');
+    },
+    async insertCheckoutSession(row) {
+      const { data, error } = await supabase
+        .from('checkout_sessions')
+        .insert({
+          profile_id: row.profile_id,
+          offer_slug: row.offer_slug,
+          club: row.club,
+          amount_cents: row.amount_cents ?? 0,
+          expires_at: row.expires_at,
+        })
+        .select('*')
+        .single();
+      if (error) fail(error, 'creation checkout');
+      return asCheckoutSession(data as Row);
+    },
+    async getCheckoutSession(id) {
+      const { data, error } = await supabase.from('checkout_sessions').select('*').eq('id', id).maybeSingle();
+      if (error) fail(error, 'lecture checkout');
+      return data ? asCheckoutSession(data as Row) : null;
+    },
+    async getCheckoutSessionForProfile(id, profileId) {
+      const { data, error } = await supabase.from('checkout_sessions').select('*').eq('id', id).eq('profile_id', profileId).maybeSingle();
+      if (error) fail(error, 'lecture checkout');
+      return data ? asCheckoutSession(data as Row) : null;
+    },
+    async getCheckoutByBoxplusOrderId(orderId) {
+      const { data, error } = await supabase.from('checkout_sessions').select('*').eq('boxplus_order_id', orderId).maybeSingle();
+      if (error) fail(error, 'lecture checkout commande');
+      return data ? asCheckoutSession(data as Row) : null;
+    },
+    async updateCheckoutSession(id, patch) {
+      const { error } = await supabase.from('checkout_sessions').update(definedPatch(patch)).eq('id', id);
+      if (error) fail(error, 'mise a jour checkout');
+    },
+    async listInvoices(profileId, limit = 50) {
+      const { data, error } = await supabase
+        .from('invoices_index')
+        .select('*')
+        .eq('profile_id', profileId)
+        .order('issued_at', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'lecture factures');
+      return (data ?? []).map((row) => asInvoiceRow(row as Row));
+    },
+    async insertInvoice(row) {
+      const { data, error } = await supabase.from('invoices_index').insert(row).select('*').single();
+      if (isUnique(error)) throw new Error('facture_doublon');
+      if (error) fail(error, 'ecriture facture');
+      return asInvoiceRow(data as Row);
+    },
+    async upsertSubscription(profileId, patch) {
+      const { error } = await supabase.from('subscription_state').upsert({ profile_id: profileId, ...definedPatch(patch) }, { onConflict: 'profile_id' });
+      if (error) fail(error, 'abonnement');
+    },
+    async insertShopEvent(row) {
+      const { error } = await supabase.from('shop_events').insert({
+        event_id: row.event_id,
+        type: row.type,
+        order_id: row.order_id ?? null,
+        profile_id: row.profile_id ?? null,
+        status: row.status ?? 'recu',
+        payload: row.payload ?? {},
+      });
+      if (isUnique(error)) return false;
+      if (error) fail(error, 'evenement boutique');
+      return true;
     },
     async deleteAccount(userId) {
       const { error } = await supabase.auth.admin.deleteUser(userId);

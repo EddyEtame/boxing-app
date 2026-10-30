@@ -15,6 +15,8 @@ const schema = z.object({
   BREVO_SENDER_EMAIL: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
   BREVO_SENDER_NAME: z.string().min(1),
   BREVO_REPLY_TO: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+  SHOP_BRIDGE_SECRET: z.string().min(1),
+  BOUTIQUE_CHECKOUT_BASE_URL: z.string().regex(/^https:\/\/\S+$/),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -49,6 +51,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     BREVO_SENDER_EMAIL: pick(source, 'BREVO_SENDER_EMAIL') ?? 'suzinabot@gmail.com',
     BREVO_SENDER_NAME: pick(source, 'BREVO_SENDER_NAME') ?? 'Boxing Center',
     BREVO_REPLY_TO: pick(source, 'BREVO_REPLY_TO') ?? 'boxingcenter31@gmail.com',
+    SHOP_BRIDGE_SECRET: pick(source, 'SHOP_BRIDGE_SECRET') ?? '',
+    BOUTIQUE_CHECKOUT_BASE_URL: pick(source, 'BOUTIQUE_CHECKOUT_BASE_URL') ?? '',
   });
   if (!parsed.success) {
     const fields = parsed.error.issues.map((issue) => issue.path.join('.') || 'env').join(', ');
