@@ -1,7 +1,15 @@
 # Application mobile BOXING CENTER — iOS & Android
 
-Application officielle Boxing Center (App Store et Google Play), son interface
-d'administration web et ses connecteurs. Le cahier des charges fait foi sur le périmètre.
+Application officielle Boxing Center (App Store et Google Play), son serveur applicatif
+et ses connecteurs. Le cahier des charges fait foi sur le périmètre.
+
+## L'interface d'administration
+
+L'admin (`apps/admin`, Next.js) est un site à part : il vit sur la branche **`admin`** de ce
+dépôt, pas sur `main` (décision du 30/10/2026). Pour y travailler : `git switch admin`, ou
+`git worktree add ../boxing-app-admin admin`. Ce qu'il lit et écrit hors de lui, ce qu'il
+attend du serveur et comment il se déploie : `apps/admin/src/server/couture.md`, sur cette
+branche. `admin` reprend `main` (`git merge main`) ; `main` ne reprend jamais `admin`.
 
 ## Dépôts
 

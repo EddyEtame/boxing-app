@@ -1,8 +1,0 @@
-# données locales de l'admin (contenus, comptes, événements d'usage) — jamais versionnées
-.data/
-
-# sorties de Next.js
-.next/
-out/
-next-env.d.ts
-*.tsbuildinfo

@@ -2,7 +2,7 @@
   "name": "boxing-center",
   "private": true,
   "version": "0.0.0",
-  "description": "Application mobile BOXING CENTER — iOS & Android, interface d'administration et connecteurs",
+  "description": "Application mobile BOXING CENTER — iOS & Android, serveur applicatif et contrat partagé (l'interface d'administration vit sur la branche admin)",
   "workspaces": [
     "apps/*",
     "packages/*"
