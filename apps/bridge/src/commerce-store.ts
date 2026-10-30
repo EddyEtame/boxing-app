@@ -76,3 +76,13 @@ export type NewShopEvent = {
   status?: string;
   payload?: Record<string, unknown>;
 };
+
+export type ShopEventRow = {
+  event_id: string;
+  type: string;
+  order_id: string | null;
+  profile_id: string | null;
+  status: string;
+  received_at: string;
+  payload: Record<string, unknown>;
+};

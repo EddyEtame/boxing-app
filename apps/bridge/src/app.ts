@@ -591,6 +591,38 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     reply.code(200).send({ status: 'lie' satisfies LinkStatus });
   });
 
+  app.post('/internal/admin/shop-health', async (req, reply) => {
+    const nowSec = Math.floor(deps.now().getTime() / 1000);
+    if (!signed(req, deps.env.ADMIN_BRIDGE_SECRET, nowSec)) {
+      reply.code(401).send({ error: 'signature_invalide' });
+      return;
+    }
+    const [events, checkoutAlerts] = await Promise.all([
+      deps.store.listShopEventsRecent(40),
+      deps.store.listCheckoutAlerts(40),
+    ]);
+    reply.send({
+      generatedAt: deps.now().toISOString(),
+      events: events.map((row) => ({
+        eventId: row.event_id,
+        type: row.type,
+        orderId: row.order_id,
+        status: row.status,
+        receivedAt: row.received_at,
+      })),
+      checkoutAlerts: checkoutAlerts.map((row) => ({
+        id: row.id,
+        status: row.status,
+        profileId: row.profile_id,
+        offerSlug: row.offer_slug,
+        club: row.club,
+        boxplusOrderId: row.boxplus_order_id,
+        updatedAt: row.updated_at,
+        errorCode: row.error_code,
+      })),
+    });
+  });
+
   app.post('/hooks/auth-email', async (req, reply) => {
     const nowSec = Math.floor(deps.now().getTime() / 1000);
     const raw = (req as RequestWithRaw).rawBody ?? '';

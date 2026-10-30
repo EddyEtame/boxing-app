@@ -9,10 +9,11 @@ import type {
   NewCheckoutSession,
   NewInvoiceRow,
   NewShopEvent,
+  ShopEventRow,
   SubscriptionPatch,
 } from './commerce-store.ts';
 
-export type { CheckoutSession, CheckoutSessionPatch, InvoiceRow, NewCheckoutSession, NewInvoiceRow, NewShopEvent, SubscriptionPatch };
+export type { CheckoutSession, CheckoutSessionPatch, InvoiceRow, NewCheckoutSession, NewInvoiceRow, NewShopEvent, ShopEventRow, SubscriptionPatch };
 
 export class FicheDejaLieeError extends Error {
   constructor() {
@@ -133,6 +134,8 @@ export type Store = {
   insertInvoice(row: NewInvoiceRow): Promise<InvoiceRow>;
   upsertSubscription(profileId: string, patch: SubscriptionPatch): Promise<void>;
   insertShopEvent(row: NewShopEvent): Promise<boolean>;
+  listShopEventsRecent(limit?: number): Promise<ShopEventRow[]>;
+  listCheckoutAlerts(limit?: number): Promise<CheckoutSession[]>;
 };
 
 export type AuthUser = {
@@ -231,6 +234,19 @@ function asCheckoutSession(row: Row): CheckoutSession {
     expires_at: asText(row.expires_at) ?? new Date(0).toISOString(),
     created_at: asText(row.created_at) ?? new Date(0).toISOString(),
     updated_at: asText(row.updated_at) ?? new Date(0).toISOString(),
+  };
+}
+
+function asShopEventRow(row: Row): ShopEventRow {
+  const payload = row.payload;
+  return {
+    event_id: asText(row.event_id) ?? '',
+    type: asText(row.type) ?? '',
+    order_id: asText(row.order_id),
+    profile_id: asText(row.profile_id),
+    status: asText(row.status) ?? 'recu',
+    received_at: asText(row.received_at) ?? new Date(0).toISOString(),
+    payload: payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {},
   };
 }
 
@@ -422,6 +438,25 @@ export function createSupabaseStore(supabase: SupabaseClient): Store {
       if (isUnique(error)) return false;
       if (error) fail(error, 'evenement boutique');
       return true;
+    },
+    async listShopEventsRecent(limit = 40) {
+      const { data, error } = await supabase
+        .from('shop_events')
+        .select('event_id,type,order_id,profile_id,status,received_at,payload')
+        .order('received_at', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'lecture evenements boutique');
+      return (data ?? []).map((row) => asShopEventRow(row as Row));
+    },
+    async listCheckoutAlerts(limit = 40) {
+      const { data, error } = await supabase
+        .from('checkout_sessions')
+        .select('*')
+        .in('status', ['manual_review', 'failed', 'paid_pending_deciplus', 'payment_pending'])
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'lecture checkouts');
+      return (data ?? []).map((row) => asCheckoutSession(row as Row));
     },
     async deleteAccount(userId) {
       const { error } = await supabase.auth.admin.deleteUser(userId);

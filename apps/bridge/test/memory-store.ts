@@ -17,6 +17,7 @@ import {
   type Snapshot,
   type Store,
   type StoredEvent,
+  type ShopEventRow,
   type SubscriptionPatch,
 } from '../src/store.ts';
 
@@ -29,6 +30,7 @@ export class MemoryStore implements Store {
   readonly checkouts: CheckoutSession[] = [];
   readonly invoices: InvoiceRow[] = [];
   readonly shopEvents = new Set<string>();
+  readonly shopEventRows: ShopEventRow[] = [];
   readonly subscriptions = new Map<string, Record<string, unknown>>();
   readonly deleted: string[] = [];
   private readonly now: () => Date;
@@ -202,7 +204,25 @@ export class MemoryStore implements Store {
   async insertShopEvent(row: NewShopEvent): Promise<boolean> {
     if (this.shopEvents.has(row.event_id)) return false;
     this.shopEvents.add(row.event_id);
+    this.shopEventRows.unshift({
+      event_id: row.event_id,
+      type: row.type,
+      order_id: row.order_id ?? null,
+      profile_id: row.profile_id ?? null,
+      status: row.status ?? 'recu',
+      received_at: this.now().toISOString(),
+      payload: row.payload ?? {},
+    });
     return true;
+  }
+
+  async listShopEventsRecent(limit = 40): Promise<ShopEventRow[]> {
+    return this.shopEventRows.slice(0, limit);
+  }
+
+  async listCheckoutAlerts(limit = 40): Promise<CheckoutSession[]> {
+    const alert = new Set(['manual_review', 'failed', 'paid_pending_deciplus', 'payment_pending']);
+    return this.checkouts.filter((row) => alert.has(row.status)).slice(0, limit);
   }
 
   async deleteAccount(userId: string): Promise<void> {

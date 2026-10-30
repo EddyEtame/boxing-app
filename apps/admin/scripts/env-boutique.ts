@@ -28,7 +28,7 @@ function argValue(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-const source = path.resolve(argValue('--from') ?? process.env.BOUTIQUE_ENV ?? path.join(repoRoot, '..', '..', '..', 'Plannings', 'box-plus', '.env'));
+const source = path.resolve(argValue('--from') ?? process.env.BOUTIQUE_ENV ?? path.join(repoRoot, '..', 'BOXPLUS', '.env'));
 
 function fail(message: string): never {
   console.error(`\n✗ ${message}\n`);
@@ -75,7 +75,21 @@ const current = parseDotenv(existing);
 const keepSecret = Boolean(current.SESSION_SECRET && current.SESSION_SECRET.length >= 32);
 const secret = keepSecret ? current.SESSION_SECRET! : randomBytes(32).toString('hex');
 
-const managed = new Set<string>([...KEYS, 'SESSION_SECRET']);
+const bridgeEnvPath = path.join(repoRoot, 'apps', 'bridge', '.env');
+const bridge = parseDotenv(existsSync(bridgeEnvPath) ? readFileSync(bridgeEnvPath, 'utf8') : '');
+
+const bridgeUrl = (bridge.PUBLIC_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
+const adminBridgeSecret = bridge.ADMIN_BRIDGE_SECRET || '';
+const deciplusBridgeSecret = bridge.APP_BRIDGE_SECRET || adminBridgeSecret || 'local-dev';
+
+const managed = new Set<string>([
+  ...KEYS,
+  'SESSION_SECRET',
+  'DECIPLUS_BRIDGE_URL',
+  'DECIPLUS_BRIDGE_SECRET',
+  'MEMBER_BRIDGE_URL',
+  'ADMIN_BRIDGE_SECRET',
+]);
 const kept = existing
   .split('\n')
   .filter((line) => {
@@ -97,6 +111,12 @@ const body = [
   '# Signature des cookies de session de l’admin.',
   serialize('SESSION_SECRET', secret),
   '',
+  '# Pont membre (Deciplus + commerce app) : lancer apps/bridge en local ou pointer vers la prod.',
+  serialize('DECIPLUS_BRIDGE_URL', bridgeUrl),
+  serialize('DECIPLUS_BRIDGE_SECRET', deciplusBridgeSecret),
+  serialize('MEMBER_BRIDGE_URL', bridgeUrl),
+  serialize('ADMIN_BRIDGE_SECRET', adminBridgeSecret),
+  '',
 ]
   .filter((line, i, all) => !(line === '' && all[i - 1] === ''))
   .join('\n')
@@ -110,7 +130,14 @@ async function verify(): Promise<boolean | null> {
     const { loadEnvConfig } = await import('@next/env');
     for (const key of managed) delete process.env[key];
     loadEnvConfig(adminDir, true, { info: () => {}, error: () => {} }, true);
-    return process.env.SUPER_ADMIN_EMAIL === shop.SUPER_ADMIN_EMAIL && process.env.SUPER_ADMIN_PASSWORD === shop.SUPER_ADMIN_PASSWORD && process.env.SESSION_SECRET === secret;
+    return (
+      process.env.SUPER_ADMIN_EMAIL === shop.SUPER_ADMIN_EMAIL &&
+      process.env.SUPER_ADMIN_PASSWORD === shop.SUPER_ADMIN_PASSWORD &&
+      process.env.SESSION_SECRET === secret &&
+      process.env.DECIPLUS_BRIDGE_URL === bridgeUrl &&
+      process.env.MEMBER_BRIDGE_URL === bridgeUrl &&
+      process.env.ADMIN_BRIDGE_SECRET === adminBridgeSecret
+    );
   } catch {
     return null;
   }
@@ -134,6 +161,8 @@ void (async () => {
   console.log(`✓ SUPER_ADMIN_EMAIL copié depuis la boutique`);
   console.log(`✓ SUPER_ADMIN_PASSWORD copié depuis la boutique`);
   console.log(keepSecret ? '✓ SESSION_SECRET conservé (déjà présent)' : '✓ SESSION_SECRET généré (64 caractères hexadécimaux)');
+  if (adminBridgeSecret) console.log('✓ DECIPLUS_BRIDGE_URL, MEMBER_BRIDGE_URL et ADMIN_BRIDGE_SECRET copiés depuis apps/bridge/.env');
+  else console.log('• ADMIN_BRIDGE_SECRET absent dans apps/bridge/.env : lancez node scripts/bootstrap-local-env.mjs à la racine du monorepo.');
   if (same === true) console.log('✓ Relu avec le chargeur de Next : valeurs identiques à la source');
   else if (same === false) fail('La relecture par Next ne donne pas les mêmes valeurs : vérifiez les caractères spéciaux du mot de passe.');
   else console.log('• Relecture par Next impossible ici (paquet @next/env introuvable) : vérifiez la connexion au démarrage.');

@@ -558,3 +558,30 @@ test('GET /v1/me/invoices liste les factures du profil', async () => {
     assert.equal(res.json().items[0].invoiceNumber, 'FAC-2026-001');
   });
 });
+
+test('POST /internal/admin/shop-health liste evenements et alertes', async () => {
+  await withApp(async ({ app, store }) => {
+    await store.insertShopEvent({
+      event_id: 'evt-1',
+      type: 'order.paid',
+      order_id: 'ord-1',
+      status: 'recu',
+      payload: {},
+    });
+    const session = await store.insertCheckoutSession({
+      profile_id: userA.id,
+      offer_slug: 'mensuel-minimes',
+      club: 'minimes',
+      expires_at: new Date(NOW.getTime() + 3600_000).toISOString(),
+    });
+    await store.updateCheckoutSession(session.id, { status: 'manual_review', error_code: 'deciplus_timeout' });
+    const raw = '{}';
+    const res = await postSigned(app, '/internal/admin/shop-health', raw, env.ADMIN_BRIDGE_SECRET);
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.events.length, 1);
+    assert.equal(body.events[0].eventId, 'evt-1');
+    assert.equal(body.checkoutAlerts.length, 1);
+    assert.equal(body.checkoutAlerts[0].status, 'manual_review');
+  });
+});

@@ -11,6 +11,7 @@ import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { relative } from '@/lib/format';
 import type { Connection } from '@/server/branchements';
+import type { ShopHealthReport } from '@/server/member-bridge';
 
 /** CDC §18A, ligne par ligne : où vit la donnée, comment la lire, ce que l'app fait sans elle. */
 const DATA = ['comptes', 'statuts', 'echeances', 'impayes', 'factures', 'badges', 'passages'] as const;
@@ -23,7 +24,17 @@ const ROUTES = ['xplor', 'valideur', 'comptoir'] as const;
  * la porte. Deciplus n'a pas d'API publique (vérifié le 17/10/2026) : la lecture
  * passe par le robot existant de la boutique, qui parle à son API interne.
  */
-export function DeciplusView({ bridge, checkedAt, demo }: { bridge: Connection; checkedAt: string; demo: { memberId: string; passages: number; updatedAt: string } }) {
+export function DeciplusView({
+  bridge,
+  checkedAt,
+  demo,
+  shop,
+}: {
+  bridge: Connection;
+  checkedAt: string;
+  demo: { memberId: string; passages: number; updatedAt: string };
+  shop: ShopHealthReport | null;
+}) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const now = useNow(15_000);
@@ -77,6 +88,88 @@ export function DeciplusView({ bridge, checkedAt, demo }: { bridge: Connection; 
               ))}
             </ul>
             <p className="field-help">{t('deci.env.help')}</p>
+          </div>
+        </section>
+
+        <section aria-labelledby="deci-shop" className="panel">
+          <div className="panel-head">
+            <div>
+              <h2 id="deci-shop" className="panel-title">
+                {t('deci.shop')}
+              </h2>
+              <p className="panel-sub">{t('deci.shop.sub')}</p>
+            </div>
+          </div>
+          <div className="panel-body stack" style={{ '--gap': '16px' } as React.CSSProperties}>
+            {!shop ? (
+              <p className="field-help">{t('deci.shop.off')}</p>
+            ) : (
+              <>
+                <div>
+                  <h3 className="drawer-h">{t('deci.shop.alerts')}</h3>
+                  {shop.checkoutAlerts.length === 0 ? (
+                    <p className="empty-mini">{t('deci.shop.alerts.empty')}</p>
+                  ) : (
+                    <div className="tbl-wrap">
+                      <table className="tbl tbl-cards deci-table">
+                        <thead>
+                          <tr>
+                            <th>{t('deci.shop.col.status')}</th>
+                            <th>{t('deci.shop.col.offer')}</th>
+                            <th>{t('deci.shop.col.club')}</th>
+                            <th>{t('deci.shop.col.order')}</th>
+                            <th>{t('deci.shop.col.error')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shop.checkoutAlerts.map((row) => (
+                            <tr key={row.id}>
+                              <td data-l={t('deci.shop.col.status')}>
+                                <span className="row-title">{row.status}</span>
+                                <span className="row-sub">{relative(t, locale, row.updatedAt, now)}</span>
+                              </td>
+                              <td data-l={t('deci.shop.col.offer')}>{row.offerSlug}</td>
+                              <td data-l={t('deci.shop.col.club')}>{row.club}</td>
+                              <td data-l={t('deci.shop.col.order')}>{row.boxplusOrderId ?? '—'}</td>
+                              <td data-l={t('deci.shop.col.error')}>{row.errorCode ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="drawer-h">{t('deci.shop.events')}</h3>
+                  {shop.events.length === 0 ? (
+                    <p className="empty-mini">{t('deci.shop.events.empty')}</p>
+                  ) : (
+                    <div className="tbl-wrap">
+                      <table className="tbl tbl-cards deci-table">
+                        <thead>
+                          <tr>
+                            <th>{t('deci.shop.col.when')}</th>
+                            <th>{t('deci.shop.col.type')}</th>
+                            <th>{t('deci.shop.col.order')}</th>
+                            <th>{t('deci.shop.col.status')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shop.events.map((row) => (
+                            <tr key={row.eventId}>
+                              <td data-l={t('deci.shop.col.when')}>{relative(t, locale, row.receivedAt, now)}</td>
+                              <td data-l={t('deci.shop.col.type')}>{row.type}</td>
+                              <td data-l={t('deci.shop.col.order')}>{row.orderId ?? '—'}</td>
+                              <td data-l={t('deci.shop.col.status')}>{row.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </section>
 

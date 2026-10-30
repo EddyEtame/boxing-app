@@ -30,7 +30,9 @@ Voir `.env.example` (noms seulement, aucun secret dans le depot).
 | BOT_URL | Robot local, defaut http://127.0.0.1:3050 |
 | BOT_SYNC_SECRET | En-tete `x-sync-secret` vers le robot |
 | APP_BRIDGE_SECRET | Signature des retours `POST /internal/app-member-status` |
-| ADMIN_BRIDGE_SECRET | Signature des decisions `POST /internal/admin/link-resolution` |
+| ADMIN_BRIDGE_SECRET | Signature des decisions `POST /internal/admin/link-resolution` et sante commerce `POST /internal/admin/shop-health` |
+| SHOP_BRIDGE_SECRET | Signature des evenements boutique `POST /internal/shop-event` |
+| BOUTIQUE_CHECKOUT_BASE_URL | Base URL du checkout app (query signee), ex. `https://boutique.boxingcenter.fr/checkout/app` |
 | SEND_EMAIL_HOOK_SECRET | Secret du crochet Supabase, format `v1,whsec_<base64>` |
 | BREVO_API_KEY | Envoi des e-mails |
 | BREVO_SENDER_EMAIL | Defaut suzinabot@gmail.com |
@@ -68,3 +70,23 @@ URI : `{PUBLIC_URL}/hooks/auth-email`
 Coller le secret genere dans `SEND_EMAIL_HOOK_SECRET` (il commence par `v1,whsec_`).
 
 Les messages sont en francais, sans lien : un code a 6 chiffres, valable 1 heure (inscription, mot de passe oublie, changement d'adresse, reauthentification, lien magique, invitation). Regler la longueur OTP du projet a 6 chiffres pour que `token` soit ce code.
+
+## Commerce app (checkout boutique)
+
+Migration Supabase : `supabase/migrations/20261030000002_commerce.sql` (tables `checkout_sessions`, `subscription_state`, `invoices_index`, `shop_events`, RLS adherent, publication Realtime si disponible).
+
+| Composant | Action prod |
+| --- | --- |
+| Supabase (projet app) | Appliquer la migration sur le projet lie a l'app ; verifier Realtime sur `checkout_sessions` et `subscription_state` |
+| Bridge | `SHOP_BRIDGE_SECRET` identique a BOXPLUS ; `BOUTIQUE_CHECKOUT_BASE_URL` vers la boutique publique `/checkout/app` ; `PUBLIC_URL` = URL tunnel |
+| BOXPLUS | `APP_BRIDGE_PUBLIC_URL` = `PUBLIC_URL` du bridge ; `APP_BRIDGE_SECRET` et `SHOP_BRIDGE_SECRET` alignes ; cron `GET /api/cron/app-bridge-outbox` planifie |
+| Admin equipe | `MEMBER_BRIDGE_URL` + `ADMIN_BRIDGE_SECRET` dans `.env.local` (script `npm run env:boutique`) ; page Deciplus : orphelins shop |
+| Mobile | `EXPO_PUBLIC_MEMBER_API_URL` = URL publique du bridge |
+
+Checklist apres deploy :
+
+1. `POST /internal/shop-event` depuis BOXPLUS (signature OK) insere une ligne `shop_events`.
+2. Checkout app ouvre l'URL signee ; apres paiement, outbox pousse l'evenement et la session passe en `paid_pending_deciplus` ou alerte.
+3. Admin Deciplus affiche les derniers evenements et les sessions en alerte sans secret dans le navigateur.
+
+Serveur A (BotHosting) : tunnel + bridge + robot app. Serveur B ou processus boutique : BOXPLUS storefront + outbox cron. Les deux partagent les memes secrets HMAC et le meme Supabase service role si la commerce vit sur le projet commun (sinon dupliquer la migration sur le projet dedie app).
