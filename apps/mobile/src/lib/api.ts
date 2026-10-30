@@ -117,3 +117,9 @@ export function lireSessionCheckout(id: string): Promise<CheckoutSessionView> {
 export function lireFactures(): Promise<InvoicesResponse> {
   return appel<InvoicesResponse>(MEMBER_API.invoices);
 }
+
+export type AvisMembre = { id: string; kind: string; title: string; body: string; at: string };
+
+export function lireAvis(): Promise<{ items: AvisMembre[] }> {
+  return appel<{ items: AvisMembre[] }>(MEMBER_API.notices);
+}

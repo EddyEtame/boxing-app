@@ -664,3 +664,27 @@ test('POST /internal/admin/shop-health liste evenements et alertes', async () =>
     assert.equal(body.checkoutAlerts[0].status, 'manual_review');
   });
 });
+
+test('avis prelevement : signature, profil, idempotence', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile());
+    const raw = JSON.stringify({
+      event_id: 'unpaid-grace:m1:01/10/2026',
+      email: userA.email,
+      kind: 'prelevement_retry',
+      title: 'Prelevement non passe',
+      body: 'Nouvelle tentative prevue.',
+    });
+    const bad = await postSigned(app, '/internal/member-notice', raw, 'wrong');
+    assert.equal(bad.statusCode, 401);
+    const ok = await postSigned(app, '/internal/member-notice', raw, env.SHOP_BRIDGE_SECRET);
+    assert.equal(ok.statusCode, 200);
+    assert.equal(ok.json().delivered, true);
+    const again = await postSigned(app, '/internal/member-notice', raw, env.SHOP_BRIDGE_SECRET);
+    assert.equal(again.json().inserted, false);
+    const list = await app.inject({ method: 'GET', url: '/v1/me/notices', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(list.statusCode, 200);
+    assert.equal(list.json().items.length, 1);
+    assert.equal(list.json().items[0].kind, 'prelevement_retry');
+  });
+});

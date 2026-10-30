@@ -18,6 +18,8 @@ import {
   type Profile,
   type ProfilePatch,
   type Snapshot,
+  type MemberNotice,
+  type NewMemberNotice,
   type Store,
   type StoredEvent,
   type ShopEventRow,
@@ -36,7 +38,7 @@ export class MemoryStore implements Store {
   readonly shopEventRows: ShopEventRow[] = [];
   readonly subscriptions = new Map<string, Record<string, unknown>>();
   readonly passages: MemberPassage[] = [];
-  readonly deleted: string[] = [];
+  readonly notices: MemberNotice[] = [];
   private readonly now: () => Date;
 
   constructor(now: () => Date = () => new Date()) {
@@ -156,6 +158,24 @@ export class MemoryStore implements Store {
       .slice()
       .sort((a, b) => b.day.localeCompare(a.day) || b.created_at.localeCompare(a.created_at))
       .slice(0, limit);
+  }
+
+  async findProfileIdByEmail(email: string): Promise<string | null> {
+    const wanted = email.trim().toLowerCase();
+    for (const profile of this.profiles.values()) {
+      if (profile.email.toLowerCase() === wanted) return profile.id;
+    }
+    return null;
+  }
+
+  async insertMemberNotice(row: NewMemberNotice): Promise<boolean> {
+    if (this.notices.some((item) => item.event_id === row.event_id)) return false;
+    this.notices.unshift({ ...row, id: randomUUID(), created_at: this.now().toISOString() });
+    return true;
+  }
+
+  async listMemberNotices(profileId: string, limit = 20): Promise<MemberNotice[]> {
+    return this.notices.filter((row) => row.profile_id === profileId).slice(0, limit);
   }
 
   async findOtherProfileByMemberId(memberId: string, exceptProfileId: string): Promise<boolean> {

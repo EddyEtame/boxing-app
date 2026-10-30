@@ -7,6 +7,7 @@ import { clubById } from '@/data/clubs';
 import { heure, nextSession, usePlanningSlots } from '@/features/planning/model';
 import { duree } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
+import { lireAvis } from '@/lib/api';
 import { lireNotifications } from '@/lib/admin-api';
 import { selectStatut, useSession } from '@/state/session';
 import { IconClock, IconGear } from '@/ui/icons';
@@ -30,6 +31,7 @@ export default function AlertesScreen() {
   const next = nextSession(clubActif, now, age);
   const club = clubById(clubActif);
   const [notifs, setNotifs] = useState<{ id: string; title: string; body: string; link?: string }[]>([]);
+  const [avis, setAvis] = useState<{ id: string; title: string; body: string }[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -38,7 +40,15 @@ export default function AlertesScreen() {
     } catch {
       setNotifs([]);
     }
-  }, [clubActif, statut]);
+    if (me) {
+      try {
+        const perso = await lireAvis();
+        setAvis(perso.items);
+      } catch {
+        setAvis([]);
+      }
+    }
+  }, [clubActif, statut, me]);
 
   useEffect(() => {
     void load();
@@ -69,6 +79,9 @@ export default function AlertesScreen() {
               <Body tone="muted">{T('alerts.empty')}</Body>
             </View>
           )}
+          {avis.map((n) => (
+            <Row key={n.id} title={n.title} subtitle={n.body} />
+          ))}
           {notifs.map((n, i) => (
             <Row
               key={n.id}
