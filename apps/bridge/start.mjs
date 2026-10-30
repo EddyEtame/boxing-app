@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,10 +64,21 @@ if (process.env.CLOUDFLARE_TUNNEL_TOKEN) {
   }));
 }
 
+if (process.env.ADMIN_APP_DIR) {
+  const localNext = join(process.env.ADMIN_APP_DIR, 'node_modules', 'next', 'dist', 'bin', 'next');
+  const hoistedNext = join(root, '..', '..', 'node_modules', 'next', 'dist', 'bin', 'next');
+  const nextBin = existsSync(localNext) ? localNext : hoistedNext;
+  slots.push(supervise('admin', process.execPath, [nextBin, 'start', '--port', process.env.ADMIN_PORT || '3001'], {
+    cwd: process.env.ADMIN_APP_DIR,
+    env: process.env,
+  }));
+}
+
 slots.push(supervise('bridge', process.execPath, [
   '--experimental-strip-types',
   '--import',
   './src/register.mjs',
+  '--env-file-if-exists=.env.server',
   '--env-file-if-exists=.env',
   'src/server.ts',
 ], {

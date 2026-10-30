@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import type { ClubId } from '@bc/brand';
+type ClubId = 'minimes' | 'saint-cyprien' | 'etats-unis' | 'ramonville' | 'portet';
 
 const CLUBS = new Set<ClubId>(['minimes', 'saint-cyprien', 'etats-unis', 'ramonville', 'portet']);
 

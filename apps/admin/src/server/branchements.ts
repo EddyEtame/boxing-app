@@ -339,8 +339,9 @@ async function checkBoutique(): Promise<Connection> {
 }
 
 async function checkCombats(): Promise<Connection> {
-  const vars = env('COMBATS_FEED_URL');
-  return { id: 'combats', state: vars[0].set ? 'attente' : 'off', facts: [], env: vars };
+  const events = await read('evenements');
+  const published = events.filter((e) => e.status === 'publie' && (e.kind === 'combat' || e.kind === 'gala' || e.kind === 'stage' || e.kind === 'competition')).length;
+  return { id: 'combats', state: 'ok', facts: [{ k: 'sys.fact.videos', v: published, as: 'num' }] };
 }
 
 /** Toutes les vérifications, en parallèle ; une vérification qui casse devient une ligne « en erreur », jamais une page blanche. */

@@ -39,6 +39,7 @@ export class MemoryStore implements Store {
   readonly subscriptions = new Map<string, Record<string, unknown>>();
   readonly passages: MemberPassage[] = [];
   readonly notices: MemberNotice[] = [];
+  readonly deleted: string[] = [];
   private readonly now: () => Date;
 
   constructor(now: () => Date = () => new Date()) {

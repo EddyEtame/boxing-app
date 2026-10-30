@@ -66,6 +66,8 @@ export type TeamAccount = {
   createdBy: string;
   updatedAt: string;
   lastLoginAt?: string;
+  /** Utilisateur Supabase Auth lie a ce compte, une fois le mot de passe pose. */
+  authUserId?: string;
 };
 
 export type SessionUser = {

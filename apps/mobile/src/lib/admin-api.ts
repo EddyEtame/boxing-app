@@ -110,6 +110,12 @@ export function lireVideos(): Promise<ContentList<PublicVideo>> {
   return adminFetch<ContentList<PublicVideo>>(ADMIN_API.videos);
 }
 
+export function lireLecture(id: string, accessToken?: string): Promise<{ url: string; expiresAt: string }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+  return adminFetch<{ url: string; expiresAt: string }>(`/api/videos/${encodeURIComponent(id)}/lecture`, { headers });
+}
+
 export function lireFonctions(): Promise<FeaturesResponse> {
   return adminFetch<FeaturesResponse>(ADMIN_API.fonctions);
 }

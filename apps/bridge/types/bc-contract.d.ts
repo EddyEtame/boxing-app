@@ -4,6 +4,17 @@
 type ClubId = 'minimes' | 'saint-cyprien' | 'etats-unis' | 'ramonville' | 'portet';
 type Statut = 'invite' | 'restreint' | 'actif';
 
+export type CheckoutStatus =
+  | 'opened'
+  | 'payment_pending'
+  | 'paid_pending_deciplus'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'manual_review';
+
+export type ShopEventType = 'order.paid' | 'sale.done' | 'sale.failed' | 'cancel.done' | 'invoice.issued';
+
 export type Passage = {
   date: string;
   heure: string;

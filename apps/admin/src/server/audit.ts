@@ -1,4 +1,5 @@
 import { newId } from './crypto';
+import { pgInsertAudit } from './pg-collections';
 import { readCollection, updateCollection } from './store';
 import type { AuditEntry, SessionUser } from '@/lib/types';
 
@@ -22,6 +23,7 @@ export async function audit(actor: Actor, action: string, target?: string, detai
     detail: detail?.slice(0, 280),
   };
   await updateCollection<AuditEntry[], void>('journal', () => [], (list) => ({ next: [entry, ...list].slice(0, MAX), result: undefined }));
+  await pgInsertAudit({ actorId: entry.actor.id, name: entry.actor.name, role: entry.actor.role, action: entry.action, target: entry.target, detail: entry.detail });
 }
 
 export async function readAudit(): Promise<AuditEntry[]> {

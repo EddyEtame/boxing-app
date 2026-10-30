@@ -1,4 +1,4 @@
-import { Linking, View } from 'react-native';
+import { Image, Linking, View } from 'react-native';
 
 import { COMBATS_PHOTO } from '@/data/combats';
 import { useCombats } from '@/features/combats/useCombats';
@@ -33,7 +33,7 @@ export default function CombatsScreen() {
             {T('fights.title')}
           </Display>
           <Body size="bodySmall" weight="semi" tone="muted">
-            {origine === 'direct' ? T('fights.live', { h: luA ? luA.toTimeString().slice(0, 5) : '' }) : T('fights.snapshot')}
+            {origine === 'club' ? T('fights.live', { h: luA ? luA.toTimeString().slice(0, 5) : '' }) : T('fights.empty')}
           </Body>
         </View>
       </Photo>
@@ -42,11 +42,11 @@ export default function CombatsScreen() {
         <Reveal>
           <Card padded={false} style={s.list}>
             {items.map((c, i) => (
-              <Tap key={c.lien} onPress={() => void Linking.openURL(c.lien)} scaleTo={0.985} style={[s.row, i < items.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]} accessibilityRole="link" accessibilityLabel={c.titre}>
+              <Tap key={c.id} onPress={() => { if (c.lien) void Linking.openURL(c.lien); }} scaleTo={0.985} style={[s.row, i < items.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]} accessibilityRole={c.lien ? 'link' : 'text'} accessibilityLabel={c.titre}>
+                {c.photo ? <Image source={{ uri: c.photo }} style={s.thumb} /> : null}
                 <View style={s.rowBody}>
                   <Body size="caption" weight="bold" tone="dim">
                     {c.date ? shortDay(c.date, lang) : ''} · {c.source}
-                    {lang === 'en' ? ` · ${T('fights.inFrench')}` : ''}
                   </Body>
                   <Body weight="bold">{c.titre}</Body>
                   {c.resume ? (
@@ -75,5 +75,6 @@ const useStyles = makeStyles((t) => ({
   list: { paddingHorizontal: space[4], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
   rowBody: { flex: 1, gap: 4 },
+  thumb: { width: 72, height: 72, borderRadius: 8 },
   note: { marginTop: space[4] },
 }));
