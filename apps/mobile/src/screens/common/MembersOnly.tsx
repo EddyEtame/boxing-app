@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { BOUTIQUE_URL } from '@/features/sections';
+import { urlBoutique } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
+import { useSession } from '@/state/session';
 import { IconLock } from '@/ui/icons';
 import { Button, Card } from '@/ui/kit';
 import { Reveal } from '@/ui/Page';
@@ -19,6 +20,8 @@ import { makeStyles, radius, space } from '@/ui/theme';
 export function MembersOnly({ title, body, restricted }: { title: string; body: string; restricted?: boolean }) {
   const T = useT();
   const s = useStyles();
+  const clubActif = useSession((st) => st.clubActif);
+  const shop = urlBoutique({ club: clubActif });
   return (
     <Reveal>
       <Card style={s.card}>
@@ -28,7 +31,7 @@ export function MembersOnly({ title, body, restricted }: { title: string; body: 
         <Heading level="section">{title}</Heading>
         <Body tone="muted">{body}</Body>
         {restricted ? (
-          <Button label={T('messages.renew')} onPress={() => void Linking.openURL(BOUTIQUE_URL)} style={s.cta} />
+          <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} style={s.cta} />
         ) : (
           <>
             <Button label={T('guest.create')} onPress={() => {

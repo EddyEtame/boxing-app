@@ -1,12 +1,13 @@
 import { clientIp, isSameOrigin, json } from '@/server/http';
 import { can } from '@/lib/permissions';
-import { MAX_UPLOAD_BYTES, readLibrary, saveUpload } from '@/server/content-media';
+import { readLibrary, saveUpload } from '@/server/content-media';
+import { MAX_UPLOAD_BYTES } from '@/server/media-limits';
 import { hit } from '@/server/rate-limit';
 import { getSession } from '@/server/session';
 
 /**
  * Le dépôt d'une photo depuis la photothèque des assistants (actualités,
- * événements, vidéos). Connecté, depuis l'admin lui-même, 8 Mo au plus, une
+ * événements, vidéos). Connecté, depuis l'admin lui-même, 1,5 Mo au plus, une
  * vraie image (vérifiée octet par octet), un texte alternatif. Réponse :
  * `{ upload }`, servi ensuite par /api/media/uploads/<fichier>.
  */

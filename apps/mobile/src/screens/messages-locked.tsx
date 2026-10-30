@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { Linking, View } from 'react-native';
 
-import { BOUTIQUE_URL } from '@/features/sections';
+import { urlBoutique } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
+import { useSession } from '@/state/session';
 import { IconChat, IconCheck, IconInfo, IconLock, IconUsers } from '@/ui/icons';
 import { Button, Card, IconTile } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
@@ -14,6 +15,8 @@ export function Locked({ statut }: { statut: 'invite' | 'restreint' }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
+  const clubActif = useSession((st) => st.clubActif);
+  const shop = urlBoutique({ club: clubActif });
   const perks = [
     { icon: IconChat, title: T('messages.perk1'), sub: T('messages.perk1Sub') },
     { icon: IconUsers, title: T('messages.perk2'), sub: T('messages.perk2Sub') },
@@ -43,7 +46,7 @@ export function Locked({ statut }: { statut: 'invite' | 'restreint' }) {
             ))}
           </View>
           {statut === 'restreint' ? (
-            <Button label={T('messages.renew')} onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+            <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} />
           ) : (
             <>
               <Button
@@ -53,7 +56,7 @@ export function Locked({ statut }: { statut: 'invite' | 'restreint' }) {
                   router.push('/connexion');
                 }}
               />
-              <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(BOUTIQUE_URL)} style={s.second} />
+              <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(shop)} style={s.second} />
             </>
           )}
         </Card>

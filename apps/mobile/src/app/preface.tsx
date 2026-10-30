@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
-import { usePrefs } from '@/state/prefs';
+import { usePrefs, type Appearance } from '@/state/prefs';
 import { GlassSurface } from '@/ui/Glass';
 import { IconChevron, IconMoon, IconSun } from '@/ui/icons';
 import { Logo } from '@/ui/Logo';
@@ -113,7 +113,7 @@ function SpotLogo() {
   );
 }
 
-/** Clair ↔ sombre d'un geste ; l'écran change sous le doigt. Par défaut, l'ambiance du téléphone. */
+/** Clair, sombre ou auto (telephone) : trois etats explicites. */
 function AmbianceButton() {
   const T = useT();
   const s = useStyles();
@@ -121,9 +121,12 @@ function AmbianceButton() {
   const system = useColorScheme() === 'dark' ? 'dark' : 'light';
   const appearance = usePrefs((st) => st.appearance);
   const setAppearance = usePrefs((st) => st.setAppearance);
+  const cycle: Appearance[] = ['system', 'light', 'dark'];
   const current = appearance === 'system' ? system : appearance;
-  const next = current === 'dark' ? 'light' : 'dark';
+  const next = cycle[(cycle.indexOf(appearance) + 1) % cycle.length];
   const Icon = current === 'dark' ? IconSun : IconMoon;
+  const label =
+    next === 'system' ? T('plus.auto') : next === 'dark' ? T('preface.toDark') : T('preface.toLight');
   return (
     <Tap
       onPress={() => {
@@ -134,7 +137,7 @@ function AmbianceButton() {
       haptic="selection"
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={next === 'dark' ? T('preface.toDark') : T('preface.toLight')}>
+      accessibilityLabel={label}>
       <GlassSurface radius={22} strength="light" style={s.round}>
         <Icon size={20} color={t.text} />
       </GlassSurface>

@@ -34,6 +34,7 @@ export type Me = {
     updatedAt: string | null;
   };
   clubPrincipal: ClubId | null;
+  deciplusMemberId: string | null;
   snapshot: MemberSnapshot | null;
   consentementParentalRequis: boolean;
   passages: Passage[];

@@ -142,7 +142,6 @@ export async function appendLines(name: string, lines: string[]): Promise<void> 
   await serialize(name, async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.appendFile(file, lines.join('\n') + '\n', 'utf8');
-    void bumpLive('usage', 'append', { lines: lines.length });
   });
 }
 

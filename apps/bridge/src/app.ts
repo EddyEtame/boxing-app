@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import rateLimit from '@fastify/rate-limit';
 import { MEMBER_API, SNAPSHOT_REFRESH_MS, clubFromDeciplusGym, statutFor } from '@bc/contract';
-import type { LinkStatus, Me, MemberSnapshot } from '@bc/contract';
+import type { LinkStatus, Me, MemberSnapshot, Passage } from '@bc/contract';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
 import { applyMemberStatus, isDecided, profileIsComplete, type FichePayload, type MemberStatusPayload } from './decisions.ts';
@@ -12,11 +12,12 @@ import { parseEventBatch } from './events-in.ts';
 import { applyShopEvent, profileReadyForCheckout } from './apply-shop.ts';
 import { buildCheckoutUrl, isClubId, normalizeOfferSlug } from './checkout.ts';
 import { pushLiveSignal } from './live-signal.ts';
+import { parisClock } from './passages.ts';
 import type { Mailer } from './mailer.ts';
 import { gymForClub, type Robot } from './robot.ts';
 import { parseShopEventBody } from './shop-in.ts';
 import { verifyBridgeSignature, verifyStandardWebhook } from './signature.ts';
-import { FicheDejaLieeError, type Profile, type Snapshot, type Store, type VerifyUser } from './store.ts';
+import { FicheDejaLieeError, type MemberPassage, type Profile, type Snapshot, type Store, type VerifyUser } from './store.ts';
 
 export type { Mailer, Robot, Store, VerifyUser };
 
@@ -118,7 +119,17 @@ function toSnapshot(row: Snapshot | null): MemberSnapshot | null {
   };
 }
 
-function toMe(profile: Profile, row: Snapshot | null): Me {
+function toPassages(profile: Profile, row: Snapshot | null, stored: MemberPassage[]): Passage[] {
+  const club = clubFromDeciplusGym(profile.club_principal) ?? clubFromDeciplusGym(row?.club);
+  if (!club) return [];
+  return stored.map((item) => ({
+    date: item.day,
+    heure: parisClock(new Date(item.created_at)),
+    club,
+  }));
+}
+
+function toMe(profile: Profile, row: Snapshot | null, stored: MemberPassage[]): Me {
   const snapshot = toSnapshot(row);
   const statut = profile.consentement_parental_requis ? 'restreint' : statutFor(profile.link_status, snapshot);
   return {
@@ -131,9 +142,10 @@ function toMe(profile: Profile, row: Snapshot | null): Me {
     statut,
     link: { status: profile.link_status, updatedAt: profile.link_updated_at },
     clubPrincipal: clubFromDeciplusGym(profile.club_principal),
+    deciplusMemberId: profile.deciplus_member_id,
     snapshot,
     consentementParentalRequis: profile.consentement_parental_requis,
-    passages: [],
+    passages: toPassages(profile, row, stored),
   };
 }
 
@@ -229,6 +241,12 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     return user;
   }
 
+  async function presentMe(profile: Profile): Promise<Me> {
+    const snapshot = await deps.store.getSnapshot(profile.id);
+    const stored = await deps.store.listPassages(profile.id);
+    return toMe(profile, snapshot, stored);
+  }
+
   async function sendLookup(profile: Profile, orderId: string, memberId: string | null): Promise<void> {
     await deps.robot.sendLookup({
       orderId,
@@ -263,8 +281,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(404).send({ error: 'profil_introuvable' });
       return;
     }
-    const snapshot = await deps.store.getSnapshot(profile.id);
-    reply.send(toMe(profile, snapshot));
+    reply.send(await presentMe(profile));
   });
 
   app.post(MEMBER_API.link, async (req, reply) => {
@@ -334,8 +351,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       }
     }
     const fresh = (await deps.store.getProfile(profile.id)) ?? profile;
-    const snapshot = await deps.store.getSnapshot(profile.id);
-    reply.send(toMe(fresh, snapshot));
+    reply.send(await presentMe(fresh));
   });
 
   app.delete(MEMBER_API.me, async (req, reply) => {
@@ -599,6 +615,23 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       return;
     }
     reply.code(200).send({ status: 'lie' satisfies LinkStatus });
+  });
+
+  app.post('/internal/admin/link-requests', async (req, reply) => {
+    const nowSec = Math.floor(deps.now().getTime() / 1000);
+    if (!signed(req, deps.env.ADMIN_BRIDGE_SECRET, nowSec)) {
+      reply.code(401).send({ error: 'signature_invalide' });
+      return;
+    }
+    const rows = await deps.store.listLinkRequestsReview(40);
+    reply.send({
+      items: rows.map((row) => ({
+        id: row.id,
+        profileId: row.profile_id,
+        email: row.email,
+        status: row.status,
+      })),
+    });
   });
 
   app.post('/internal/admin/shop-health', async (req, reply) => {

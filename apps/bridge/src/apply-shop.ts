@@ -1,3 +1,4 @@
+import { recordDailyPassage } from './passages.ts';
 import type { ParsedShopEvent } from './shop-in.ts';
 import type { CheckoutSession, Profile, Store } from './store.ts';
 
@@ -45,6 +46,7 @@ export async function applyShopEvent(store: Store, event: ParsedShopEvent, now: 
         last_order_id: event.boxplus_order_id ?? event.order_id,
         last_deciplus_sync_at: now.toISOString(),
       });
+      await recordDailyPassage(store, session.profile_id, now, 'shop');
       return { ok: true };
     case 'sale.failed':
       if (!session) return { ok: false, reason: 'checkout_introuvable' };

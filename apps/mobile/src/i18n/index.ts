@@ -18,7 +18,7 @@ type Params = Record<string, string | number>;
  * que la direction n'a pas validé une version anglaise. À `true`, le choix de la
  * langue revient dans Plus et la langue du téléphone est suivie.
  */
-export const ANGLAIS_ACTIF = false;
+export const ANGLAIS_ACTIF = true;
 
 /** Le français fait foi ; l'anglais doit avoir exactement les mêmes clés (vérifié par le typage). */
 const dictionaries: Record<Locale, Translation> = { fr, en };

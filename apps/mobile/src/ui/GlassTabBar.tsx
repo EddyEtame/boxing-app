@@ -6,7 +6,9 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SECTIONS, type SectionId } from '@/features/sections';
+import { sectionVisible } from '@/features/flags';
 import { useT } from '@/i18n';
+import { useFeaturesStore } from '@/state/features';
 import { usePrefs } from '@/state/prefs';
 import { useUnreadCount } from '@/state/messages';
 import { selectStatut, useSession } from '@/state/session';
@@ -28,12 +30,14 @@ export function GlassTabBar() {
   const T = useT();
   const pathname = usePathname();
   const bar = usePrefs((s) => s.bar);
+  const features = useFeaturesStore((s) => s.features);
   const unread = useUnreadCount();
   const statut = useSession(selectStatut);
   const insets = useSafeAreaInsets();
   const { width: screen } = useWindowDimensions();
 
-  const items: SectionId[] = ['home', ...bar, 'plus'];
+  const middle = bar.filter((id) => sectionVisible(id, features));
+  const items: SectionId[] = ['home', ...middle, 'plus'];
   const width = Math.min(screen - TAB_BAR_SIDE * 2, 460);
   const itemW = (width - 8) / items.length;
   const match = items.findIndex((id) => (id === 'home' ? pathname === '/' : pathname === SECTIONS[id].href || pathname.startsWith(SECTIONS[id].href + '/')));

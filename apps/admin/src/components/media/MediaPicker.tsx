@@ -7,6 +7,7 @@ import { Field, Segmented, TextInput } from '@/components/wizard/fields';
 import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { groupOf, humanSize, PHOTO_GROUPS, readableName, thumbUrl, type PhotoGroup } from '@/lib/content/media';
+import { MAX_IMAGE_UPLOAD_BYTES } from '@/lib/content/media-limits';
 import { LIMITS, type Library, type Upload } from '@/lib/content/types';
 import type { Media } from '@/lib/types';
 
@@ -15,7 +16,7 @@ import type { Media } from '@/lib/types';
  * d'image générée) et les dépôts de l'équipe. Une photo choisie porte toujours
  * son texte alternatif ; un dépôt n'en part pas sans lui.
  */
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 type Pending = { file: File; url: string; alt: string };

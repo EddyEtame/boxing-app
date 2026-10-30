@@ -8,9 +8,12 @@ import {
   type InvoiceRow,
   type LinkRequest,
   type LinkRequestPatch,
+  type LinkRequestReview,
+  type MemberPassage,
   type NewCheckoutSession,
   type NewInvoiceRow,
   type NewLinkRequest,
+  type NewMemberPassage,
   type NewShopEvent,
   type Profile,
   type ProfilePatch,
@@ -32,6 +35,7 @@ export class MemoryStore implements Store {
   readonly shopEvents = new Set<string>();
   readonly shopEventRows: ShopEventRow[] = [];
   readonly subscriptions = new Map<string, Record<string, unknown>>();
+  readonly passages: MemberPassage[] = [];
   readonly deleted: string[] = [];
   private readonly now: () => Date;
 
@@ -119,6 +123,39 @@ export class MemoryStore implements Store {
     const current = this.requests.find((row) => row.id === id);
     if (!current) throw new Error('demande introuvable');
     Object.assign(current, patch);
+  }
+
+  async listLinkRequestsReview(limit = 40): Promise<LinkRequestReview[]> {
+    return this.requests
+      .filter((row) => row.status === 'a_revoir')
+      .slice()
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit)
+      .map((row) => ({
+        id: row.id,
+        profile_id: row.profile_id,
+        email: this.profiles.get(row.profile_id)?.email ?? null,
+        status: row.status,
+      }));
+  }
+
+  async insertPassageIfNewDay(row: NewMemberPassage): Promise<boolean> {
+    if (this.passages.some((item) => item.profile_id === row.profile_id && item.day === row.day)) return false;
+    this.passages.push({
+      profile_id: row.profile_id,
+      day: row.day,
+      source: row.source,
+      created_at: this.now().toISOString(),
+    });
+    return true;
+  }
+
+  async listPassages(profileId: string, limit = 2000): Promise<MemberPassage[]> {
+    return this.passages
+      .filter((row) => row.profile_id === profileId)
+      .slice()
+      .sort((a, b) => b.day.localeCompare(a.day) || b.created_at.localeCompare(a.created_at))
+      .slice(0, limit);
   }
 
   async findOtherProfileByMemberId(memberId: string, exceptProfileId: string): Promise<boolean> {
@@ -229,5 +266,8 @@ export class MemoryStore implements Store {
     this.deleted.push(userId);
     this.profiles.delete(userId);
     this.snapshots.delete(userId);
+    for (let i = this.passages.length - 1; i >= 0; i -= 1) {
+      if (this.passages[i]?.profile_id === userId) this.passages.splice(i, 1);
+    }
   }
 }

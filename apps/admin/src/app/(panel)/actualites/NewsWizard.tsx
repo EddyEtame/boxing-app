@@ -4,7 +4,7 @@ import { saveNewsAction, type SavedNews } from './actions';
 import { translateErrors } from '@/components/content/errors';
 import { NewsPhone, PreviewPane, type NewsLike } from '@/components/content/Previews';
 import { DiffusionFields, PublishFields, TypoNote } from '@/components/content/PublishFields';
-import { IconNews } from '@/components/icons';
+import { IconInfo, IconNews } from '@/components/icons';
 import { MediaPicker } from '@/components/media/MediaPicker';
 import { Choices, Field, Review, TextArea, TextInput } from '@/components/wizard/fields';
 import { Wizard, type WizardStep } from '@/components/wizard/Wizard';
@@ -61,13 +61,19 @@ export function NewsWizard({
       hint: t('actu.step.type.hint'),
       validate: errs('type'),
       render: ({ state, set }) => (
-        <Choices
-          name="kind"
-          value={state.kind}
-          min={220}
-          onChange={(v) => set({ kind: v })}
-          options={NEWS_KINDS.map((k) => ({ value: k, title: t(`actu.kind.${k}` as MessageKey), sub: t(`actu.kind.${k}.sub` as MessageKey) }))}
-        />
+        <>
+          <div className="callout" role="note">
+            <IconInfo />
+            <span>{t('actu.step.type.note')}</span>
+          </div>
+          <Choices
+            name="kind"
+            value={state.kind}
+            min={220}
+            onChange={(v) => set({ kind: v })}
+            options={NEWS_KINDS.map((k) => ({ value: k, title: t(`actu.kind.${k}` as MessageKey), sub: t(`actu.kind.${k}.sub` as MessageKey) }))}
+          />
+        </>
       ),
     },
     {
@@ -103,15 +109,21 @@ export function NewsWizard({
       hint: t('contenu.step.photo.hint'),
       validate: errs('photo'),
       render: ({ state, set, errors }) => (
-        <MediaPicker
-          value={state.photo}
-          onChange={(photo) => set({ photo })}
-          library={library}
-          onUploaded={onUploaded}
-          errorPhoto={errors.photo}
-          errorAlt={errors.alt}
-          suggestion={state.club !== 'reseau' ? { file: CLUB_PHOTO[state.club], label: CLUB_LABEL[state.club] } : undefined}
-        />
+        <>
+          <div className="callout" role="note">
+            <IconInfo />
+            <span>{t('contenu.step.photo.note')}</span>
+          </div>
+          <MediaPicker
+            value={state.photo}
+            onChange={(photo) => set({ photo })}
+            library={library}
+            onUploaded={onUploaded}
+            errorPhoto={errors.photo}
+            errorAlt={errors.alt}
+            suggestion={state.club !== 'reseau' ? { file: CLUB_PHOTO[state.club], label: CLUB_LABEL[state.club] } : undefined}
+          />
+        </>
       ),
     },
     {

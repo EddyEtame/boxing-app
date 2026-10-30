@@ -397,6 +397,9 @@ export const en: Translation = {
     sub: 'Camps, events and results, club by club.',
     more: 'More to read',
     fights: 'Ringside',
+    events: 'Calendar',
+    empty: 'No news published yet.',
+    eventsEmpty: 'No upcoming events.',
     kind: {
       evenement: 'Event',
       stage: 'Camp',
@@ -466,6 +469,8 @@ export const en: Translation = {
     closedDay: 'The club is closed that day.',
     pickOpenDay: 'Pick a day when the club is open.',
     publish: 'Post the proposal',
+    noVideos: 'No videos online yet.',
+    off: 'This section is temporarily unavailable.',
     you: 'You',
     moderated: 'Proposals are visible to club members and moderated by the team.',
   },

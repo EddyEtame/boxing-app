@@ -2,7 +2,7 @@ import { Linking, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import { clubById } from '@/data/clubs';
-import { BOUTIQUE_URL } from '@/features/sections';
+import { urlBoutique } from '@/features/sections';
 import { clock, longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { ApiError, lireFactures } from '@/lib/api';
@@ -109,7 +109,7 @@ function Corps() {
       await recharger();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'profil_incomplet') {
-        await Linking.openURL(BOUTIQUE_URL);
+        await Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
       }
     } finally {
       setCheckoutBusy(false);
@@ -125,7 +125,7 @@ function Corps() {
       onPress={() => void payerDansApp()}
     />
   ) : (
-    <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+    <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }))} />
   );
 
   return (

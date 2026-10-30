@@ -38,10 +38,12 @@ export type Me = {
     updatedAt: string | null;
   };
   clubPrincipal: ClubId | null;
+  /** Code membre Deciplus : c'est le contenu du QR de porte quand le badge est enregistre. */
+  deciplusMemberId: string | null;
   snapshot: MemberSnapshot | null;
   /** Moins de 15 ans (majorité numérique, CNIL) : le compte attend l'accord d'un parent. */
   consentementParentalRequis: boolean;
-  /** Passages réellement lus ; vide tant que la source n'est pas branchée. */
+  /** Passages lus : au plus un par jour calendaire (Europe/Paris). */
   passages: Passage[];
 };
 

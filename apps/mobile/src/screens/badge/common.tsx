@@ -2,9 +2,10 @@ import { router } from 'expo-router';
 import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
-import { BOUTIQUE_URL } from '@/features/sections';
+import { urlBoutique } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useT, type MessageKey } from '@/i18n';
+import { DEFAULT_OFFER_SLUG } from '@/lib/checkout-flow';
 import { useSession } from '@/state/session';
 import { IconCheck } from '@/ui/icons';
 import { Button, Card } from '@/ui/kit';
@@ -43,6 +44,7 @@ export function BadgeLockedView({ reason }: { reason: BadgeReason }) {
   const t = useTheme();
   const clubActif = useSession((st) => st.clubActif);
   const club = clubById(clubActif);
+  const shop = urlBoutique({ club: clubActif, offer: DEFAULT_OFFER_SLUG });
   const title = reason === 'sans-badge' ? T('badge.lockedNoBadge') : reason === 'restreint' ? T('badge.lockedEnded') : T('badge.lockedGuest');
   const lead = reason === 'sans-badge' ? T('badge.lockedNoBadgeLead') : reason === 'restreint' ? T('badge.lockedEndedLead') : T('badge.lockedGuestLead');
   return (
@@ -88,10 +90,10 @@ export function BadgeLockedView({ reason }: { reason: BadgeReason }) {
               track('cta_create_account', { from: 'badge' });
               router.push('/connexion');
             }} />
-              <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+              <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(shop)} />
             </>
           ) : reason === 'restreint' ? (
-            <Button label={T('messages.renew')} onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+            <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} />
           ) : (
             <Button label={T('badge.hours')} variant="secondary" onPress={() => router.navigate('/planning')} />
           )}

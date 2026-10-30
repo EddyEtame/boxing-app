@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import type { MessageKey } from '@/i18n';
 import type { BarSlot } from '@/state/prefs';
+import type { ClubId } from '@/ui/theme';
 import {
   IconBadge,
   IconBag,
@@ -41,7 +42,20 @@ export type Section = {
   external?: string;
 };
 
-export const BOUTIQUE_URL = 'https://boutique.boxingcenter.fr/';
+export const BOUTIQUE_ROOT = 'https://boutique.boxingcenter.fr/';
+
+/** Racine boutique (sans contexte club / offre). */
+export const BOUTIQUE_URL = BOUTIQUE_ROOT;
+
+export type BoutiqueContext = { club?: ClubId; offer?: string };
+
+/** Lien boutique avec club et offre en query quand le contexte existe. */
+export function urlBoutique(ctx: BoutiqueContext = {}): string {
+  const url = new URL(BOUTIQUE_ROOT);
+  if (ctx.club) url.searchParams.set('club', ctx.club);
+  if (ctx.offer) url.searchParams.set('offer', ctx.offer);
+  return url.toString();
+}
 
 export const SECTIONS: Record<SectionId, Section> = {
   home: { id: 'home', icon: IconHome, label: 'tabs.home', title: 'tabs.home', sub: 'sections.homeSub', href: '/' },

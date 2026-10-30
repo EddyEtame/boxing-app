@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
-import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
 import { useStats } from '@/features/stats/model';
 import { fullDay, monthName } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -32,6 +32,7 @@ export function HomeMembre() {
 
 function Corps() {
   const T = useT();
+  usePlanningSlots();
   const lang = useLocale();
   const t = useTheme();
   const s = useStyles();

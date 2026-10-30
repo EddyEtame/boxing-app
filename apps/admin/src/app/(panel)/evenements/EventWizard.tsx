@@ -77,13 +77,19 @@ export function EventWizard({
       hint: t('evt.step.type.hint'),
       validate: errs('type'),
       render: ({ state, set }) => (
-        <Choices
-          name="kind"
-          value={state.kind}
-          min={220}
-          onChange={(v) => set({ kind: v })}
-          options={EVENT_KINDS.map((k) => ({ value: k, title: t(`evt.kind.${k}` as MessageKey), sub: t(`evt.kind.${k}.sub` as MessageKey) }))}
-        />
+        <>
+          <div className="callout" role="note">
+            <IconInfo />
+            <span>{t('evt.step.type.note')}</span>
+          </div>
+          <Choices
+            name="kind"
+            value={state.kind}
+            min={220}
+            onChange={(v) => set({ kind: v })}
+            options={EVENT_KINDS.map((k) => ({ value: k, title: t(`evt.kind.${k}` as MessageKey), sub: t(`evt.kind.${k}.sub` as MessageKey) }))}
+          />
+        </>
       ),
     },
     {
@@ -236,15 +242,21 @@ export function EventWizard({
       hint: t('contenu.step.photo.hint'),
       validate: errs('photo'),
       render: ({ state, set, errors }) => (
-        <MediaPicker
-          value={state.photo}
-          onChange={(photo) => set({ photo })}
-          library={library}
-          onUploaded={onUploaded}
-          errorPhoto={errors.photo}
-          errorAlt={errors.alt}
-          suggestion={state.club !== 'aucun' ? { file: CLUB_PHOTO[state.club], label: CLUB_LABEL[state.club] } : undefined}
-        />
+        <>
+          <div className="callout" role="note">
+            <IconInfo />
+            <span>{t('contenu.step.photo.note')}</span>
+          </div>
+          <MediaPicker
+            value={state.photo}
+            onChange={(photo) => set({ photo })}
+            library={library}
+            onUploaded={onUploaded}
+            errorPhoto={errors.photo}
+            errorAlt={errors.alt}
+            suggestion={state.club !== 'aucun' ? { file: CLUB_PHOTO[state.club], label: CLUB_LABEL[state.club] } : undefined}
+          />
+        </>
       ),
     },
     {

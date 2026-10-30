@@ -403,6 +403,9 @@ export const fr = {
     sub: 'Stages, événements et résultats, club par club.',
     more: 'À lire aussi',
     fights: 'Côté ring',
+    events: 'Agenda',
+    empty: 'Aucune actualité publiée pour le moment.',
+    eventsEmpty: 'Aucun événement à venir.',
     kind: {
       evenement: 'Événement',
       stage: 'Stage',
@@ -472,6 +475,8 @@ export const fr = {
     closedDay: 'Le club est fermé ce jour-là.',
     pickOpenDay: 'Choisis un jour où le club est ouvert.',
     publish: 'Publier la proposition',
+    noVideos: 'Aucune vidéo en ligne pour le moment.',
+    off: 'Cette rubrique est momentanément indisponible.',
     you: 'Toi',
     moderated: 'Les propositions sont visibles par les membres du club et modérées par l’équipe.',
   },

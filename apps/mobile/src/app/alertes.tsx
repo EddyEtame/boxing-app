@@ -1,30 +1,52 @@
 import { ageAt } from '@bc/contract';
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
-import { heure, nextSession } from '@/features/planning/model';
+import { heure, nextSession, usePlanningSlots } from '@/features/planning/model';
 import { duree } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
-import { useSession } from '@/state/session';
+import { lireNotifications } from '@/lib/admin-api';
+import { selectStatut, useSession } from '@/state/session';
 import { IconClock, IconGear } from '@/ui/icons';
-import { Button, Card, IconTile } from '@/ui/kit';
+import { Button, Card, IconTile, Row } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body } from '@/ui/Text';
 import { makeStyles, space, stroke } from '@/ui/theme';
 
-/** Ce qui est reellement connu : la prochaine seance du club actif. */
+/** Prochain cours (planning) et notifications club (GET admin). */
 export default function AlertesScreen() {
   const T = useT();
   const s = useStyles();
   const lang = useLocale();
+  usePlanningSlots();
   const me = useSession((st) => st.me);
   const clubActif = useSession((st) => st.clubActif);
+  const statut = useSession(selectStatut);
   const now = new Date();
   const age = me ? ageAt(me.dateNaissance, now) : 30;
   const next = nextSession(clubActif, now, age);
   const club = clubById(clubActif);
+  const [notifs, setNotifs] = useState<{ id: string; title: string; body: string; link?: string }[]>([]);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await lireNotifications(clubActif, statut);
+      setNotifs(res.items);
+    } catch {
+      setNotifs([]);
+    }
+  }, [clubActif, statut]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const openLink = (url?: string) => {
+    if (url) void Linking.openURL(url);
+  };
 
   return (
     <Page title={T('alerts.title')} leading="back" tabBar={false}>
@@ -47,6 +69,15 @@ export default function AlertesScreen() {
               <Body tone="muted">{T('alerts.empty')}</Body>
             </View>
           )}
+          {notifs.map((n, i) => (
+            <Row
+              key={n.id}
+              title={n.title}
+              subtitle={n.body}
+              onPress={n.link ? () => openLink(n.link) : undefined}
+              last={i === notifs.length - 1}
+            />
+          ))}
         </Card>
       </Reveal>
       <Reveal style={s.block}>

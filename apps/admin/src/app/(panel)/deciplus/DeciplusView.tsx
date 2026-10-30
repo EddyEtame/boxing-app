@@ -11,7 +11,7 @@ import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { relative } from '@/lib/format';
 import type { Connection } from '@/server/branchements';
-import type { ShopHealthReport } from '@/server/member-bridge';
+import type { LinkRequestReview, ShopHealthReport } from '@/server/member-bridge';
 
 /** CDC §18A, ligne par ligne : où vit la donnée, comment la lire, ce que l'app fait sans elle. */
 const DATA = ['comptes', 'statuts', 'echeances', 'impayes', 'factures', 'badges', 'passages'] as const;
@@ -29,11 +29,13 @@ export function DeciplusView({
   checkedAt,
   demo,
   shop,
+  review,
 }: {
   bridge: Connection;
   checkedAt: string;
   demo: { memberId: string; passages: number; updatedAt: string };
   shop: ShopHealthReport | null;
+  review: LinkRequestReview[] | null;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -236,9 +238,10 @@ export function DeciplusView({
                 <IconShield />
                 <span>{t('deci.match.never')}</span>
               </div>
+              {/* La file elle-même vit dans la rubrique Adhérents ; ici, son compte quand le serveur applicatif répond. */}
               <div className="empty-mini">
                 <b>{t('deci.queue')}</b>
-                <span>{t('deci.queue.go')}</span>
+                <span>{review && review.length ? t('deci.queue.count', { n: review.length }) : t('deci.queue.go')}</span>
                 <Link className="btn btn-secondary btn-sm" href="/adherents" style={{ justifySelf: 'start', marginTop: 6 }}>
                   {t('deci.queue.open')}
                   <IconArrow size={15} />
