@@ -75,6 +75,8 @@ Les messages sont en francais, sans lien : un code a 6 chiffres, valable 1 heure
 
 Migration Supabase : `supabase/migrations/20261030000002_commerce.sql` (tables `checkout_sessions`, `subscription_state`, `invoices_index`, `shop_events`, RLS adherent, publication Realtime si disponible).
 
+Migration temps reel transversal : `supabase/migrations/20261030000003_live_signals.sql` (table `live_signals`, Realtime). L'admin pousse un signal via `POST /internal/admin/live-bump` apres chaque ecriture JSON ; le bridge apres chaque evenement boutique. L'admin web et l'app mobile s'abonnent aux INSERT pour rafraichir messages, notifications, contenus, planning, commerce cote staff.
+
 | Composant | Action prod |
 | --- | --- |
 | Supabase (projet app) | Appliquer la migration sur le projet lie a l'app ; verifier Realtime sur `checkout_sessions` et `subscription_state` |

@@ -82,6 +82,11 @@ const bridgeUrl = (bridge.PUBLIC_URL || 'http://127.0.0.1:8080').replace(/\/+$/,
 const adminBridgeSecret = bridge.ADMIN_BRIDGE_SECRET || '';
 const deciplusBridgeSecret = bridge.APP_BRIDGE_SECRET || adminBridgeSecret || 'local-dev';
 
+const mobileEnvPath = path.join(repoRoot, 'apps', 'mobile', '.env');
+const mobileEnv = parseDotenv(existsSync(mobileEnvPath) ? readFileSync(mobileEnvPath, 'utf8') : '');
+const supabasePublicUrl = bridge.SUPABASE_URL || mobileEnv.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnon = mobileEnv.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
 const managed = new Set<string>([
   ...KEYS,
   'SESSION_SECRET',
@@ -89,6 +94,8 @@ const managed = new Set<string>([
   'DECIPLUS_BRIDGE_SECRET',
   'MEMBER_BRIDGE_URL',
   'ADMIN_BRIDGE_SECRET',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
 ]);
 const kept = existing
   .split('\n')
@@ -116,6 +123,10 @@ const body = [
   serialize('DECIPLUS_BRIDGE_SECRET', deciplusBridgeSecret),
   serialize('MEMBER_BRIDGE_URL', bridgeUrl),
   serialize('ADMIN_BRIDGE_SECRET', adminBridgeSecret),
+  '',
+  '# Realtime admin (lecture live_signals, meme projet que l app).',
+  serialize('NEXT_PUBLIC_SUPABASE_URL', supabasePublicUrl),
+  serialize('NEXT_PUBLIC_SUPABASE_ANON_KEY', supabaseAnon),
   '',
 ]
   .filter((line, i, all) => !(line === '' && all[i - 1] === ''))

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Shell, type ShellSection } from '@/components/shell/Shell';
 import { ToastProvider } from '@/components/Toast';
+import { LiveRefresh } from '@/components/LiveRefresh';
 import { CREATE_ACTIONS } from '@/lib/actions-registry';
 import { SECTIONS } from '@/lib/nav';
 import { can } from '@/lib/permissions';
@@ -31,6 +32,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
         collapsed={jar.get('bca_rail')?.value === 'compact'}
         tourDone={tourDone}
       >
+        <LiveRefresh />
         {children}
       </Shell>
     </ToastProvider>

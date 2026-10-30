@@ -1,6 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { bumpLive } from './live-bump';
+
 /**
  * Le stockage local de l'admin : un fichier JSON par collection, dans un
  * dossier gitignoré (apps/admin/.data par défaut). C'est la version « avant
@@ -122,6 +124,7 @@ export async function updateCollection<T, R = T>(name: string, fallback: () => T
     }
     const { next, result } = await mutate(current);
     await writeJsonFile(file, next);
+    void bumpLive(name, 'updated');
     return result;
   });
 }
@@ -133,6 +136,7 @@ export async function appendLines(name: string, lines: string[]): Promise<void> 
   await serialize(name, async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.appendFile(file, lines.join('\n') + '\n', 'utf8');
+    void bumpLive('usage', 'append', { lines: lines.length });
   });
 }
 

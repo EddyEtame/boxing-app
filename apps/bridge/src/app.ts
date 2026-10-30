@@ -11,6 +11,7 @@ import type { Env } from './env.ts';
 import { parseEventBatch } from './events-in.ts';
 import { applyShopEvent, profileReadyForCheckout } from './apply-shop.ts';
 import { buildCheckoutUrl, isClubId, normalizeOfferSlug } from './checkout.ts';
+import { pushLiveSignal } from './live-signal.ts';
 import type { Mailer } from './mailer.ts';
 import { gymForClub, type Robot } from './robot.ts';
 import { parseShopEventBody } from './shop-in.ts';
@@ -458,6 +459,15 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(404).send({ error: result.reason });
       return;
     }
+    await pushLiveSignal(deps.env, {
+      domain: 'commerce.checkout',
+      action: event.type,
+      payload: {
+        eventId: event.event_id,
+        orderId: event.order_id ?? null,
+        checkoutSessionId: event.checkout_session_id ?? null,
+      },
+    });
     reply.code(200).send({ ok: true });
   });
 
@@ -621,6 +631,27 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
         errorCode: row.error_code,
       })),
     });
+  });
+
+  app.post('/internal/admin/live-bump', async (req, reply) => {
+    const nowSec = Math.floor(deps.now().getTime() / 1000);
+    if (!signed(req, deps.env.ADMIN_BRIDGE_SECRET, nowSec)) {
+      reply.code(401).send({ error: 'signature_invalide' });
+      return;
+    }
+    const body = req.body as { domain?: string; action?: string; payload?: Record<string, unknown>; club?: string; profile_id?: string };
+    if (!body?.domain || !body.action) {
+      reply.code(400).send({ error: 'requete_invalide' });
+      return;
+    }
+    await pushLiveSignal(deps.env, {
+      domain: body.domain,
+      action: body.action,
+      payload: body.payload ?? {},
+      club: body.club ?? null,
+      profile_id: body.profile_id ?? null,
+    });
+    reply.send({ ok: true });
   });
 
   app.post('/hooks/auth-email', async (req, reply) => {

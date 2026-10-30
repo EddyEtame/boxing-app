@@ -559,6 +559,15 @@ test('GET /v1/me/invoices liste les factures du profil', async () => {
   });
 });
 
+test('POST /internal/admin/live-bump insere un signal', async () => {
+  await withApp(async ({ app }) => {
+    const raw = JSON.stringify({ domain: 'comms.messages', action: 'updated', payload: { test: true } });
+    const res = await postSigned(app, '/internal/admin/live-bump', raw, env.ADMIN_BRIDGE_SECRET);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().ok, true);
+  });
+});
+
 test('POST /internal/admin/shop-health liste evenements et alertes', async () => {
   await withApp(async ({ app, store }) => {
     await store.insertShopEvent({

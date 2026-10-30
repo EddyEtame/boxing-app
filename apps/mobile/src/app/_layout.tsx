@@ -22,6 +22,7 @@ import '@/global.css';
 
 import { confierAmbiance } from '@/features/ambiance';
 import { useBadgeClockTicker } from '@/features/badge/clock';
+import { AppRealtimeRoot } from '@/components/AppRealtimeRoot';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { configReady } from '@/lib/config';
@@ -129,8 +130,9 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
       <SafeAreaProvider>
-        <StatusBar style={t.statusBar} />
-        <Stack
+        <AppRealtimeRoot>
+          <StatusBar style={t.statusBar} />
+          <Stack
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: t.bg },
@@ -153,6 +155,7 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
         </Stack>
         <ThemeFade />
         <BandeauHorsLigne />
+        </AppRealtimeRoot>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

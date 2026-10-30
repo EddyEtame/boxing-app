@@ -6,7 +6,7 @@ import { BOUTIQUE_URL } from '@/features/sections';
 import { clock, longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { ApiError, lireFactures } from '@/lib/api';
-import { useCommerceRealtime } from '@/lib/commerce-realtime';
+import { useAppRealtime } from '@/lib/app-realtime';
 import { DEFAULT_OFFER_SLUG, ouvrirCheckoutBoutique } from '@/lib/checkout-flow';
 import { configReady } from '@/lib/config';
 import { useSession } from '@/state/session';
@@ -53,7 +53,7 @@ function Corps() {
   const me = useSession((st) => st.me);
   const clubActif = useSession((st) => st.clubActif);
   const recharger = useSession((st) => st.recharger);
-  const { checkoutStatus, subscriptionStatus } = useCommerceRealtime(me?.id);
+  const { checkoutStatus, subscriptionStatus } = useAppRealtime(me?.id);
   const [factures, setFactures] = useState<InvoiceRef[]>([]);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
 
