@@ -326,7 +326,7 @@ export function checkProposalInput(raw: unknown, today: string): { input: Propos
   const org = (o.organisateur ?? o.organizer ?? {}) as Record<string, unknown>;
   const memberId = typeof org.memberId === 'string' ? org.memberId.trim() : '';
   const prenom = typeof org.prenom === 'string' ? org.prenom.replace(/\s+/g, ' ').trim() : '';
-  if (!/^[A-Za-z0-9-]{3,32}$/.test(memberId)) errors.push('organisateur.memberId');
+  if (!/^[A-Za-z0-9-]{3,64}$/.test(memberId)) errors.push('organisateur.memberId');
   if (!/^[\p{L}][\p{L}' -]{0,39}$/u.test(prenom)) errors.push('organisateur.prenom');
   const age = org.age === undefined || org.age === null ? undefined : Number.isInteger(org.age) && (org.age as number) >= 10 && (org.age as number) <= 99 ? (org.age as number) : NaN;
   if (Number.isNaN(age)) errors.push('organisateur.age');

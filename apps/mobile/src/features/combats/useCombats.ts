@@ -1,63 +1,56 @@
 import { useEffect, useState } from 'react';
 
-import { COMBATS_FLUX, COMBATS_INSTANTANE, type Combat } from '@/data/combats';
+import { lireActualites, lireEvenements } from '@/lib/admin-api';
 
 /**
- * L’actualité des combats (CDC §13) lue en direct sur le flux RSS de
- * actu-mma.com, avec l’instantané embarqué comme repli : l’écran n’est jamais
- * vide, et il dit toujours d’où vient ce qu’il montre et depuis quand.
+ * Combats, galas, stages et resultats publies dans l'admin Boxing Center.
+ * Pas de flux exterieur : si rien n'est publie, la liste est vide.
  */
-export type CombatsState = { items: Combat[]; origine: 'direct' | 'instantané'; luA: Date | null };
+export type Combat = {
+  id: string;
+  titre: string;
+  date: string;
+  resume: string;
+  source: string;
+  lien: string;
+  photo: string | null;
+};
 
-function decode(s: string): string {
-  return s
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, '’')
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
-    .trim();
-}
-
-function tag(block: string, name: string): string {
-  const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`));
-  return m ? decode(m[1]) : '';
-}
-
-export function parseRss(xml: string): Combat[] {
-  const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
-  return items.slice(0, 12).map((it) => {
-    const pub = tag(it, 'pubDate');
-    const d = pub ? new Date(pub) : null;
-    return {
-      titre: tag(it, 'title'),
-      lien: tag(it, 'link'),
-      date: d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '',
-      resume: tag(it, 'description').replace(/<[^>]+>/g, '').slice(0, 220),
-      source: 'actu-mma.com' as const,
-    };
-  }).filter((c) => c.titre && c.lien);
-}
+export type CombatsState = { items: Combat[]; origine: 'club' | 'vide'; luA: Date | null };
 
 export function useCombats(): CombatsState {
-  const [state, setState] = useState<CombatsState>({ items: COMBATS_INSTANTANE, origine: 'instantané', luA: null });
+  const [state, setState] = useState<CombatsState>({ items: [], origine: 'vide', luA: null });
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    fetch(COMBATS_FLUX, { signal: controller.signal })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
-      .then((xml) => {
-        const items = parseRss(xml);
-        if (!cancelled && items.length) setState({ items, origine: 'direct', luA: new Date() });
-      })
-      .catch(() => undefined)
-      .finally(() => clearTimeout(timer));
+    Promise.all([lireEvenements().catch(() => null), lireActualites().catch(() => null)]).then(([events, news]) => {
+      if (cancelled) return;
+      const fromEvents: Combat[] = (events?.items ?? [])
+        .filter((e) => e.kind === 'combat' || e.kind === 'gala' || e.kind === 'stage' || e.kind === 'competition')
+        .map((e) => ({
+          id: e.id,
+          titre: e.fight ? `${e.fight.fighter} - ${e.fight.opponent}` : e.title,
+          date: e.startsAt.slice(0, 10),
+          resume: e.body,
+          source: 'Boxing Center',
+          lien: e.ticketUrl ?? '',
+          photo: e.photo?.url ?? null,
+        }));
+      const fromNews: Combat[] = (news?.items ?? [])
+        .filter((n) => n.kind === 'resultat')
+        .map((n) => ({
+          id: n.id,
+          titre: n.title,
+          date: n.date,
+          resume: n.body,
+          source: 'Boxing Center',
+          lien: n.link?.url ?? '',
+          photo: n.photo?.url ?? null,
+        }));
+      const items = [...fromEvents, ...fromNews].sort((a, b) => b.date.localeCompare(a.date));
+      setState({ items, origine: items.length ? 'club' : 'vide', luA: new Date() });
+    });
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, []);
   return state;

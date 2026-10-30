@@ -5,6 +5,7 @@ import { MEMBER_API, SNAPSHOT_REFRESH_MS, clubFromDeciplusGym, statutFor } from 
 import type { LinkStatus, Me, MemberSnapshot, Passage } from '@bc/contract';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
+import { registerAdminProxy } from './admin-proxy.ts';
 import { applyMemberStatus, isDecided, profileIsComplete, type FichePayload, type MemberStatusPayload } from './decisions.ts';
 import { buildAuthEmail } from './emails.ts';
 import type { Env } from './env.ts';
@@ -213,6 +214,17 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     global: true,
     max: 120,
     timeWindow: '1 minute',
+  });
+
+  app.addHook('onRequest', async (req, reply) => {
+    const origin = req.headers.origin;
+    if (typeof origin === 'string' && /^https?:\/\//.test(origin)) {
+      reply.header('Access-Control-Allow-Origin', origin);
+      reply.header('Vary', 'Origin');
+      reply.header('Access-Control-Allow-Headers', 'authorization, content-type, accept, x-bc-timestamp, x-bc-signature');
+      reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    }
+    if (req.method === 'OPTIONS') return reply.code(204).send();
   });
 
   app.setErrorHandler((error, req, reply) => {
@@ -785,6 +797,8 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     }
     reply.code(200).send({});
   });
+
+  if (deps.env.ADMIN_INTERNAL_URL) registerAdminProxy(app, deps.env.ADMIN_INTERNAL_URL);
 
   return app;
 }

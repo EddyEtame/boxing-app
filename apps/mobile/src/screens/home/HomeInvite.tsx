@@ -162,13 +162,13 @@ export function HomeInvite() {
         <Section title={T('guest.fights')} action={{ label: T('common.seeAll'), onPress: () => router.push('/combats') }}>
           <Card padded={false} style={s.listCard}>
             {combats.items.slice(0, 3).map((c, i) => (
-              <Tap key={c.lien} onPress={() => router.push('/combats')} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={c.titre} style={[s.fight, i < 2 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
+              <Tap key={c.id} onPress={() => router.push('/combats')} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={c.titre} style={[s.fight, i < 2 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Body weight="bold" numberOfLines={2}>
                     {c.titre}
                   </Body>
                   <Body size="caption" weight="semi" tone="dim">
-                    {c.date ? shortDay(c.date, lang) : ''} · actu-mma.com{lang === 'en' ? ` · ${T('fights.inFrench')}` : ''}
+                    {c.date ? shortDay(c.date, lang) : ''} · {c.source}
                   </Body>
                 </View>
                 <IconChevron size={18} color={t.textDim} />

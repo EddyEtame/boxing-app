@@ -1,6 +1,7 @@
 import { audit, type Actor } from './audit';
 import { burnPasswordTime, hashPassword, hmac, newId, randomToken, secretsEqual, sha256, verifyPassword } from './crypto';
 import { directionCredentials, sessionSecret } from './env';
+import { ensureStaffAuth } from './staff-auth';
 import { readCollection, updateCollection } from './store';
 import type { ClubId, Role, SessionUser, TeamAccount } from '@/lib/types';
 
@@ -57,7 +58,19 @@ export async function verifyLogin(emailInput: string, password: string): Promise
     await burnPasswordTime(password);
     const user = directionUser();
     const ver = directionVersion();
-    return ok && user && ver ? { user, ver } : null;
+    if (ok && user && ver) {
+      await ensureStaffAuth({
+        email: direction.email,
+        password,
+        role: 'direction',
+        name: 'Direction',
+        clubs: 'all',
+        accountId: DIRECTION_ID,
+        signature: 'Direction · Boxing Center',
+      }).catch(() => null);
+      return { user, ver };
+    }
+    return null;
   }
   const account = (await listAccounts()).find((a) => a.email === email);
   if (!account || account.status !== 'actif' || !account.passwordHash) {
@@ -65,8 +78,18 @@ export async function verifyLogin(emailInput: string, password: string): Promise
     return null;
   }
   if (!(await verifyPassword(password, account.passwordHash))) return null;
+  const authUserId = await ensureStaffAuth({
+    email: account.email,
+    password,
+    role: account.role,
+    name: account.name,
+    clubs: account.clubs,
+    accountId: account.id,
+    signature: account.signature,
+    status: account.status,
+  }).catch(() => null);
   await updateCollection<TeamAccount[], void>('comptes', () => [], (list) => ({
-    next: list.map((a) => (a.id === account.id ? { ...a, lastLoginAt: new Date().toISOString() } : a)),
+    next: list.map((a) => (a.id === account.id ? { ...a, lastLoginAt: new Date().toISOString(), ...(authUserId ? { authUserId } : {}) } : a)),
     result: undefined,
   }));
   return { user: toSessionUser(account), ver: String(account.sessionVersion) };
@@ -143,10 +166,20 @@ export async function activate(token: string, password: string): Promise<{ user:
   const target = await findByActivation(token);
   if (!target) throw new AccountError('lien-expire');
   const passwordHash = await hashPassword(password);
+  const authUserId = await ensureStaffAuth({
+    email: target.email,
+    password,
+    role: target.role,
+    name: target.name,
+    clubs: target.clubs,
+    accountId: target.id,
+    signature: target.signature,
+    status: 'actif',
+  }).catch(() => null);
   const account = await updateCollection<TeamAccount[], TeamAccount>('comptes', () => [], (list) => {
     const a = list.find((x) => x.id === target.id);
     if (!a?.activation || a.activation.tokenHash !== target.activation?.tokenHash) throw new AccountError('lien-expire');
-    const updated: TeamAccount = { ...a, passwordHash, status: 'actif', activation: undefined, sessionVersion: a.sessionVersion + 1, updatedAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() };
+    const updated: TeamAccount = { ...a, passwordHash, status: 'actif', activation: undefined, sessionVersion: a.sessionVersion + 1, updatedAt: new Date().toISOString(), lastLoginAt: new Date().toISOString(), ...(authUserId ? { authUserId } : {}) };
     return { next: list.map((x) => (x.id === a.id ? updated : x)), result: updated };
   });
   await audit(toSessionUser(account), 'compte.activation', account.id);

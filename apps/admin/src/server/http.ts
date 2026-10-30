@@ -48,11 +48,12 @@ export function isSameOrigin(request: Request): boolean {
  * d'Origin : CORS ne les concerne pas.
  */
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?::\d{1,5})?$/;
+const CLUB = /^https:\/\/([a-z0-9-]+\.)*boxingcenter\.fr(?::\d{1,5})?$/;
 
 export function allowedOrigin(origin: string | null): string | null {
   if (!origin) return null;
   const clean = origin.replace(/\/$/, '');
-  if (LOCAL.test(clean)) return clean;
+  if (LOCAL.test(clean) || CLUB.test(clean)) return clean;
   return extraCorsOrigins().includes(clean) ? clean : null;
 }
 
@@ -62,7 +63,7 @@ export function corsHeaders(request: Request, methods: string): Headers {
   if (allowed) {
     h.set('Access-Control-Allow-Origin', allowed);
     h.set('Access-Control-Allow-Methods', methods);
-    h.set('Access-Control-Allow-Headers', 'content-type');
+    h.set('Access-Control-Allow-Headers', 'content-type, authorization');
     h.set('Access-Control-Max-Age', '600');
   }
   return h;

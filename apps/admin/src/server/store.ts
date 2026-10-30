@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { bumpLive } from './live-bump';
+import { pgReadCollection, pgWriteCollection } from './pg-collections';
 
 /**
  * Le stockage local de l'admin : un fichier JSON par collection, dans un
@@ -78,7 +79,27 @@ export async function writeJsonFile(file: string, value: unknown): Promise<void>
  * jamais ; on la met de côté (`.illisible-<date>`) et on repart du défaut,
  * en le disant dans le journal du serveur.
  */
+async function seedFromFile<T>(name: string, fallback: () => T): Promise<T> {
+  const file = dataPath(`${name}.json`);
+  const raw = await readFileIfExists(file);
+  if (raw !== null) {
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback();
+    }
+  }
+  return fallback();
+}
+
 export async function readCollection<T>(name: string, fallback: () => T): Promise<T> {
+  const pg = await pgReadCollection(name);
+  if (pg.ok) {
+    if (pg.body !== null) return pg.body as T;
+    const initial = await seedFromFile(name, fallback);
+    await pgWriteCollection(name, initial);
+    return initial;
+  }
   const file = dataPath(`${name}.json`);
   const raw = await readFileIfExists(file);
   if (raw !== null) {
@@ -115,6 +136,15 @@ export async function readCollection<T>(name: string, fallback: () => T): Promis
 export async function updateCollection<T, R = T>(name: string, fallback: () => T, mutate: (current: T) => { next: T; result: R } | Promise<{ next: T; result: R }>): Promise<R> {
   const file = dataPath(`${name}.json`);
   return serialize(name, async () => {
+    const pg = await pgReadCollection(name);
+    if (pg.ok) {
+      const current = (pg.body !== null ? pg.body : await seedFromFile(name, fallback)) as T;
+      const { next, result } = await mutate(current);
+      const wrote = await pgWriteCollection(name, next);
+      if (!wrote) throw new Error(`${name} : ecriture Postgres impossible`);
+      void bumpLive(name, 'updated');
+      return result;
+    }
     const raw = await readFileIfExists(file);
     let current: T;
     try {
