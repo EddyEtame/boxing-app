@@ -10,6 +10,7 @@ import { AdminApiError, envoyerMessage, lireFil, lireNotifications } from '@/lib
 import { useLiveTick } from '@/lib/app-realtime';
 import { configReady } from '@/lib/config';
 import { onLiveSignal } from '@/lib/live-bus';
+import { useFeature } from '@/state/features';
 import { selectStatut, useSession } from '@/state/session';
 import { useMessageThread } from '@/state/message-thread';
 import { useUsage } from '@/state/usage';
@@ -27,6 +28,19 @@ export function Screen() {
   const statut = useSession(selectStatut);
   const auth = useSession((s) => s.auth);
   const me = useSession((s) => s.me);
+  const messagerie = useFeature('messagerie');
+  const T = useT();
+  if (!messagerie) {
+    return (
+      <Page title={T('sections.messages')}>
+        <Reveal>
+          <Card>
+            <Body tone="muted">{T('train.off')}</Body>
+          </Card>
+        </Reveal>
+      </Page>
+    );
+  }
   if (auth === 'connecte' && !me) return <HorsLigne />;
   if (statut !== 'actif') return <Locked statut={statut === 'restreint' ? 'restreint' : 'invite'} />;
   return <Boite me={me!} />;

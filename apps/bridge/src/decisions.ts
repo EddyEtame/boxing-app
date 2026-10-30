@@ -1,5 +1,6 @@
 import { clubFromDeciplusGym } from '@bc/contract';
 
+import { recordDailyPassage } from './passages.ts';
 import { FicheDejaLieeError, type LinkRequest, type Profile, type Snapshot, type Store } from './store.ts';
 
 export type FichePayload = {
@@ -41,6 +42,11 @@ function snapshotOf(profileId: string, fiche: FichePayload, read: string): Snaps
     club: fiche.club,
     read_at: read,
   };
+}
+
+async function recordBadgePassage(store: Store, profileId: string, fiche: FichePayload | null, now: Date): Promise<void> {
+  if (fiche?.badge_enregistre !== true) return;
+  await recordDailyPassage(store, profileId, now, 'badge');
 }
 
 async function closeRequest(
@@ -105,6 +111,7 @@ export async function applyMemberStatus(store: Store, request: LinkRequest, payl
       return 'a_revoir';
     }
     if (payload.fiche) await store.upsertSnapshot(snapshotOf(profile.id, payload.fiche, read));
+    await recordBadgePassage(store, profile.id, payload.fiche, now);
     await closeRequest(store, request, 'lie', memberId, payload.mismatch_fields, reason, nowIso);
     return 'lie';
   }
@@ -113,6 +120,7 @@ export async function applyMemberStatus(store: Store, request: LinkRequest, payl
   const downgraded = payload.decision === 'lie' && outcome !== 'lie';
   if (profile.link_status === 'lie' && !downgraded) {
     if (payload.fiche) await store.upsertSnapshot(snapshotOf(profile.id, payload.fiche, read));
+    await recordBadgePassage(store, profile.id, payload.fiche, now);
   } else if (profile.link_status !== 'lie') {
     await store.updateProfile(profile.id, { link_status: outcome, link_updated_at: nowIso });
   }

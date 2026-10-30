@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
 import { track } from '@/features/analytics';
-import { espaceLabel, espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor } from '@/features/planning/model';
+import { espaceLabel, espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
 import { shareWeek } from '@/features/planning/share';
 import { duree, relativeDay, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -65,6 +65,7 @@ function weekDates(now: Date): Date[] {
  */
 export function Screen() {
   const T = useT();
+  usePlanningSlots();
   const s = useStyles();
   const lang = useLocale();
   const clubActif = useSession((st) => st.clubActif);

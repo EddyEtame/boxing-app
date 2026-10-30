@@ -8,7 +8,8 @@ import { dateVersIso, normaliserTelephone } from '@/lib/identite';
 import { supabase } from '@/lib/supabase';
 import { useT, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
-import { BOUTIQUE_URL } from '@/features/sections';
+import { urlBoutique } from '@/features/sections';
+import { DEFAULT_OFFER_SLUG } from '@/lib/checkout-flow';
 import { Button, Segmented } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
@@ -409,7 +410,7 @@ function Resultat({ fiche, erreur, onEnter, onRetry, busy }: { fiche: Me | null;
     <View style={s.form}>
       <Body>{texte}</Body>
       {fiche?.link.status === 'prospect' && !parental ? (
-        <Button label={T('auth.offers')} variant="secondary" onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+        <Button label={T('auth.offers')} variant="secondary" onPress={() => void Linking.openURL(urlBoutique({ club: fiche?.clubPrincipal ?? fiche?.snapshot?.club ?? undefined, offer: DEFAULT_OFFER_SLUG }))} />
       ) : null}
       {erreur === 'auth.robot' || erreur === 'auth.offline' ? <Button label={T('net.retry')} variant="secondary" disabled={busy} onPress={onRetry} /> : null}
       <Button label={T('auth.enter')} onPress={onEnter} />

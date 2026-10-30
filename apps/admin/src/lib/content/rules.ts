@@ -1,6 +1,7 @@
 import { AUDIENCES_OK, isEventKind, isFamilleVideo, isNewsKind, isNiveau, isObjectif, isSecurite } from './enums';
 import { LIMITS, type EventDraft, type NewsDraft, type PublishMode, type VideoDraft } from './types';
 import { isClubId } from '@/lib/clubs';
+import { validateExternalVideoUrl } from '@/lib/content/media-limits';
 import type { ClubEvent, Media, NewsItem, PublishStatus, VideoItem } from '@/lib/types';
 
 /**
@@ -155,7 +156,7 @@ export function checkNews(d: NewsDraft, now: number): Errs {
   if (d.club !== 'reseau' && !isClubId(d.club)) e.club = 'contenu.err.club';
   if (!AUDIENCES_OK.includes(d.audience)) e.audience = 'contenu.err.audience';
   checkMedia(e, 'photo', d.photo, true);
-  if (!blank(d.video) && !isHttpsUrl(d.video)) e.video = 'form.url';
+  if (!blank(d.video) && !validateExternalVideoUrl(d.video)) e.video = 'actu.err.videoUrl';
   if (!blank(d.linkUrl) && !isHttpsUrl(d.linkUrl)) e.linkUrl = 'form.url';
   if (!blank(d.linkUrl) && blank(d.linkLabel)) e.linkLabel = 'contenu.err.linkLabel';
   else if (tooLong(d.linkLabel, LIMITS.linkLabel)) e.linkLabel = `form.tooLong:max=${LIMITS.linkLabel}`;

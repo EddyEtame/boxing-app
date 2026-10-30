@@ -11,6 +11,7 @@ import { hmacHex, webhookKey } from '../src/signature.ts';
 import type { Mailer, OutboundMail } from '../src/mailer.ts';
 import type { Profile, VerifyUser } from '../src/store.ts';
 import { buildApp, type Deps } from '../src/app.ts';
+import { recordDailyPassage } from '../src/passages.ts';
 import { MemoryStore } from './memory-store.ts';
 
 const NOW = new Date('2026-10-25T12:00:00.000Z');
@@ -207,8 +208,28 @@ test('lie avec abonnement actif -> GET /v1/me statut actif', async () => {
     assert.equal(body.snapshot.abonnementActif, true);
     assert.equal(body.snapshot.club, 'saint-cyprien');
     assert.equal(body.clubPrincipal, 'saint-cyprien');
-    assert.deepEqual(body.passages, []);
+    assert.equal(body.passages.length, 1);
+    assert.equal(body.passages[0].date, '2026-10-25');
+    assert.equal(body.passages[0].club, 'saint-cyprien');
+    assert.equal(body.passages[0].heure, '13:00');
   });
+});
+
+test('recordDailyPassage : deux appels le meme jour Paris = une ligne', async () => {
+  const store = new MemoryStore(() => NOW);
+  const first = await recordDailyPassage(store, userA.id, NOW, 'shop');
+  const second = await recordDailyPassage(store, userA.id, new Date('2026-10-25T20:00:00.000Z'), 'badge');
+  assert.equal(first, true);
+  assert.equal(second, false);
+  const sameDay = await store.listPassages(userA.id);
+  assert.equal(sameDay.length, 1);
+  assert.equal(sameDay[0]?.day, '2026-10-25');
+  assert.equal(sameDay[0]?.source, 'shop');
+  const nextParisDay = await recordDailyPassage(store, userA.id, new Date('2026-10-25T23:30:00.000Z'), 'badge');
+  assert.equal(nextParisDay, true);
+  const rows = await store.listPassages(userA.id);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]?.day, '2026-10-26');
 });
 
 test('lie avec un deciplus_member_id deja pris -> a_revoir', async () => {
@@ -565,6 +586,55 @@ test('POST /internal/admin/live-bump insere un signal', async () => {
     const res = await postSigned(app, '/internal/admin/live-bump', raw, env.ADMIN_BRIDGE_SECRET);
     assert.equal(res.statusCode, 200);
     assert.equal(res.json().ok, true);
+  });
+});
+
+test('sale.done deux fois le meme jour n enregistre qu un passage', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile({ club_principal: 'minimes' }));
+    const session = await store.insertCheckoutSession({
+      profile_id: userA.id,
+      offer_slug: 'adulte-mensuel',
+      club: 'minimes',
+      expires_at: new Date(NOW.getTime() + 3600_000).toISOString(),
+    });
+    const payload = (eventId: string) => JSON.stringify({
+      event_id: eventId,
+      type: 'sale.done',
+      order_id: 'box-sale',
+      boxplus_order_id: 'box-sale',
+      checkout_session_id: session.id,
+      deciplus_sale_id: 'sale-1',
+    });
+    const first = await postSigned(app, '/internal/shop-event', payload('evt-sale-1'), env.SHOP_BRIDGE_SECRET);
+    const second = await postSigned(app, '/internal/shop-event', payload('evt-sale-2'), env.SHOP_BRIDGE_SECRET);
+    assert.equal(first.statusCode, 200);
+    assert.equal(second.statusCode, 200);
+    const rows = await store.listPassages(userA.id);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.source, 'shop');
+    const me = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(me.statusCode, 200);
+    assert.equal(me.json().passages.length, 1);
+    assert.equal(me.json().passages[0].date, '2026-10-25');
+    assert.equal(me.json().passages[0].club, 'minimes');
+  });
+});
+
+test('POST /internal/admin/link-requests signature invalide -> 401', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile());
+    store.seedRequest({ profile_id: userA.id, order_id: 'app-revue-liste', status: 'a_revoir' });
+    const raw = '{}';
+    const bad = await postSigned(app, '/internal/admin/link-requests', raw, 'mauvais-secret');
+    assert.equal(bad.statusCode, 401);
+    assert.equal(bad.json().error, 'signature_invalide');
+    const ok = await postSigned(app, '/internal/admin/link-requests', raw, env.ADMIN_BRIDGE_SECRET);
+    assert.equal(ok.statusCode, 200);
+    assert.equal(ok.json().items.length, 1);
+    assert.equal(ok.json().items[0].email, userA.email);
+    assert.equal(ok.json().items[0].status, 'a_revoir');
+    assert.equal(ok.json().items[0].profileId, userA.id);
   });
 });
 

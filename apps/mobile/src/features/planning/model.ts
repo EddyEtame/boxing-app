@@ -1,5 +1,8 @@
+import { plagesLibres as plagesLibresContrat } from '@bc/contract';
+
 import { clubById } from '@/data/clubs';
-import { SLOTS, type Slot } from '@/data/planning';
+import type { Slot } from '@/data/planning';
+import { planningSlots, usePlanningStore } from '@/state/planning';
 import { useI18nStore, type Locale } from '@/i18n';
 import { discipline, type ClubId } from '@/ui/theme';
 
@@ -150,12 +153,23 @@ export function heure(min: number, lang: Locale = appLocale()): string {
   return min % 60 ? `${h}h${m}` : `${h}h`;
 }
 
+function allSlots(): Slot[] {
+  return planningSlots();
+}
+
 export function slotsFor(club: ClubId, jour: number, espace?: string): Slot[] {
-  return SLOTS.filter((s) => s.club === club && s.jour === jour && (!espace || !s.espace || s.espace === espace)).sort((a, b) => a.debut - b.debut);
+  return allSlots()
+    .filter((s) => s.club === club && s.jour === jour && (!espace || !s.espace || s.espace === espace))
+    .sort((a, b) => a.debut - b.debut);
 }
 
 export function espacesFor(club: ClubId): string[] {
-  return [...new Set(SLOTS.filter((s) => s.club === club && s.espace).map((s) => s.espace!))];
+  return [...new Set(allSlots().filter((s) => s.club === club && s.espace).map((s) => s.espace!))];
+}
+
+/** S'abonner au planning reseau pour redessiner planning, accueil et alertes. */
+export function usePlanningSlots(): Slot[] {
+  return usePlanningStore((st) => st.slots);
 }
 
 /** Jour de la semaine à la française (0 = lundi) pour une date. */
@@ -200,7 +214,7 @@ export function nextFavorite(favorites: string[], now = new Date()): NextSession
   const nowMin = now.getHours() * 60 + now.getMinutes();
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
-    const slots = SLOTS.filter((s) => s.jour === jour && favorites.includes(s.id)).sort((a, b) => a.debut - b.debut);
+    const slots = allSlots().filter((s) => s.jour === jour && favorites.includes(s.id)).sort((a, b) => a.debut - b.debut);
     for (const slot of slots) {
       if (offset === 0 && slot.debut <= nowMin) continue;
       const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;
@@ -233,6 +247,17 @@ export type Plage = { id: string; club: ClubId; jour: number; debut: number; fin
  * l’ouverture de la salle »). C’est là que vivent les propositions entre membres.
  */
 export function plagesLibres(club: ClubId, jour: number): Plage[] {
+  const { horaires, slots } = usePlanningStore.getState();
+  if (horaires) {
+    return plagesLibresContrat(slots, horaires[club] ?? [], club, jour).map((p) => ({
+      id: p.slotId ?? `ouv-${club}-${jour}-${p.debut}`,
+      club,
+      jour,
+      debut: p.debut,
+      fin: p.fin,
+      source: p.source,
+    }));
+  }
   const explicites = accesLibreFor(club, jour);
   if (explicites.length) return explicites.map((s) => ({ id: s.id, club, jour, debut: s.debut, fin: s.fin, source: 'planning' as const }));
   const o = clubById(club).ouverture;
@@ -243,7 +268,7 @@ export function plagesLibres(club: ClubId, jour: number): Plage[] {
 /** Les clubs qui proposent une famille de discipline, lus dans le planning réel ; jamais une liste écrite à la main. */
 export function clubsProposant(f: Famille): ClubId[] {
   const ids: ClubId[] = [];
-  for (const s of SLOTS) {
+  for (const s of allSlots()) {
     if (normaliseActivite(s.activite).famille === f && !ids.includes(s.club)) ids.push(s.club);
   }
   return ids;

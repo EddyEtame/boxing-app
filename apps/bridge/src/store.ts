@@ -88,6 +88,26 @@ export type LinkRequestPatch = {
   resolved_at?: string | null;
 };
 
+export type MemberPassage = {
+  profile_id: string;
+  day: string;
+  source: string;
+  created_at: string;
+};
+
+export type NewMemberPassage = {
+  profile_id: string;
+  day: string;
+  source: string;
+};
+
+export type LinkRequestReview = {
+  id: string;
+  profile_id: string;
+  email: string | null;
+  status: LinkRequestStatus;
+};
+
 export type AuditEntry = {
   actor: string | null;
   action: string;
@@ -121,6 +141,9 @@ export type Store = {
   getLinkRequestByOrderId(orderId: string): Promise<LinkRequest | null>;
   getLinkRequestById(id: string): Promise<LinkRequest | null>;
   updateLinkRequest(id: string, patch: LinkRequestPatch): Promise<void>;
+  listLinkRequestsReview(limit?: number): Promise<LinkRequestReview[]>;
+  insertPassageIfNewDay(row: NewMemberPassage): Promise<boolean>;
+  listPassages(profileId: string, limit?: number): Promise<MemberPassage[]>;
   findOtherProfileByMemberId(memberId: string, exceptProfileId: string): Promise<boolean>;
   insertAudit(entry: AuditEntry): Promise<void>;
   insertEvents(events: StoredEvent[]): Promise<void>;
@@ -194,6 +217,12 @@ function asSnapshot(row: Row): Snapshot {
   };
 }
 
+function emailOf(value: unknown): string | null {
+  if (Array.isArray(value)) return emailOf(value[0]);
+  if (!value || typeof value !== 'object') return null;
+  return asText((value as Row).email);
+}
+
 function asLinkRequest(row: Row): LinkRequest {
   const status = asText(row.status) ?? 'envoye';
   const resolution = asText(row.resolution);
@@ -213,6 +242,25 @@ function asLinkRequest(row: Row): LinkRequest {
     created_at: asText(row.created_at) ?? new Date(0).toISOString(),
     decided_at: asText(row.decided_at),
     resolved_at: asText(row.resolved_at),
+  };
+}
+
+function asPassage(row: Row): MemberPassage {
+  return {
+    profile_id: String(row.profile_id),
+    day: asText(row.day)?.slice(0, 10) ?? '',
+    source: asText(row.source) ?? '',
+    created_at: asText(row.created_at) ?? new Date(0).toISOString(),
+  };
+}
+
+function asReview(row: Row): LinkRequestReview {
+  const status = asText(row.status) ?? 'a_revoir';
+  return {
+    id: String(row.id),
+    profile_id: String(row.profile_id),
+    email: emailOf(row.profiles),
+    status: status as LinkRequestReview['status'],
   };
 }
 
@@ -347,6 +395,36 @@ export function createSupabaseStore(supabase: SupabaseClient): Store {
     async updateLinkRequest(id, patch) {
       const { error } = await supabase.from('link_requests').update(definedPatch(patch)).eq('id', id);
       if (error) fail(error, 'mise a jour demande');
+    },
+    async listLinkRequestsReview(limit = 40) {
+      const { data, error } = await supabase
+        .from('link_requests')
+        .select('id, profile_id, status, profiles(email)')
+        .eq('status', 'a_revoir')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'file a revoir');
+      return (data ?? []).map((row) => asReview(row as Row));
+    },
+    async insertPassageIfNewDay(row) {
+      const { error } = await supabase.from('member_passages').insert({
+        profile_id: row.profile_id,
+        day: row.day,
+        source: row.source,
+      });
+      if (isUnique(error)) return false;
+      if (error) fail(error, 'passage');
+      return true;
+    },
+    async listPassages(profileId, limit = 2000) {
+      const { data, error } = await supabase
+        .from('member_passages')
+        .select('profile_id, day, source, created_at')
+        .eq('profile_id', profileId)
+        .order('day', { ascending: false })
+        .limit(limit);
+      if (error) fail(error, 'lecture passages');
+      return (data ?? []).map((row) => asPassage(row as Row));
     },
     async findOtherProfileByMemberId(memberId, exceptProfileId) {
       const { data, error } = await supabase

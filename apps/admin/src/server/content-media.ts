@@ -10,18 +10,21 @@ import { dataPath } from './store';
 import { LIMITS, type Library, type Upload } from '@/lib/content/types';
 import type { SessionUser } from '@/lib/types';
 
+import { validateImageUploadSize } from './media-limits';
+
+export { MAX_UPLOAD_BYTES } from './media-limits';
+
 /**
  * LA PHOTOTHÈQUE : les photos réelles des clubs (apps/mobile/assets/photos,
  * charte : jamais d'image générée) et ce que l'équipe dépose dans l'admin.
  *
  * Un dépôt est accepté s'il est vraiment une image (octets magiques, pas
- * l'extension annoncée), pèse 8 Mo au plus, et porte un texte alternatif.
+ * l'extension annoncée), pèse 1,5 Mo au plus, et porte un texte alternatif.
  * Les métadonnées EXIF sont retirées des JPEG et PNG avant d'écrire : une
  * photo prise au téléphone dans une salle porte souvent ses coordonnées GPS.
  * Le fichier prend pour nom l'empreinte de son contenu : un même fichier
  * déposé deux fois n'existe qu'une fois, et se met en cache pour toujours.
  */
-export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const NAME = /^[a-z0-9][a-z0-9._-]{0,120}\.(jpe?g|png|webp)$/i;
 
 export async function listAppPhotos(): Promise<string[]> {
@@ -99,7 +102,7 @@ function concat(parts: Uint8Array[]): Uint8Array {
 export type UploadError = 'trop-lourd' | 'pas-une-image' | 'alt';
 
 export async function saveUpload(user: SessionUser, raw: Uint8Array, alt: string): Promise<{ ok: true; upload: Upload; duplicate: boolean } | { ok: false; error: UploadError }> {
-  if (raw.length > MAX_UPLOAD_BYTES) return { ok: false, error: 'trop-lourd' };
+  if (validateImageUploadSize(raw.length) === 'trop-lourd') return { ok: false, error: 'trop-lourd' };
   const type = sniff(raw);
   if (!type) return { ok: false, error: 'pas-une-image' };
   const text = alt.replace(/\s+/g, ' ').trim();

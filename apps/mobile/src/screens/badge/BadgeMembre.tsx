@@ -4,23 +4,25 @@ import { View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { track } from '@/features/analytics';
-import { heure, nextSession } from '@/features/planning/model';
+import { heure, nextSession, usePlanningSlots } from '@/features/planning/model';
 import { relativeDay, shortDay } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { Card } from '@/ui/kit';
+import { QR } from '@/ui/QR';
 import { Page } from '@/ui/Page';
 import { Body, Heading } from '@/ui/Text';
 import { makeStyles, space, stroke, useTheme } from '@/ui/theme';
 
 import { Stamp } from '../home/parts';
 
-/** Le badge reel : enregistre ou non. Le QR tournant attend un secret du serveur. */
+/** Le badge reel : le QR est le code membre Deciplus deja present sur la fiche. */
 export function BadgeMembre() {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
   const lang = useLocale();
+  usePlanningSlots();
   const me = useSession((st) => st.me);
   const clubActif = useSession((st) => st.clubActif);
   useEffect(() => {
@@ -52,9 +54,15 @@ export function BadgeMembre() {
             </Body>
           </View>
         </View>
-        <Body tone="muted" style={s.note}>
-          {T('badge.qrSoon')}
-        </Body>
+        {enregistre && me.deciplusMemberId ? (
+          <View style={s.qr}>
+            <QR value={me.deciplusMemberId} size={196} />
+          </View>
+        ) : (
+          <Body tone="muted" style={s.note}>
+            {T('badge.qrSoon')}
+          </Body>
+        )}
         {me.consentementParentalRequis ? (
           <Body size="bodySmall" tone="muted" style={s.note}>
             {T('plus.parental')}
@@ -99,6 +107,7 @@ const useStyles = makeStyles((t) => ({
   who: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   initials: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   note: { marginTop: space[3] },
+  qr: { marginTop: space[4], alignItems: 'center' },
   block: { marginTop: space[4] },
   entry: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
   sep: { height: stroke.hair, marginVertical: space[3] },

@@ -23,6 +23,7 @@ import '@/global.css';
 import { confierAmbiance } from '@/features/ambiance';
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { AppRealtimeRoot } from '@/components/AppRealtimeRoot';
+import { useAdminBootstrap } from '@/lib/admin-bootstrap';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { configReady } from '@/lib/config';
@@ -127,6 +128,7 @@ export default function RootLayout() {
 /** L'app elle-même, dessinée sous l'écran de lancement dès que tout est prêt. */
 function AppTree({ onboarded }: { onboarded: boolean }) {
   const t = useTheme();
+  useAdminBootstrap();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
       <SafeAreaProvider>

@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
+import { sectionVisible } from '@/features/flags';
 import { SECTIONS } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
+import { useFeaturesStore } from '@/state/features';
 import { BAR_SIZE, BAR_SLOTS, DEFAULT_BAR, usePrefs, type BarSlot } from '@/state/prefs';
 import { IconArrow, IconCheck } from '@/ui/icons';
 import { Button, Card, IconTile, Section } from '@/ui/kit';
@@ -26,8 +28,10 @@ export default function BarreScreen() {
   const s = useStyles();
   const saved = usePrefs((st) => st.bar);
   const setBar = usePrefs((st) => st.setBar);
+  const features = useFeaturesStore((s) => s.features);
   const [draft, setDraft] = useState<BarSlot[]>(saved);
-  const available = BAR_SLOTS.filter((id) => !draft.includes(id));
+  const allowed = (id: BarSlot) => sectionVisible(id, features);
+  const available = BAR_SLOTS.filter((id) => allowed(id) && !draft.includes(id));
   const full = draft.length >= BAR_SIZE;
 
   const move = (i: number, dir: -1 | 1) => {

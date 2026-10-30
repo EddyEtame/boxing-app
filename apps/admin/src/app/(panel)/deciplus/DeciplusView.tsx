@@ -11,7 +11,7 @@ import { useI18n } from '@/i18n/client';
 import type { MessageKey } from '@/i18n/messages';
 import { relative } from '@/lib/format';
 import type { Connection } from '@/server/branchements';
-import type { ShopHealthReport } from '@/server/member-bridge';
+import type { LinkRequestReview, ShopHealthReport } from '@/server/member-bridge';
 
 /** CDC §18A, ligne par ligne : où vit la donnée, comment la lire, ce que l'app fait sans elle. */
 const DATA = ['comptes', 'statuts', 'echeances', 'impayes', 'factures', 'badges', 'passages'] as const;
@@ -29,11 +29,13 @@ export function DeciplusView({
   checkedAt,
   demo,
   shop,
+  review,
 }: {
   bridge: Connection;
   checkedAt: string;
   demo: { memberId: string; passages: number; updatedAt: string };
   shop: ShopHealthReport | null;
+  review: LinkRequestReview[] | null;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -236,10 +238,36 @@ export function DeciplusView({
                 <IconShield />
                 <span>{t('deci.match.never')}</span>
               </div>
-              <div className="empty-mini">
-                <b>{t('deci.queue')}</b>
-                <span>{t('deci.queue.empty')}</span>
-              </div>
+              {!review || review.length === 0 ? (
+                <div className="empty-mini">
+                  <b>{t('deci.queue')}</b>
+                  <span>{t('deci.queue.empty')}</span>
+                </div>
+              ) : (
+                <div className="tbl-wrap">
+                  <table className="tbl tbl-cards deci-table">
+                    <caption className="sr-only">{t('deci.queue')}</caption>
+                    <thead>
+                      <tr>
+                        <th>{t('deci.queue.col.id')}</th>
+                        <th>{t('deci.queue.col.who')}</th>
+                        <th>{t('deci.queue.col.status')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {review.map((row) => (
+                        <tr key={row.id}>
+                          <td data-l={t('deci.queue.col.id')}>
+                            <code>{row.id}</code>
+                          </td>
+                          <td data-l={t('deci.queue.col.who')}>{row.email || row.profileId}</td>
+                          <td data-l={t('deci.queue.col.status')}>{row.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </section>
 

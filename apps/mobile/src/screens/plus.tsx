@@ -4,9 +4,11 @@ import { Linking, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
-import { SECTIONS, PLUS_GRID, type SectionId } from '@/features/sections';
+import { sectionVisible } from '@/features/flags';
+import { PLUS_GRID, SECTIONS, urlBoutique, type SectionId } from '@/features/sections';
 import { track } from '@/features/analytics';
 import { ANGLAIS_ACTIF, useI18nStore, useT, type Locale } from '@/i18n';
+import { useFeaturesStore } from '@/state/features';
 import { usePrefs, type Appearance } from '@/state/prefs';
 import { useUsage } from '@/state/usage';
 import { useSession } from '@/state/session';
@@ -37,6 +39,8 @@ export function Screen() {
   const setOnboarded = usePrefs((st) => st.setOnboarded);
   const { width } = useWindowDimensions();
   const tileW = Math.floor((Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2 - space[3] * 2) / 3);
+  const features = useFeaturesStore((s) => s.features);
+  const grid = PLUS_GRID.filter((id) => sectionVisible(id, features));
 
   return (
     <Page title={T('plus.title')}>
@@ -45,7 +49,7 @@ export function Screen() {
       <Reveal>
         <Section title={T('plus.all')}>
           <View style={s.grid}>
-            {PLUS_GRID.map((id, i) => (
+            {grid.map((id, i) => (
               <GridTile key={id} id={id} index={i} width={tileW} locked={!!SECTIONS[id].members && !actif} />
             ))}
           </View>
@@ -180,6 +184,7 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
   const T = useT();
   const s = useStyles();
   const t = useTheme();
+  const clubActif = useSession((st) => st.clubActif);
   const section = SECTIONS[id];
   const p = useSharedValue(0);
   useEffect(() => {
@@ -187,7 +192,7 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
   }, [index, p]);
   const style = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scale: 0.9 + p.value * 0.1 }] }));
   const open = () => {
-    if (section.external) void Linking.openURL(section.external);
+    if (section.external || id === 'boutique') void Linking.openURL(id === 'boutique' ? urlBoutique({ club: clubActif }) : section.external!);
     else router.navigate(section.href as never);
   };
   return (
