@@ -304,7 +304,7 @@ export function MembersView({ overview, error, canDecide, canDemo, initial }: Me
                               {item.member.clubPrincipal ? ` · ${CLUB_LABEL[item.member.clubPrincipal]}` : ''}
                             </p>
                           </div>
-                          <span className={item.deciplusMemberId ? 'tag tag-warn' : 'tag'}>{item.mismatchFields.length ? `${item.mismatchFields.length} ${item.mismatchFields.length > 1 ? 'écarts' : 'écart'}` : item.deciplusMemberId ? t('adh.queue.allMatch') : t('adh.queue.notFound')}</span>
+                          <span className={item.deciplusMemberId ? 'tag tag-warn' : 'tag'}>{item.mismatchFields.length ? t('adh.queue.gaps', { n: item.mismatchFields.length }) : item.deciplusMemberId ? t('adh.queue.allMatch') : t('adh.queue.notFound')}</span>
                         </header>
                         {compare(item)}
                         {decideButtons(item, 'sm')}

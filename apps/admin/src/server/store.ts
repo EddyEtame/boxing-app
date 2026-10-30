@@ -28,6 +28,12 @@ export function dataPath(...parts: string[]): string {
   return path.join(dataDir(), ...parts);
 }
 
+/** Les sauvegardes datées des données (scripts/backup.ts) : apps/admin/.backups, ou ADMIN_BACKUP_DIR. */
+export function backupDir(): string {
+  const custom = process.env.ADMIN_BACKUP_DIR?.trim();
+  return custom ? path.resolve(custom) : path.join(process.cwd(), '.backups');
+}
+
 /** Exécute `fn` après toutes les opérations déjà en file sur `key`. */
 export function serialize<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const previous = queues.get(key) ?? Promise.resolve();

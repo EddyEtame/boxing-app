@@ -83,7 +83,7 @@ export function Palette({ open, onClose, sections, actions }: { open: boolean; o
   }, [base, index, query]);
 
   const groups = useMemo(() => {
-    const order: Item['group'][] = ['create', 'go', 'content', 'slots', 'threads', 'accounts'];
+    const order: Item['group'][] = ['create', 'go', 'content', 'slots', 'threads', 'members', 'accounts'];
     return order.map((g) => ({ g, items: results.filter((r) => r.group === g) })).filter((x) => x.items.length);
   }, [results]);
 

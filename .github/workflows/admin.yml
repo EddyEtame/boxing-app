@@ -1,0 +1,57 @@
+# L'admin est un site à part, sur sa branche `admin` (décision d'Eddy, 30/10/2026) :
+# chaque poussée y est vérifiée comme une mise en ligne — types, lint, tests, et la
+# construction de production, sans aucune variable : l'admin lit tout à l'exécution.
+#
+# Elle ne tourne pas sur `main` : la branche de l'app a son propre flux (android-apk.yml).
+
+name: Admin
+
+on:
+  push:
+    branches: ['admin']
+    paths:
+      - 'apps/admin/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin.yml'
+  pull_request:
+    branches: ['admin']
+  workflow_dispatch:
+
+concurrency:
+  group: admin-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    name: Types, lint, tests, construction
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances (espaces de travail npm)
+        run: npm ci
+
+      - name: Contrat partagé (listes, routes, règle de l'accès libre)
+        run: npm test --workspace packages/contract
+
+      - name: Admin — types, lint, tests
+        working-directory: apps/admin
+        run: |
+          npx tsc --noEmit -p .
+          npx eslint . --max-warnings=0
+          npm test
+
+      - name: Admin — construction de production
+        working-directory: apps/admin
+        run: npm run build

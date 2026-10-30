@@ -1,5 +1,7 @@
 # données locales de l'admin (contenus, comptes, événements d'usage) — jamais versionnées
 .data/
+# leurs sauvegardes datées (npm run backup)
+.backups/
 
 # sorties de Next.js
 .next/

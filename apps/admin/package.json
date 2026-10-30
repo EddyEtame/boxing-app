@@ -12,7 +12,8 @@
     "test": "node --experimental-strip-types --import ./test/hooks.mjs --test test/*.test.ts",
     "env:boutique": "tsx scripts/env-boutique.ts",
     "seed:events": "tsx scripts/seed-events.ts",
-    "seed:events:clear": "tsx scripts/seed-events.ts --clear"
+    "seed:events:clear": "tsx scripts/seed-events.ts --clear",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "@bc/brand": "*",

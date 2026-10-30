@@ -8,7 +8,7 @@ import { configStatus } from './env';
 import { mobilePath } from './paths';
 import { sourceStatus } from './planning';
 import { adminBridge, queueCount } from './members';
-import { dataDir } from './store';
+import { backupDir, dataDir } from './store';
 import { supabaseAdmin } from './supabase-admin';
 import { readEvents } from './usage';
 import { signedHeaders } from '@/lib/bridge/sign';
@@ -301,8 +301,28 @@ async function checkBase(): Promise<Connection> {
   };
 }
 
+/** La dernière sauvegarde datée (scripts/backup.ts) : fraîche si elle a moins d'un jour et demi. */
 async function checkSauvegardes(): Promise<Connection> {
-  return { id: 'sauvegardes', state: 'off', facts: [{ k: 'sys.fact.lastBackup', v: '—', as: 'text' }] };
+  const vars = optionalEnv('ADMIN_BACKUP_DIR');
+  let names: string[] = [];
+  try {
+    names = (await readdir(backupDir())).filter((n) => /^\d{4}-\d{2}-\d{2}_\d{4}$/.test(n)).sort();
+  } catch {
+    names = [];
+  }
+  const last = names[names.length - 1];
+  if (!last) return { id: 'sauvegardes', state: 'off', facts: [{ k: 'sys.fact.lastBackup', v: '—', as: 'text' }], env: vars };
+  const at = new Date(Number(last.slice(0, 4)), Number(last.slice(5, 7)) - 1, Number(last.slice(8, 10)), Number(last.slice(11, 13)), Number(last.slice(13, 15)));
+  const fresh = Date.now() - at.getTime() < 36 * 3_600_000;
+  return {
+    id: 'sauvegardes',
+    state: fresh ? 'ok' : 'attente',
+    facts: [
+      { k: 'sys.fact.lastBackup', v: at.toISOString(), as: 'date' },
+      { k: 'sys.fact.backups', v: names.length, as: 'num' },
+    ],
+    env: vars,
+  };
 }
 
 async function checkBoutique(): Promise<Connection> {
