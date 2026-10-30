@@ -1,4 +1,12 @@
-import { MEMBER_API, type LinkResponse, type Me } from '@bc/contract';
+import {
+  MEMBER_API,
+  type CheckoutSessionRequest,
+  type CheckoutSessionResponse,
+  type CheckoutSessionView,
+  type InvoicesResponse,
+  type LinkResponse,
+  type Me,
+} from '@bc/contract';
 
 import { MEMBER_API_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
@@ -29,6 +37,7 @@ const DELAI_MS = 20_000;
 type Options = {
   method?: 'GET' | 'POST' | 'DELETE';
   auth?: boolean;
+  body?: string;
 };
 
 function codePour(status: number, error: string | undefined): ApiErrorCode {
@@ -43,6 +52,7 @@ function codePour(status: number, error: string | undefined): ApiErrorCode {
 async function appel<T>(path: string, options: Options = {}): Promise<T> {
   if (!MEMBER_API_URL) throw new ApiError('serveur');
   const headers: Record<string, string> = { accept: 'application/json' };
+  if (options.body) headers['content-type'] = 'application/json';
   if (options.auth !== false) {
     const jeton = (await supabase?.auth.getSession())?.data.session?.access_token;
     if (!jeton) throw new ApiError('non_autorise', 401);
@@ -55,6 +65,7 @@ async function appel<T>(path: string, options: Options = {}): Promise<T> {
     res = await fetch(`${MEMBER_API_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
+      body: options.body,
       signal: controle.signal,
     });
   } catch {
@@ -90,4 +101,19 @@ export function lancerLien(): Promise<LinkResponse> {
 
 export function supprimerCompte(): Promise<void> {
   return appel<void>(MEMBER_API.me, { method: 'DELETE' });
+}
+
+export function creerSessionCheckout(body: CheckoutSessionRequest): Promise<CheckoutSessionResponse> {
+  return appel<CheckoutSessionResponse>(MEMBER_API.checkoutSessions, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function lireSessionCheckout(id: string): Promise<CheckoutSessionView> {
+  return appel<CheckoutSessionView>(MEMBER_API.checkoutSession(id));
+}
+
+export function lireFactures(): Promise<InvoicesResponse> {
+  return appel<InvoicesResponse>(MEMBER_API.invoices);
 }

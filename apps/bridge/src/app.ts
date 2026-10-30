@@ -407,6 +407,8 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       profile.id,
       Math.floor(expires.getTime() / 1000),
       deps.env.APP_BRIDGE_SECRET,
+      offerSlug,
+      clubRaw,
     );
     reply.code(201).send({
       id: session.id,

@@ -1,10 +1,16 @@
 import { Linking, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
 
 import { clubById } from '@/data/clubs';
 import { BOUTIQUE_URL } from '@/features/sections';
 import { clock, longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
+import { ApiError, lireFactures } from '@/lib/api';
+import { useCommerceRealtime } from '@/lib/commerce-realtime';
+import { DEFAULT_OFFER_SLUG, ouvrirCheckoutBoutique } from '@/lib/checkout-flow';
+import { configReady } from '@/lib/config';
 import { useSession } from '@/state/session';
+import type { ClubId } from '@/ui/theme';
 import { IconCard } from '@/ui/icons';
 import { Button, Card, Section } from '@/ui/kit';
 import { HorsLigne } from '@/ui/Offline';
@@ -14,9 +20,10 @@ import { makeStyles, radius, space, stroke, useTheme } from '@/ui/theme';
 
 import { MembersOnly } from './common/MembersOnly';
 
+import type { InvoiceRef } from '@bc/contract';
+
 /**
- * Ce que la fiche dit vraiment : contrats, abonnement, badge, date de lecture.
- * Les echeances et les factures ne sont pas encore livrees par le serveur.
+ * Abonnement : fiche Deciplus, etat commerce (Realtime) et factures bridge.
  */
 export function Screen() {
   const T = useT();
@@ -33,6 +40,11 @@ export function Screen() {
   return <Corps />;
 }
 
+function formatEuros(cents: number, lang: 'fr' | 'en'): string {
+  const value = cents / 100;
+  return new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { style: 'currency', currency: 'EUR' }).format(value);
+}
+
 function Corps() {
   const T = useT();
   const s = useStyles();
@@ -40,13 +52,81 @@ function Corps() {
   const lang = useLocale();
   const me = useSession((st) => st.me);
   const clubActif = useSession((st) => st.clubActif);
+  const recharger = useSession((st) => st.recharger);
+  const { checkoutStatus, subscriptionStatus } = useCommerceRealtime(me?.id);
+  const [factures, setFactures] = useState<InvoiceRef[]>([]);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+
+  const chargerFactures = useCallback(async () => {
+    if (!configReady) return;
+    try {
+      const res = await lireFactures();
+      setFactures(res.items);
+    } catch {
+      /* hors ligne ou serveur : on garde la liste actuelle */
+    }
+  }, []);
+
+  useEffect(() => {
+    void chargerFactures();
+  }, [chargerFactures]);
+
+  useEffect(() => {
+    if (checkoutStatus === 'completed' || subscriptionStatus === 'active') {
+      void chargerFactures();
+      void recharger();
+    }
+  }, [checkoutStatus, subscriptionStatus, chargerFactures, recharger]);
+
   if (!me) return null;
   const snap = me.snapshot;
   const club = snap?.club ? clubById(snap.club) : me.clubPrincipal ? clubById(me.clubPrincipal) : clubById(clubActif);
-  const actif = snap?.abonnementActif === true;
-  const attente = snap?.abonnementEnAttente === true;
-  const statut = !snap ? T('sub.noSnapshot') : actif ? T('sub.statusActive') : attente ? T('sub.pending') : T('sub.statusEnded');
+  const actifSnap = snap?.abonnementActif === true;
+  const actifCommerce = subscriptionStatus === 'active';
+  const actif = actifCommerce || actifSnap;
+  const attente =
+    snap?.abonnementEnAttente === true ||
+    subscriptionStatus === 'activating' ||
+    checkoutStatus === 'paid_pending_deciplus' ||
+    checkoutStatus === 'payment_pending';
+  const statut = !snap && !subscriptionStatus
+    ? T('sub.noSnapshot')
+    : actif
+      ? T('sub.statusActive')
+      : attente
+        ? T('sub.pending')
+        : T('sub.statusEnded');
   const lu = snap ? `${longDate(snap.readAt.slice(0, 10), lang)} · ${clock(snap.readAt)}` : null;
+
+  const clubCheckout: ClubId = (me.clubPrincipal || me.snapshot?.club || clubActif) as ClubId;
+
+  const payerDansApp = async () => {
+    if (!configReady || checkoutBusy) return;
+    setCheckoutBusy(true);
+    try {
+      await ouvrirCheckoutBoutique(DEFAULT_OFFER_SLUG, clubCheckout);
+      await chargerFactures();
+      await recharger();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'profil_incomplet') {
+        await Linking.openURL(BOUTIQUE_URL);
+      }
+    } finally {
+      setCheckoutBusy(false);
+    }
+  };
+
+  const ctaCheckout = configReady ? (
+    <Button
+      label={actif ? T('sub.change') : T('messages.renew')}
+      variant="secondary"
+      icon={IconCard}
+      disabled={checkoutBusy}
+      onPress={() => void payerDansApp()}
+    />
+  ) : (
+    <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
+  );
 
   return (
     <Page title={T('sub.title')}>
@@ -58,6 +138,11 @@ function Corps() {
               {statut}
             </Body>
           </View>
+          {checkoutStatus && checkoutStatus !== 'completed' && checkoutStatus !== 'opened' ? (
+            <Body size="bodySmall" tone="muted">
+              {T('sub.pending')}
+            </Body>
+          ) : null}
           {snap && snap.contrats.length ? (
             <View style={s.contrats}>
               {snap.contrats.map((c) => (
@@ -96,19 +181,36 @@ function Corps() {
       ) : null}
 
       <Reveal>
-        <Section title={T('sub.invoices')}>
-          <Card>
-            <Heading level="card">{T('sub.invoicesEmpty')}</Heading>
-            <Body tone="muted" style={s.note}>
-              {T('sub.invoicesEmptyBody')}
-            </Body>
-          </Card>
+        <Section title={T('sub.invoices')} note={T('sub.invoicesNote')}>
+          {factures.length ? (
+            <Card padded={false} style={s.list}>
+              {factures.map((row, index) => (
+                <View
+                  key={row.id}
+                  style={[s.detail, index < factures.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}
+                >
+                  <View style={s.invoiceCol}>
+                    <Body weight="semi">{row.label}</Body>
+                    <Body size="bodySmall" tone="muted">
+                      {row.invoiceNumber} · {longDate(row.issuedAt.slice(0, 10), lang)}
+                    </Body>
+                  </View>
+                  <Body weight="bold">{formatEuros(row.amountTtcCents, lang)}</Body>
+                </View>
+              ))}
+            </Card>
+          ) : (
+            <Card>
+              <Heading level="card">{T('sub.invoicesEmpty')}</Heading>
+              <Body tone="muted" style={s.note}>
+                {T('sub.invoicesEmptyBody')}
+              </Body>
+            </Card>
+          )}
         </Section>
       </Reveal>
 
-      <Reveal style={s.block}>
-        <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void Linking.openURL(BOUTIQUE_URL)} />
-      </Reveal>
+      <Reveal style={s.block}>{ctaCheckout}</Reveal>
     </Page>
   );
 }
@@ -135,4 +237,5 @@ const useStyles = makeStyles((t) => ({
   list: { paddingHorizontal: space[5], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
   detail: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space[3], minHeight: 56, paddingVertical: space[3] },
   detailValue: { flexShrink: 1, textAlign: 'right' },
+  invoiceCol: { flex: 1, gap: space[1] },
 }));

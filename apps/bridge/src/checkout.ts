@@ -34,12 +34,22 @@ export function verifyCheckoutToken(
   return timingSafeEqual(a, b);
 }
 
-export function buildCheckoutUrl(base: string, sessionId: string, profileId: string, expiresUnix: number, secret: string): string {
+export function buildCheckoutUrl(
+  base: string,
+  sessionId: string,
+  profileId: string,
+  expiresUnix: number,
+  secret: string,
+  offerSlug: string,
+  club: string,
+): string {
   const sig = signCheckoutToken(secret, sessionId, profileId, expiresUnix);
   const url = new URL(base);
   url.searchParams.set('cs', sessionId);
   url.searchParams.set('pid', profileId);
   url.searchParams.set('exp', String(expiresUnix));
   url.searchParams.set('sig', sig);
+  url.searchParams.set('offer', offerSlug);
+  url.searchParams.set('club', club);
   return url.toString();
 }
