@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 /**
@@ -47,4 +48,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: 'fareno-corps',
+  project: 'boxing-center-admin',
+  sentryUrl: 'https://de.sentry.io/',
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: '/monitoring',
+});

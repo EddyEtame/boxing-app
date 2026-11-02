@@ -221,7 +221,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     if (typeof origin === 'string' && /^https?:\/\//.test(origin)) {
       reply.header('Access-Control-Allow-Origin', origin);
       reply.header('Vary', 'Origin');
-      reply.header('Access-Control-Allow-Headers', 'authorization, content-type, accept, x-bc-timestamp, x-bc-signature');
+      reply.header('Access-Control-Allow-Headers', 'authorization, content-type, accept, x-bc-timestamp, x-bc-signature, sentry-trace, baggage');
       reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') return reply.code(204).send();

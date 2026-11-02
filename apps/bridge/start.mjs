@@ -68,18 +68,24 @@ if (process.env.ADMIN_APP_DIR) {
   const localNext = join(process.env.ADMIN_APP_DIR, 'node_modules', 'next', 'dist', 'bin', 'next');
   const hoistedNext = join(root, '..', '..', 'node_modules', 'next', 'dist', 'bin', 'next');
   const nextBin = existsSync(localNext) ? localNext : hoistedNext;
+  const adminDsn = process.env.ADMIN_SENTRY_DSN || '';
   slots.push(supervise('admin', process.execPath, [nextBin, 'start', '--port', process.env.ADMIN_PORT || '3001'], {
     cwd: process.env.ADMIN_APP_DIR,
-    env: process.env,
+    env: {
+      ...process.env,
+      ...(adminDsn ? { SENTRY_DSN: adminDsn, NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || adminDsn } : {}),
+    },
   }));
 }
 
 slots.push(supervise('bridge', process.execPath, [
   '--experimental-strip-types',
+  '--env-file-if-exists=.env',
+  '--env-file-if-exists=.env.server',
+  '--import',
+  './src/instrument.mjs',
   '--import',
   './src/register.mjs',
-  '--env-file-if-exists=.env.server',
-  '--env-file-if-exists=.env',
   'src/server.ts',
 ], {
   cwd: root,

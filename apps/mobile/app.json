@@ -65,8 +65,14 @@
         "expo-localization",
         {
           "supportedLocales": {
-            "ios": ["fr", "en"],
-            "android": ["fr", "en"]
+            "ios": [
+              "fr",
+              "en"
+            ],
+            "android": [
+              "fr",
+              "en"
+            ]
           }
         }
       ],
@@ -89,7 +95,15 @@
         }
       ],
       "expo-background-task",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://de.sentry.io/",
+          "project": "boxing-center",
+          "organization": "fareno-corps"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

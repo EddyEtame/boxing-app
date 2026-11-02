@@ -68,6 +68,9 @@ const lines = [
   'ADMIN_PORT=3001',
   `ROBOT_DIR=${fs.existsSync(path.join(boxplusRoot, 'bot', 'index.js')) ? boxplusRoot : ''}`,
   `CLOUDFLARE_TUNNEL_TOKEN=${bridge.CLOUDFLARE_TUNNEL_TOKEN || ''}`,
+  `SENTRY_DSN=${bridge.SENTRY_DSN || ''}`,
+  `ADMIN_SENTRY_DSN=${bridge.ADMIN_SENTRY_DSN || ''}`,
+  `NEXT_PUBLIC_SENTRY_DSN=${bridge.NEXT_PUBLIC_SENTRY_DSN || ''}`,
   `SUPER_ADMIN_EMAIL=${gestion.SUPER_ADMIN_EMAIL || boxplus.SUPER_ADMIN_EMAIL || ''}`,
   `SESSION_SECRET=${''}`,
 ];
@@ -80,6 +83,14 @@ if (adminLocal.SESSION_SECRET) {
 if (adminLocal.SUPER_ADMIN_EMAIL) {
   const idx = lines.findIndex((l) => l.startsWith('SUPER_ADMIN_EMAIL='));
   lines[idx] = `SUPER_ADMIN_EMAIL=${adminLocal.SUPER_ADMIN_EMAIL}`;
+}
+if (adminLocal.SENTRY_DSN) {
+  const idx = lines.findIndex((l) => l.startsWith('ADMIN_SENTRY_DSN='));
+  if (lines[idx] === 'ADMIN_SENTRY_DSN=') lines[idx] = `ADMIN_SENTRY_DSN=${adminLocal.SENTRY_DSN}`;
+}
+if (adminLocal.NEXT_PUBLIC_SENTRY_DSN) {
+  const idx = lines.findIndex((l) => l.startsWith('NEXT_PUBLIC_SENTRY_DSN='));
+  if (lines[idx] === 'NEXT_PUBLIC_SENTRY_DSN=') lines[idx] = `NEXT_PUBLIC_SENTRY_DSN=${adminLocal.NEXT_PUBLIC_SENTRY_DSN}`;
 }
 lines.push(`SUPER_ADMIN_PASSWORD=${adminLocal.SUPER_ADMIN_PASSWORD || ''}`);
 

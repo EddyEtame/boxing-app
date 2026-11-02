@@ -1,3 +1,4 @@
+import { Sentry } from '@/lib/sentry';
 import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
 import {
@@ -81,7 +82,7 @@ function useAnalyticsWiring() {
   }, [path, usageReady]);
 }
 
-export default function RootLayout() {
+function RootLayout() {
   useBadgeClockTicker();
   useAnalyticsWiring();
   const t = useTheme();
@@ -162,6 +163,8 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
