@@ -28,6 +28,7 @@ import { useAdminBootstrap } from '@/lib/admin-bootstrap';
 import { useI18nStore } from '@/i18n';
 import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/features/analytics';
 import { configReady } from '@/lib/config';
+import { demanderDroitsAppareil } from '@/lib/droits';
 import '@/lib/background';
 import { ConfigManquante } from '@/screens/ConfigManquante';
 import { usePrefs } from '@/state/prefs';
@@ -107,6 +108,11 @@ function RootLayout() {
   useEffect(() => {
     if (configReady) bootSession();
   }, []);
+
+  useEffect(() => {
+    if (!booted) return;
+    void demanderDroitsAppareil();
+  }, [booted]);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.bg);

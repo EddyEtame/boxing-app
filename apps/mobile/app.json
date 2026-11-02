@@ -17,32 +17,42 @@
         "CFBundleLocalizations": [
           "fr",
           "en"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "Boxing Center utilise ta position pour les clubs proches, seulement si tu l'autorises.",
+        "NSPhotoLibraryUsageDescription": "Boxing Center lit tes documents et photos seulement pour les enregistrer dans l'application.",
+        "NSPhotoLibraryAddUsageDescription": "Boxing Center enregistre tes documents et factures sur cet appareil."
       }
     },
     "android": {
       "package": "fr.boxingcenter.app",
       "adaptiveIcon": {
-        "backgroundColor": "#20254B",
+        "backgroundColor": "#F4F2EE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.SYSTEM_ALERT_WINDOW"
-      ],
-      "permissions": [
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -91,7 +101,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/android-icon-monochrome.png",
+          "icon": "./assets/images/notification-icon.png",
           "color": "#E8001C",
           "defaultChannel": "default",
           "enableRemoteNotifications": false,
@@ -100,6 +110,7 @@
       ],
       "expo-background-task",
       "expo-sharing",
+      "./plugins/sans-firebase-init.js",
       [
         "@sentry/react-native/expo",
         {
