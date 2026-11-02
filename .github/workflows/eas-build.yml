@@ -1,7 +1,7 @@
 # Builds Play Store (AAB) et App Store via Expo EAS.
 #
 # Quand : a la main (Actions, « Build Expo »), ou a chaque tag v*.
-# Le secret EXPO_TOKEN est un jeton d'acces du compte Expo angoularaphael
+# Le secret EXPO_TOKEN est un jeton d'acces du compte Expo raphaelangoula
 # (expo.dev, Account settings, Access tokens). Sans lui, le workflow s'arrete.
 #
 # Les quatre EXPO_PUBLIC_* sont les variables du depot (onglet Variables).
@@ -50,7 +50,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Secret EXPO_TOKEN absent. Cree un jeton sur expo.dev (compte angoularaphael, Access tokens) et ajoute-le dans Settings, Secrets, Actions."
+            echo "::error::Secret EXPO_TOKEN absent. Cree un jeton sur expo.dev (compte raphaelangoula, Access tokens) et ajoute-le dans Settings, Secrets, Actions."
             exit 1
           fi
           for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
