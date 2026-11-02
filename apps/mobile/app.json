@@ -105,7 +105,8 @@
         {
           "url": "https://de.sentry.io/",
           "project": "boxing-center",
-          "organization": "fareno-corps"
+          "organization": "fareno-corps",
+          "disableAutoUpload": true
         }
       ]
     ],
