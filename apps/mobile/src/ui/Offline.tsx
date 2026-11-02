@@ -15,11 +15,13 @@ export function HorsLigne({ page = true }: { page?: boolean }) {
   const T = useT();
   const s = useStyles();
   const [busy, setBusy] = useState(false);
+  const erreur = useSession((st) => st.erreur);
+  const reseau = !erreur || erreur === 'hors_ligne';
   const carte = (
     <Card>
-      <Heading level="section">{T('net.offline')}</Heading>
+      <Heading level="section">{reseau ? T('net.offline') : T('net.serverTitle')}</Heading>
       <Body tone="muted" style={s.body}>
-        {T('net.offlineBody')}
+        {reseau ? T('net.offlineBody') : T('net.serverBody')}
       </Body>
       <Button
         label={T('net.retry')}
@@ -36,7 +38,7 @@ export function HorsLigne({ page = true }: { page?: boolean }) {
     </Card>
   );
   if (!page) return carte;
-  return <Page title={T('net.offline')}>{carte}</Page>;
+  return <Page title={reseau ? T('net.offline') : T('net.serverTitle')}>{carte}</Page>;
 }
 
 /** Bandeau global. Les pages publiques restent utilisables dessous. */

@@ -11,7 +11,7 @@ type ThreadState = {
   token: string | null;
   lastSeenAt: string | null;
   preview: Pick<ThreadResponse, 'status' | 'updatedAt' | 'sujet'> | null;
-  setSession: (threadId: string, token: string) => void;
+  setSession: (threadId: string, token: string | null) => void;
   setPreview: (preview: ThreadState['preview']) => void;
   markSeen: (at: string) => void;
   clear: () => void;

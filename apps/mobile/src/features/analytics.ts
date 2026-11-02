@@ -89,6 +89,8 @@ let lastPath = '';
 export function trackScreen(path: string) {
   if (path === lastPath) return;
   lastPath = path;
+  // L'entrée et le formulaire ne sont pas encore l'app : le back office compte ce qui vient après.
+  if (path === '/preface' || path === '/connexion') return;
   const section = path.split('/')[1] || 'home';
   useUsage.getState().bump('sections', section);
   track('screen_view', { section }, path);

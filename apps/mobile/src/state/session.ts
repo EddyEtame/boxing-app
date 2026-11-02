@@ -7,6 +7,7 @@ import { ApiError, lireMe, rafraichirMe, supprimerCompte } from '@/lib/api';
 import { activerRafraichissementFond, arreterRafraichissementFond } from '@/lib/background';
 import { configReady } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
+import { useMessageThread } from '@/state/message-thread';
 import { IS_SERVER, persistStorage } from '@/state/storage';
 import type { ClubId } from '@/ui/theme';
 
@@ -19,6 +20,12 @@ type SessionState = {
   auth: AuthPhase;
   me: Me | null;
   erreur: ApiError['code'] | null;
+  /**
+   * La réponse à « As-tu déjà un abonnement ? » à la création du compte. Elle oriente les
+   * textes, jamais l'accès : seul Deciplus ouvre l'espace adhérent (CDC §2, §3B). Non gardée.
+   */
+  abonnementDeclare: boolean | null;
+  setAbonnementDeclare: (value: boolean | null) => void;
   clubsChoisis: ClubId[];
   clubActif: ClubId;
   /** Vrai des que l'adherent a touche la liste (on ne l'ecrase plus avec la fiche). */
@@ -58,6 +65,29 @@ function clubsApresFiche(
 let demarre = false;
 let ecoutePosee = false;
 
+/** Ce qui appartient au compte s'en va avec lui : le compte suivant sur ce téléphone ne lit pas le fil du précédent. */
+function oublierCompte(): void {
+  useMessageThread.getState().clear();
+}
+
+/** La réponse à « As-tu déjà un abonnement ? », gardée avec le compte : elle survit à la réouverture de l'app. */
+function declareDansSession(session: { user?: { user_metadata?: Record<string, unknown> } } | null): boolean | null {
+  const v = session?.user?.user_metadata?.abonnement_declare;
+  return typeof v === 'boolean' ? v : null;
+}
+
+/**
+ * Un 401 du serveur peut venir d'un incident de son côté : on ne déconnecte que si
+ * Supabase refuse lui-même la session, sinon un incident sortirait tous les membres.
+ */
+async function sessionRefusee(): Promise<boolean> {
+  if (!supabase) return true;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return true;
+  const { error } = await supabase.auth.getUser();
+  return !!error && (error.status === 401 || error.status === 403);
+}
+
 function attendreClubs(): Promise<void> {
   if (useSession.getState().clubsHydrated) return Promise.resolve();
   return new Promise((resolve) => {
@@ -75,6 +105,8 @@ export const useSession = create<SessionState>()(
       auth: 'chargement',
       me: null,
       erreur: null,
+      abonnementDeclare: null,
+      setAbonnementDeclare: (abonnementDeclare) => set({ abonnementDeclare }),
       clubsChoisis: [CLUB_DEFAUT],
       clubActif: CLUB_DEFAUT,
       clubsChoisisParLui: false,
@@ -104,15 +136,22 @@ export const useSession = create<SessionState>()(
           }
           const { data } = await supabase.auth.getSession();
           if (!data.session) set({ auth: 'deconnecte', me: null });
-          else await chargerMe(get, set);
+          else {
+            set({ abonnementDeclare: declareDansSession(data.session) });
+            await chargerMe(get, set);
+          }
           if (!ecoutePosee) {
             ecoutePosee = true;
             supabase.auth.onAuthStateChange((event, session) => {
               if (event === 'SIGNED_OUT' || !session) {
-                set({ auth: 'deconnecte', me: null, erreur: null });
+                oublierCompte();
+                set({ auth: 'deconnecte', me: null, erreur: null, abonnementDeclare: null });
                 return;
               }
-              if (event === 'SIGNED_IN') void chargerMe(get, set);
+              if (event === 'SIGNED_IN') {
+                if (get().abonnementDeclare === null) set({ abonnementDeclare: declareDansSession(session) });
+                void chargerMe(get, set);
+              }
             });
             AppState.addEventListener('change', (state) => {
               if (state === 'active') void rafraichirSiAncien();
@@ -129,8 +168,9 @@ export const useSession = create<SessionState>()(
       },
       signOut: async () => {
         await arreterRafraichissementFond();
+        oublierCompte();
         await supabase?.auth.signOut();
-        set({ auth: 'deconnecte', me: null, erreur: null });
+        set({ auth: 'deconnecte', me: null, erreur: null, abonnementDeclare: null });
       },
       supprimer: async () => {
         await supprimerCompte();
@@ -165,10 +205,11 @@ async function chargerMe(get: Get, set: Set): Promise<void> {
     get().applyMe(me);
     await activerRafraichissementFond();
   } catch (e) {
-    if (e instanceof ApiError && e.code === 'non_autorise') {
+    if (e instanceof ApiError && e.code === 'non_autorise' && (await sessionRefusee())) {
       await arreterRafraichissementFond();
+      oublierCompte();
       await supabase?.auth.signOut();
-      set({ auth: 'deconnecte', me: null, erreur: null });
+      set({ auth: 'deconnecte', me: null, erreur: null, abonnementDeclare: null });
       return;
     }
     set({ auth: 'connecte', me: get().me, erreur: e instanceof ApiError ? e.code : 'serveur' });
@@ -192,21 +233,37 @@ export async function rafraichirSiAncien(): Promise<boolean> {
     useSession.getState().applyMe(suivant);
     return true;
   } catch (e) {
-    if (e instanceof ApiError && e.code === 'non_autorise') {
+    if (e instanceof ApiError && e.code === 'non_autorise' && (await sessionRefusee())) {
       await useSession.getState().signOut();
     }
     return false;
   }
 }
 
-export function selectStatut(s: { auth: AuthPhase; me: Me | null }): Statut {
-  if (s.auth === 'connecte' && s.me) return s.me.statut;
-  return 'invite';
+/**
+ * Ce qu'ouvre le compte (CDC §3 ; Eddy, 30/10/2026 : tout le monde a un compte, et
+ * sans abonnement on visite en découverte). Le serveur dit « restreint » pour tout
+ * ce qui n'est pas actif : ici, on distingue l'ancien adhérent de la découverte.
+ */
+export type Acces = 'adherent' | 'ancien' | 'verification' | 'decouverte';
+
+export function selectAcces(s: { auth: AuthPhase; me: Me | null; abonnementDeclare: boolean | null }): Acces {
+  if (s.auth !== 'connecte' || !s.me) return 'decouverte';
+  if (s.me.statut === 'actif') return 'adherent';
+  if (s.me.link.status === 'lie') return 'ancien';
+  if (s.me.link.status === 'a_revoir') return 'verification';
+  if (s.me.link.status === 'en_attente' && s.abonnementDeclare !== false) return 'verification';
+  return 'decouverte';
 }
 
-/** Invite sans session. Des qu'une session existe, c'est l'espace adherent. */
+export function selectStatut(s: { auth: AuthPhase; me: Me | null; abonnementDeclare: boolean | null }): Statut {
+  const acces = selectAcces(s);
+  return acces === 'adherent' ? 'actif' : acces === 'ancien' ? 'restreint' : 'invite';
+}
+
+/** L'espace adherent suit l'abonnement actif. Sans fiche lisible (hors ligne), son accueil gere l'attente. */
 export function useProfil(): 'invite' | 'adherent' {
-  return useSession((s) => (s.auth === 'connecte' ? 'adherent' : 'invite'));
+  return useSession((s) => (s.auth === 'connecte' && (!s.me || s.me.statut === 'actif') ? 'adherent' : 'invite'));
 }
 
 export function bootSession(): void {

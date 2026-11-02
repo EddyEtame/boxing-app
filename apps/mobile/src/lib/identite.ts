@@ -1,3 +1,17 @@
+/** A la frappe : 14031999 devient 14/03/1999. */
+export function formaterDate(saisie: string): string {
+  const c = saisie.replace(/\D/g, '').slice(0, 8);
+  if (c.length <= 2) return c;
+  if (c.length <= 4) return `${c.slice(0, 2)}/${c.slice(2)}`;
+  return `${c.slice(0, 2)}/${c.slice(2, 4)}/${c.slice(4)}`;
+}
+
+/** A la frappe : 0612345678 devient 06 12 34 56 78. Un numero en +33 reste tel quel. */
+export function formaterTelephone(saisie: string): string {
+  if (saisie.trim().startsWith('+')) return saisie;
+  return saisie.replace(/\D/g, '').slice(0, 10).replace(/(\d{2})(?=\d)/g, '$1 ');
+}
+
 /** 06 12 34 56 78, +33, 0033 vers +33612345678. null si le numero n'est pas francais. */
 export function normaliserTelephone(saisie: string): string | null {
   let digits = saisie.replace(/[^\d]/g, '');

@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
-import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
+import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor, usePlanningSlots, estFerme, isoLocal } from '@/features/planning/model';
 import { useStats } from '@/features/stats/model';
 import { fullDay, monthName } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -50,7 +50,7 @@ function Corps() {
   const next = fav && fav.dansMinutes <= 7 * 24 * 60 ? fav : nextSession(clubActif, now, age);
   const nextClub = next ? clubById(next.slot.club) : club;
   const topClub = stats.byClub[0] ? clubById(stats.byClub[0].club) : club;
-  const ouvert = estOuvert(club, now);
+  const ouvert = estOuvert(club, now) && !estFerme(club.id, isoLocal(now));
   const coursToday = slotsFor(clubActif, jourFr(now)).filter((sl) => normaliseActivite(sl.activite).famille !== 'accesLibre').length;
   const snap = me.snapshot;
   const coachs = PERSONNES.filter((p) => p.type === 'coach' && p.clubs.includes(clubActif));

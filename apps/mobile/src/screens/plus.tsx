@@ -6,12 +6,11 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { CLUBS, clubById } from '@/data/clubs';
 import { sectionVisible } from '@/features/flags';
 import { PLUS_GRID, SECTIONS, urlBoutique, type SectionId } from '@/features/sections';
-import { track } from '@/features/analytics';
-import { ANGLAIS_ACTIF, useI18nStore, useT, type Locale } from '@/i18n';
+import { useI18nStore, useT, type Locale } from '@/i18n';
 import { useFeaturesStore } from '@/state/features';
 import { usePrefs, type Appearance } from '@/state/prefs';
 import { useUsage } from '@/state/usage';
-import { useSession } from '@/state/session';
+import { selectAcces, useSession } from '@/state/session';
 import { HorsLigne } from '@/ui/Offline';
 import { GlassSurface } from '@/ui/Glass';
 import { IconBell, IconChart, IconGlobe, IconLock, IconLogout, IconMoon, IconPhone, IconShield, IconSun, IconTrash } from '@/ui/icons';
@@ -36,7 +35,6 @@ export function Screen() {
   const actif = me?.statut === 'actif';
   const invite = auth !== 'connecte';
   const signOut = useSession((st) => st.signOut);
-  const setOnboarded = usePrefs((st) => st.setOnboarded);
   const { width } = useWindowDimensions();
   const tileW = Math.floor((Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2 - space[3] * 2) / 3);
   const features = useFeaturesStore((s) => s.features);
@@ -44,7 +42,7 @@ export function Screen() {
 
   return (
     <Page title={T('plus.title')}>
-      <Reveal>{invite ? <GuestCard /> : me ? <MemberCard /> : <HorsLigne page={false} />}</Reveal>
+      <Reveal>{me ? <MemberCard /> : invite ? null : <HorsLigne page={false} />}</Reveal>
 
       <Reveal>
         <Section title={T('plus.all')}>
@@ -69,13 +67,11 @@ export function Screen() {
         </Section>
       </Reveal>
 
-      {ANGLAIS_ACTIF ? (
-        <Reveal>
-          <Section title={T('plus.language')}>
-            <LanguagePicker />
-          </Section>
-        </Reveal>
-      ) : null}
+      <Reveal>
+        <Section title={T('plus.language')}>
+          <LanguagePicker />
+        </Section>
+      </Reveal>
 
       <Reveal>
         <Section title={T('plus.settings')}>
@@ -83,7 +79,6 @@ export function Screen() {
             <Row icon={IconBell} title={T('plus.notifications')} subtitle={T('plus.notificationsSub')} onPress={() => router.push('/notifications')} />
             <MyClubs />
             <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} />
-            <Row icon={IconPhone} title={T('plus.replayIntro')} subtitle={T('plus.replayIntroSub')} onPress={() => setOnboarded(false)} />
             <AnalyticsRow />
           </Card>
         </Section>
@@ -120,10 +115,12 @@ function MemberCard() {
   const s = useStyles();
   const t = useTheme();
   const me = useSession((st) => st.me);
+  const acces = useSession(selectAcces);
   if (!me) return null;
   const clubId = me.clubPrincipal ?? me.snapshot?.club ?? null;
   const club = clubId ? clubById(clubId) : null;
   const actif = me.statut === 'actif';
+  const termine = acces === 'ancien';
   const lien =
     me.link.status === 'lie'
       ? T('plus.linked')
@@ -148,34 +145,13 @@ function MemberCard() {
           <Body size="bodySmall" tone="muted" numberOfLines={2}>
             {club ? club.court : T('plus.noClub')} · {lien}
           </Body>
-          <View style={[s.status, { backgroundColor: actif ? t.positiveSoft : t.negativeSoft }]}>
-            <Body size="caption" weight="bold" tone={actif ? 'positive' : 'negative'}>
-              {me.consentementParentalRequis ? T('plus.parental') : actif ? T('plus.statusActive') : T('plus.statusEnded')}
+          <View style={[s.status, { backgroundColor: actif ? t.positiveSoft : termine ? t.negativeSoft : t.tint }]}>
+            <Body size="caption" weight="bold" tone={actif ? 'positive' : termine ? 'negative' : 'muted'}>
+              {me.consentementParentalRequis ? T('plus.parental') : actif ? T('plus.statusActive') : termine ? T('plus.statusEnded') : acces === 'verification' ? T('plus.pending') : T('plus.statusNone')}
             </Body>
           </View>
         </View>
       </View>
-    </Card>
-  );
-}
-
-function GuestCard() {
-  const T = useT();
-  const s = useStyles();
-  return (
-    <Card>
-      <Heading level="section">{T('plus.guestTitle')}</Heading>
-      <Body tone="muted" style={s.guestBody}>
-        {T('plus.guestBody')}
-      </Body>
-      <Button label={T('guest.create')} onPress={() => {
-              track('cta_create_account', { from: 'plus' });
-              router.push('/connexion');
-            }} />
-      <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
-              track('cta_sign_in', { from: 'plus' });
-              router.push('/connexion?mode=connexion');
-            }} style={s.second} />
     </Card>
   );
 }
@@ -350,8 +326,6 @@ const useStyles = makeStyles((t) => ({
   me: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
   meAvatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   status: { alignSelf: 'flex-start', marginTop: space[2], paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
-  guestBody: { marginTop: space[2], marginBottom: space[5] },
-  second: { marginTop: space[3] },
   // Trois tuiles par rang, alignées à gauche : un dernier rang de deux ne laisse plus de trou au milieu.
   grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[3], rowGap: space[3] },
   tile: {

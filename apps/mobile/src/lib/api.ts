@@ -6,8 +6,10 @@ import {
   type InvoicesResponse,
   type LinkResponse,
   type Me,
+  type SignedDocumentsResponse,
 } from '@bc/contract';
 
+import type { MessageKey } from '@/i18n';
 import { MEMBER_API_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 
@@ -122,4 +124,19 @@ export type AvisMembre = { id: string; kind: string; title: string; body: string
 
 export function lireAvis(): Promise<{ items: AvisMembre[] }> {
   return appel<{ items: AvisMembre[] }>(MEMBER_API.notices);
+}
+
+export function lireDocuments(): Promise<SignedDocumentsResponse> {
+  return appel<SignedDocumentsResponse>(MEMBER_API.documents);
+}
+
+/** Le message à montrer pour une erreur du serveur. */
+export function cleErreurApi(code: ApiErrorCode): MessageKey {
+  if (code === 'hors_ligne') return 'auth.offline';
+  if (code === 'email_non_verifie') return 'auth.emailUnverified';
+  if (code === 'trop_de_demandes') return 'auth.tooMany';
+  if (code === 'robot_indisponible') return 'auth.robot';
+  if (code === 'profil_incomplet') return 'auth.profileIncomplete';
+  if (code === 'non_autorise') return 'auth.invalid';
+  return 'auth.generic';
 }

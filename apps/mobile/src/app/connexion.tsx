@@ -1,15 +1,16 @@
 import { type Me } from '@bc/contract';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, TextInput, View, type KeyboardTypeOptions, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, type ComponentRef, type Ref } from 'react';
+import { TextInput, View, type KeyboardTypeOptions, type ReturnKeyTypeOptions, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
-import { ApiError, lancerLien, lireMe } from '@/lib/api';
-import { dateVersIso, normaliserTelephone } from '@/lib/identite';
+import { track } from '@/features/analytics';
+import { ApiError, cleErreurApi, lancerLien, lireMe } from '@/lib/api';
+import { dateVersIso, formaterDate, formaterTelephone, normaliserTelephone } from '@/lib/identite';
 import { supabase } from '@/lib/supabase';
 import { useT, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
-import { urlBoutique } from '@/features/sections';
-import { DEFAULT_OFFER_SLUG } from '@/lib/checkout-flow';
+import { Ceremonie } from '@/screens/compte/Ceremonie';
+import { CodeSaisie } from '@/screens/compte/CodeSaisie';
 import { Button, Segmented } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
@@ -17,6 +18,7 @@ import { Body } from '@/ui/Text';
 import { fontFamily, fontSize, makeStyles, radius, space, useTheme } from '@/ui/theme';
 
 type Mode = 'creation' | 'connexion';
+type Profil = 'abonne' | 'decouverte';
 type Etape = 'formulaire' | 'code' | 'oubli' | 'nouveau' | 'verification' | 'resultat';
 type CodePour = 'signup' | 'recovery';
 
@@ -38,26 +40,21 @@ function cleAuth(error: AuthEchec): MessageKey {
   return 'auth.generic';
 }
 
-function cleApi(code: ApiError['code']): MessageKey {
-  if (code === 'hors_ligne') return 'auth.offline';
-  if (code === 'email_non_verifie') return 'auth.emailUnverified';
-  if (code === 'trop_de_demandes') return 'auth.tooMany';
-  if (code === 'robot_indisponible') return 'auth.robot';
-  if (code === 'profil_incomplet') return 'auth.profileIncomplete';
-  if (code === 'non_autorise') return 'auth.invalid';
-  return 'auth.generic';
-}
-
 /**
  * Creation, connexion et mot de passe oublie. Apres la session, la fiche
  * est lue puis rapprochee de Deciplus si elle est encore en attente.
+ * « As-tu deja un abonnement ? » oriente le parcours et les textes ; seul
+ * le rapprochement ouvre l'espace adherent (CDC §2).
  */
 export default function ConnexionScreen() {
   const T = useT();
   const s = useStyles();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; profil?: string }>();
   const applyMe = useSession((st) => st.applyMe);
+  const connecte = useSession((st) => st.auth === 'connecte');
+  const setAbonnementDeclare = useSession((st) => st.setAbonnementDeclare);
   const [mode, setMode] = useState<Mode>(params.mode === 'connexion' ? 'connexion' : 'creation');
+  const [profil, setProfil] = useState<Profil>(params.profil === 'decouverte' ? 'decouverte' : 'abonne');
   const [etape, setEtape] = useState<Etape>('formulaire');
   const [codePour, setCodePour] = useState<CodePour>('signup');
   const [prenom, setPrenom] = useState('');
@@ -72,16 +69,35 @@ export default function ConnexionScreen() {
   const [info, setInfo] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   const [fiche, setFiche] = useState<Me | null>(null);
+  const [retour, setRetour] = useState(false);
+  const nomRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const emailRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const telephoneRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const naissanceRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const motDePasseRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const tel = normaliserTelephone(telephone);
   const dateIso = dateVersIso(naissance);
   const creationOk = prenom.trim().length >= 2 && nom.trim().length >= 2 && email.includes('@') && !!tel && !!dateIso && motDePasse.length >= 8;
   const connexionOk = email.includes('@') && motDePasse.length >= 8;
+  const decouverte = mode === 'creation' && profil === 'decouverte';
+  const declareAbonne = mode === 'creation' && profil === 'abonne';
 
   const poserFiche = (me: Me) => {
     applyMe(me);
     setFiche(me);
   };
+
+  const entrerDansLapp = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+
+  // Un retour : on entre tout de suite, mais seulement une fois les gardes du routeur à jour.
+  // Dans le même instant que la session, l'entrée n'existe déjà plus et l'app pas encore.
+  useEffect(() => {
+    if (retour && connecte) router.replace('/');
+  }, [retour, connecte]);
 
   const apresSession = async () => {
     setBusy(true);
@@ -94,6 +110,14 @@ export default function ConnexionScreen() {
         return;
       }
       if (me.link.status !== 'en_attente') {
+        // Le coup de tampon est pour la première arrivée.
+        if (mode === 'connexion') setRetour(true);
+        else setEtape('resultat');
+        return;
+      }
+      if (decouverte) {
+        // Sans abonnement declare, on cherche quand meme une ancienne fiche (CDC §2), sans le faire attendre.
+        void lancerLien().catch(() => undefined);
         setEtape('resultat');
         return;
       }
@@ -101,14 +125,14 @@ export default function ConnexionScreen() {
         await lancerLien();
       } catch (e) {
         if (e instanceof ApiError && e.code !== 'trop_de_demandes') {
-          setErreur(cleApi(e.code));
+          setErreur(cleErreurApi(e.code));
           setEtape('resultat');
           return;
         }
       }
       setEtape('verification');
     } catch (e) {
-      setErreur(e instanceof ApiError ? cleApi(e.code) : 'auth.generic');
+      setErreur(e instanceof ApiError ? cleErreurApi(e.code) : 'auth.generic');
     } finally {
       setBusy(false);
     }
@@ -135,7 +159,7 @@ export default function ConnexionScreen() {
         if (me.link.status !== 'en_attente' || Date.now() - debut >= ATTENTE_MS) finir(me);
       } catch (e) {
         if (!vivant) return;
-        if (e instanceof ApiError) setErreur(cleApi(e.code));
+        if (e instanceof ApiError) setErreur(cleErreurApi(e.code));
         if (Date.now() - debut >= ATTENTE_MS) finir(null);
       }
     };
@@ -151,6 +175,7 @@ export default function ConnexionScreen() {
 
   const creer = async () => {
     if (!supabase || !tel || !dateIso) return;
+    track('cta_create_account', { from: 'compte' });
     setBusy(true);
     setErreur(null);
     setInfo(null);
@@ -164,6 +189,7 @@ export default function ConnexionScreen() {
             nom: nom.trim(),
             telephone: tel,
             date_naissance: dateIso,
+            abonnement_declare: profil === 'abonne',
           },
         },
       });
@@ -175,6 +201,7 @@ export default function ConnexionScreen() {
         setErreur('auth.emailUsed');
         return;
       }
+      setAbonnementDeclare(profil === 'abonne');
       if (data.session) {
         await apresSession();
         return;
@@ -215,12 +242,12 @@ export default function ConnexionScreen() {
     }
   };
 
-  const verifierCode = async () => {
-    if (!supabase || code.length !== 6) return;
+  const verifierCode = async (saisi: string = code) => {
+    if (!supabase || busy || saisi.length !== 6) return;
     setBusy(true);
     setErreur(null);
     try {
-      const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: codePour });
+      const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: saisi, type: codePour });
       if (error) {
         setErreur(cleAuth(error));
         return;
@@ -298,15 +325,20 @@ export default function ConnexionScreen() {
     }
   };
 
-  const entrerDansLapp = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
+  const valider = () => {
+    if (busy) return;
+    if (mode === 'creation' && creationOk) void creer();
+    if (mode === 'connexion' && connexionOk) void entrer();
   };
 
+  if (etape === 'verification' || etape === 'resultat') {
+    return <Ceremonie phase={etape === 'verification' ? 'recherche' : 'resultat'} fiche={fiche} erreur={erreur} decouverte={decouverte} declareAbonne={declareAbonne} onEnter={entrerDansLapp} onRetry={() => void apresSession()} busy={busy} />;
+  }
+
   const titre =
-    etape === 'code' ? T('auth.codeTitle') : etape === 'oubli' ? T('auth.forgotTitle') : etape === 'nouveau' ? T('auth.newPasswordTitle') : etape === 'verification' ? T('auth.verifyingTitle') : etape === 'resultat' ? T('auth.resultTitle') : mode === 'creation' ? T('auth.createTitle') : T('auth.signInTitle');
+    etape === 'code' ? T('auth.codeTitle') : etape === 'oubli' ? T('auth.forgotTitle') : etape === 'nouveau' ? T('auth.newPasswordTitle') : mode === 'creation' ? T('auth.createTitle') : T('auth.signInTitle');
   const sousTitre =
-    etape === 'code' ? T('auth.codeSub') : etape === 'oubli' ? T('auth.forgotSub') : etape === 'nouveau' ? T('auth.newPasswordSub') : etape === 'verification' ? T('auth.verifyingBody') : etape === 'resultat' ? undefined : mode === 'creation' ? T('auth.createSub') : T('auth.signInSub');
+    etape === 'code' ? T('auth.codeSub') : etape === 'oubli' ? T('auth.forgotSub') : etape === 'nouveau' ? T('auth.newPasswordSub') : mode === 'creation' ? (profil === 'decouverte' ? T('auth.createSubDiscover') : T('auth.createSub')) : T('auth.signInSub');
 
   return (
     <Page title={titre} subtitle={sousTitre} leading="close" tabBar={false}>
@@ -326,24 +358,40 @@ export default function ConnexionScreen() {
               ]}
             />
             {mode === 'creation' ? (
-              <View style={s.row}>
-                <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder="Camille" style={{ flex: 1 }} />
-                <Field label={T('auth.lastName')} value={nom} onChange={setNom} placeholder="Durand" style={{ flex: 1 }} />
+              <View style={s.field}>
+                <Body size="caption" weight="bold" tone="muted">
+                  {T('auth.subscriptionQuestion')}
+                </Body>
+                <Segmented<Profil>
+                  full
+                  value={profil}
+                  onChange={setProfil}
+                  options={[
+                    { value: 'abonne', label: T('auth.subscriptionYes') },
+                    { value: 'decouverte', label: T('auth.subscriptionNo') },
+                  ]}
+                />
               </View>
             ) : null}
-            <Field label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" />
+            {mode === 'creation' ? (
+              <View style={s.row}>
+                <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder={T('auth.firstNamePh')} style={{ flex: 1 }} autoComplete="given-name" onNext={() => nomRef.current?.focus()} />
+                <Field inputRef={nomRef} label={T('auth.lastName')} value={nom} onChange={setNom} placeholder={T('auth.lastNamePh')} style={{ flex: 1 }} autoComplete="family-name" onNext={() => emailRef.current?.focus()} />
+              </View>
+            ) : null}
+            <Field inputRef={emailRef} label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" autoComplete="email" onNext={() => (mode === 'creation' ? telephoneRef : motDePasseRef).current?.focus()} />
             {mode === 'creation' ? (
               <>
-                <Field label={T('auth.phone')} value={telephone} onChange={setTelephone} placeholder="06 12 34 56 78" keyboard="phone-pad" />
+                <Field inputRef={telephoneRef} label={T('auth.phone')} value={telephone} onChange={(v) => setTelephone(formaterTelephone(v))} placeholder="06 12 34 56 78" keyboard="phone-pad" maxLength={18} autoComplete="tel" onNext={() => naissanceRef.current?.focus()} />
                 {telephone.length > 0 && !tel ? <Body size="caption" tone="negative">{T('auth.phoneInvalid')}</Body> : null}
-                <Field label={T('auth.birth')} value={naissance} onChange={setNaissance} placeholder={T('auth.birthPh')} keyboard="numbers-and-punctuation" />
+                <Field inputRef={naissanceRef} label={T('auth.birth')} value={naissance} onChange={(v) => setNaissance(formaterDate(v))} placeholder={T('auth.birthPh')} keyboard="number-pad" maxLength={10} autoComplete="birthdate-full" onNext={() => motDePasseRef.current?.focus()} />
                 {naissance.length >= 8 && !dateIso ? <Body size="caption" tone="negative">{T('auth.birthInvalid')}</Body> : null}
               </>
             ) : null}
-            <Field label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure />
+            <Field inputRef={motDePasseRef} label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure autoComplete={mode === 'creation' ? 'new-password' : 'current-password'} returnKey="go" onNext={valider} />
             {mode === 'creation' ? (
               <Body size="caption" tone="muted">
-                {T('auth.createNote')}
+                {profil === 'decouverte' ? T('auth.createNoteDiscover') : T('auth.createNote')}
               </Body>
             ) : (
               <Tap onPress={() => { setErreur(null); setEtape('oubli'); }} accessibilityRole="button" accessibilityLabel={T('auth.forgot')} style={s.lien}>
@@ -358,7 +406,7 @@ export default function ConnexionScreen() {
 
         {etape === 'code' ? (
           <>
-            <Field label={T('auth.codeLabel')} value={code} onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder={T('auth.codePh')} keyboard="number-pad" />
+            <CodeSaisie label={T('auth.codeLabel')} email={email.trim()} value={code} onChange={setCode} onComplete={(v) => void verifierCode(v)} />
             <Button label={T('auth.verify')} disabled={busy || code.length !== 6} onPress={() => void verifierCode()} />
             <Button label={T('auth.resend')} variant="secondary" disabled={busy} onPress={() => void renvoyer()} />
           </>
@@ -379,13 +427,7 @@ export default function ConnexionScreen() {
           </>
         ) : null}
 
-        {etape === 'verification' ? (
-          <Body tone="muted">{T('auth.verifyingBody')}</Body>
-        ) : null}
-
-        {etape === 'resultat' ? <Resultat fiche={fiche} erreur={erreur} onEnter={entrerDansLapp} onRetry={() => void apresSession()} busy={busy} /> : null}
-
-        {erreur && etape !== 'resultat' ? (
+        {erreur ? (
           <Body tone="negative">{T(erreur)}</Body>
         ) : null}
         {info ? <Body tone="muted">{T(info)}</Body> : null}
@@ -394,31 +436,23 @@ export default function ConnexionScreen() {
   );
 }
 
-function Resultat({ fiche, erreur, onEnter, onRetry, busy }: { fiche: Me | null; erreur: MessageKey | null; onEnter: () => void; onRetry: () => void; busy: boolean }) {
-  const T = useT();
-  const s = useStyles();
-  const parental = fiche?.consentementParentalRequis === true;
-  let texte: string = T('auth.resultPending');
-  if (erreur === 'auth.robot' || erreur === 'auth.offline' || erreur === 'auth.profileIncomplete' || erreur === 'auth.emailUnverified' || erreur === 'auth.tooMany') texte = T(erreur);
-  else if (parental) texte = T('auth.parental');
-  else if (fiche?.link.status === 'lie' && fiche.statut === 'actif') texte = T('auth.resultActive');
-  else if (fiche?.link.status === 'lie') texte = T('auth.resultRestricted');
-  else if (fiche?.link.status === 'a_revoir') texte = T('auth.resultReview');
-  else if (fiche?.link.status === 'prospect') texte = T('auth.resultProspect');
+type FieldProps = {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  keyboard?: KeyboardTypeOptions;
+  secure?: boolean;
+  style?: StyleProp<ViewStyle>;
+  inputRef?: Ref<ComponentRef<typeof TextInput>>;
+  autoComplete?: TextInputProps['autoComplete'];
+  maxLength?: number;
+  returnKey?: ReturnKeyTypeOptions;
+  /** La touche du clavier passe au champ suivant, ou valide sur le dernier. */
+  onNext?: () => void;
+};
 
-  return (
-    <View style={s.form}>
-      <Body>{texte}</Body>
-      {fiche?.link.status === 'prospect' && !parental ? (
-        <Button label={T('auth.offers')} variant="secondary" onPress={() => void Linking.openURL(urlBoutique({ club: fiche?.clubPrincipal ?? fiche?.snapshot?.club ?? undefined, offer: DEFAULT_OFFER_SLUG }))} />
-      ) : null}
-      {erreur === 'auth.robot' || erreur === 'auth.offline' ? <Button label={T('net.retry')} variant="secondary" disabled={busy} onPress={onRetry} /> : null}
-      <Button label={T('auth.enter')} onPress={onEnter} />
-    </View>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, keyboard, secure, style }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: KeyboardTypeOptions; secure?: boolean; style?: StyleProp<ViewStyle> }) {
+function Field({ label, value, onChange, placeholder, keyboard, secure, style, inputRef, autoComplete, maxLength, returnKey = 'next', onNext }: FieldProps) {
   const s = useStyles();
   const t = useTheme();
   const [focus, setFocus] = useState(false);
@@ -428,6 +462,12 @@ function Field({ label, value, onChange, placeholder, keyboard, secure, style }:
         {label}
       </Body>
       <TextInput
+        ref={inputRef}
+        returnKeyType={returnKey}
+        submitBehavior={returnKey === 'next' ? 'submit' : 'blurAndSubmit'}
+        onSubmitEditing={onNext}
+        autoComplete={autoComplete}
+        maxLength={maxLength}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}

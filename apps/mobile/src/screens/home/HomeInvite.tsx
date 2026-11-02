@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Linking, ScrollView, View, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { CLUBS, estOuvert } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
 import { DISCIPLINES } from '@/data/disciplines';
 import { useCombats } from '@/features/combats/useCombats';
-import { clubsProposant, heure } from '@/features/planning/model';
+import { clubsProposant, estFerme, heure, isoLocal } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
-import { track } from '@/features/analytics';
-import { ANGLAIS_ACTIF, useI18nStore, useInLocale, useLocale, useT } from '@/i18n';
-import { GlassSurface } from '@/ui/Glass';
-import { IconChevron, IconGlobe } from '@/ui/icons';
+import { ouvrirOffres } from '@/features/offres';
+import { useInLocale, useLocale, useT } from '@/i18n';
+import { lireMe } from '@/lib/api';
+import { selectAcces, useSession } from '@/state/session';
+import { Anneau } from '@/ui/Etincelles';
+import { IconChevron } from '@/ui/icons';
 import { Button, Card, Section } from '@/ui/kit';
 import { Logo } from '@/ui/Logo';
 import { Page, Reveal } from '@/ui/Page';
@@ -20,13 +22,19 @@ import { Tap } from '@/ui/Tap';
 import { Body, Display, Heading } from '@/ui/Text';
 import { GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke, useTheme } from '@/ui/theme';
 
-import { CarouselHead } from './parts';
+import { ActionsDecouverte } from '../common/ActionsDecouverte';
+import { LangPill } from '../common/LangPill';
+import { CarouselHead, Poster } from './parts';
+
+const SONDE_MS = 5_000;
+const ATTENTE_MS = 3 * 60 * 1000;
+/** BOXING CENTER écrit sur le tapis : l'affiche de l'invitation à s'abonner. */
+const AFFICHE = require('@/assets/photos/ring-gants.jpg');
 
 /**
- * L'accueil de l'invité : la vitrine (CDC §3A, outil commercial). Le choix de
- * la langue est en haut à droite, visible ; la porte d'entrée (compte) juste
- * après la première affiche ; puis les salles, les disciplines, les visages,
- * l'actualité. Tout mène à la porte.
+ * L'accueil sans abonnement actif : la découverte (CDC §3A, outil commercial). Le
+ * choix de la langue est en haut à droite, visible ; l'invitation à s'abonner juste
+ * après le titre ; puis les salles, les disciplines, les visages, l'actualité.
  */
 export function HomeInvite() {
   const T = useT();
@@ -35,7 +43,7 @@ export function HomeInvite() {
   const t = useTheme();
   const { width } = useWindowDimensions();
   const col = Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2;
-  const combats = useCombats();
+  const derniersCombats = useCombats().items.slice(0, 3);
   const [clubIndex, setClubIndex] = useState(0);
   const loc = useInLocale();
   const plateW = Math.round(col * 0.82);
@@ -44,7 +52,7 @@ export function HomeInvite() {
   const portraits = PERSONNES.filter((p) => p.photo).slice(0, 10);
 
   return (
-    <Page trailing={ANGLAIS_ACTIF ? <LangPill /> : undefined}>
+    <Page trailing={<LangPill />}>
       <Reveal style={s.head}>
         <Logo width={132} style={s.logo} />
         <Display size="display2" tight>
@@ -56,21 +64,7 @@ export function HomeInvite() {
       </Reveal>
 
       <Reveal delay={80} style={s.block}>
-        <Card>
-          <Heading level="section">{T('guest.ctaTitle')}</Heading>
-          <Body tone="muted" style={s.ctaBody}>
-            {T('guest.ctaBody')}
-          </Body>
-          <Button label={T('guest.create')} onPress={() => {
-              track('cta_create_account', { from: 'home' });
-              router.push('/connexion');
-            }} />
-          <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
-              track('cta_sign_in', { from: 'home' });
-              router.push('/connexion?mode=connexion');
-            }} style={s.ctaSecond} />
-          <Button label={T('guest.shop')} variant="secondary" onPress={() => void Linking.openURL('https://boutique.boxingcenter.fr/')} style={s.ctaSecond} />
-        </Card>
+        <CarteAcces />
       </Reveal>
 
       <Reveal style={s.section}>
@@ -85,7 +79,7 @@ export function HomeInvite() {
           onScroll={(e) => setClubIndex(Math.min(CLUBS.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / (plateW + space[3])))))}
           scrollEventThrottle={32}>
           {CLUBS.map((c) => {
-            const open = estOuvert(c);
+            const open = estOuvert(c) && !estFerme(c.id, isoLocal(new Date()));
             return (
               <Tap key={c.id} style={{ width: plateW }} onPress={() => router.navigate('/planning')} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={c.nom}>
                 <Photo source={c.photo} style={s.club} darken={0.38} scrim={0.72}>
@@ -161,14 +155,15 @@ export function HomeInvite() {
       <Reveal>
         <Section title={T('guest.fights')} action={{ label: T('common.seeAll'), onPress: () => router.push('/combats') }}>
           <Card padded={false} style={s.listCard}>
-            {combats.items.slice(0, 3).map((c, i) => (
-              <Tap key={c.id} onPress={() => router.push('/combats')} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={c.titre} style={[s.fight, i < 2 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
+            {derniersCombats.map((c, i) => (
+              <Tap key={c.id} onPress={() => router.push('/combats')} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={c.titre} style={[s.fight, i < derniersCombats.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Body weight="bold" numberOfLines={2}>
                     {c.titre}
                   </Body>
                   <Body size="caption" weight="semi" tone="dim">
                     {c.date ? shortDay(c.date, lang) : ''} · {c.source}
+                    {lang === 'en' && !c.duClub ? ` · ${T('fights.inFrench')}` : ''}
                   </Body>
                 </View>
                 <IconChevron size={18} color={t.textDim} />
@@ -182,27 +177,115 @@ export function HomeInvite() {
   );
 }
 
-/** La langue, visible en haut à droite : un geste, et toute l'app change. */
-function LangPill() {
-  const s = useStyles();
+/**
+ * La carte sous le titre : où en est le compte, et le chemin vers l'abonnement
+ * (Eddy, 30/10/2026 : sans abonnement, on visite l'app et on est invité à s'abonner).
+ */
+function CarteAcces() {
   const T = useT();
-  const locale = useI18nStore((st) => st.locale);
-  const setLocale = useI18nStore((st) => st.setLocale);
+  const s = useStyles();
+  const t = useTheme();
+  const me = useSession((st) => st.me);
+  const applyMe = useSession((st) => st.applyMe);
+  const declare = useSession((st) => st.abonnementDeclare);
+  const clubActif = useSession((st) => st.clubActif);
+  const acces = useSession(selectAcces);
+  const lien = me?.link.status;
+  const enAttente = lien === 'en_attente';
+  const { width } = useWindowDimensions();
+  const col = Math.min(width, MAX_CONTENT_WIDTH) - GUTTER * 2;
+  const [long, setLong] = useState(false);
+  const depuis = enAttente ? me?.link.updatedAt : undefined;
+
+  // Trois minutes sans réponse : le robot a pu échouer, la carte le dit et propose de relancer.
+  useEffect(() => {
+    if (!depuis) return undefined;
+    const minuteur = setTimeout(() => setLong(true), Math.max(0, ATTENTE_MS - (Date.now() - Date.parse(depuis))));
+    return () => clearTimeout(minuteur);
+  }, [depuis]);
+
+  // Le robot répond en quelques minutes : l'espace adhérent s'ouvre tout seul dès que la fiche est trouvée.
+  useEffect(() => {
+    if (!enAttente) return undefined;
+    const debut = Date.now();
+    const sonde = setInterval(() => {
+      if (Date.now() - debut >= ATTENTE_MS) clearInterval(sonde);
+      else void lireMe().then(applyMe).catch(() => undefined);
+    }, SONDE_MS);
+    return () => clearInterval(sonde);
+  }, [enAttente, applyMe]);
+
+  if (me?.consentementParentalRequis) {
+    return (
+      <Card>
+        <Body tone="muted">{T('auth.parental')}</Body>
+      </Card>
+    );
+  }
+  if (acces === 'ancien') {
+    return (
+      <View style={s.invitation}>
+        <Poster
+          index={0}
+          height={Math.round(col * 0.92)}
+          photo={AFFICHE}
+          cornerLeft={T('guest.offer')}
+          cornerRight={T('guest.shop')}
+          title={T('guest.renewTitle')}
+          sub={T('guest.renewBody')}
+          meta={T('guest.promptMeta')}
+          onPress={() => ouvrirOffres(clubActif, 'home')}
+        />
+        <Button label={T('messages.renew')} onPress={() => ouvrirOffres(clubActif, 'home')} />
+      </View>
+    );
+  }
+  if (acces === 'verification') {
+    return (
+      <Card>
+        <View style={s.checkingTete}>
+          <Heading level="section" style={s.checkingTitre}>
+            {T('guest.checkingTitle')}
+          </Heading>
+          <Anneau couleur={t.accent} fond={t.line} />
+        </View>
+        <Body tone="muted" style={s.checkingBody}>
+          {lien === 'a_revoir' ? T('auth.resultReview') : long && enAttente ? T('guest.checkingLong') : T('guest.checkingBody')}
+        </Body>
+        {long && enAttente ? (
+          <View style={s.checkingActions}>
+            <ActionsDecouverte from="home" />
+          </View>
+        ) : null}
+      </Card>
+    );
+  }
+  if (lien === 'prospect' && declare === true) {
+    return (
+      <Card>
+        <Heading level="section">{T('guest.notFoundTitle')}</Heading>
+        <Body tone="muted" style={s.ctaBody}>
+          {T('auth.resultNotFound')}
+        </Body>
+        <ActionsDecouverte from="home" />
+      </Card>
+    );
+  }
   return (
-    <Tap onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')} scaleTo={0.92} haptic="selection" accessibilityRole="button" accessibilityLabel={T('plus.language')}>
-      <GlassSurface radius={22} strength="light" style={s.lang}>
-        <IconGlobe size={18} />
-        <Body size="bodySmall" weight="bold" tone={locale === 'fr' ? 'text' : 'dim'}>
-          FR
-        </Body>
-        <Body size="bodySmall" weight="bold" tone="dim">
-          ·
-        </Body>
-        <Body size="bodySmall" weight="bold" tone={locale === 'en' ? 'text' : 'dim'}>
-          EN
-        </Body>
-      </GlassSurface>
-    </Tap>
+    <View style={s.invitation}>
+      <Poster
+        index={0}
+        height={Math.round(col * 0.92)}
+        photo={AFFICHE}
+        cornerLeft={T('guest.offer')}
+        cornerRight={T('guest.shop')}
+        title={T('guest.promptTitle')}
+        sub={T('guest.promptBody')}
+        meta={T('guest.promptMeta')}
+        onPress={() => ouvrirOffres(clubActif, 'home')}
+      />
+      <ActionsDecouverte from="home" />
+    </View>
   );
 }
 
@@ -212,7 +295,11 @@ const useStyles = makeStyles((t) => ({
   block: { marginTop: space[6] },
   section: { marginTop: space[8] },
   ctaBody: { marginTop: space[2], marginBottom: space[5] },
-  ctaSecond: { marginTop: space[3] },
+  checkingTete: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  checkingTitre: { flex: 1 },
+  checkingBody: { marginTop: space[2] },
+  checkingActions: { marginTop: space[4] },
+  invitation: { gap: space[4] },
   carousel: { marginHorizontal: -GUTTER },
   carouselContent: { paddingHorizontal: GUTTER, gap: space[3] },
   club: { height: 230, borderRadius: radius.card, justifyContent: 'space-between' },
@@ -225,5 +312,4 @@ const useStyles = makeStyles((t) => ({
   cardBottom: { padding: space[4], gap: 3 },
   listCard: { paddingHorizontal: space[5], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
   fight: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
-  lang: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14 },
 }));

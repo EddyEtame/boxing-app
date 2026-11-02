@@ -4,14 +4,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
+import { shortDay } from '@/features/time';
 import { lireActualites, lireEvenements } from '@/lib/admin-api';
-import { useT } from '@/i18n';
+import { useLocale, useT } from '@/i18n';
 import { selectStatut, useSession } from '@/state/session';
 import { IconBelt } from '@/ui/icons';
-import { Card, Row, Section } from '@/ui/kit';
+import { Button, Card, Row, Section } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
-import { Body } from '@/ui/Text';
-import { makeStyles, space, stroke } from '@/ui/theme';
+import { Photo } from '@/ui/Photo';
+import { Body, Heading } from '@/ui/Text';
+import { makeStyles, radius, space, stroke } from '@/ui/theme';
+
+import { Poster } from './home/parts';
+
+/** Tout un club devant la fresque : l'affiche tant que rien n'est publié. */
+const VIE_DU_CLUB = require('@/assets/photos/ramonville-equipe.jpg');
 
 function audienceOk(audience: PublicNews['audience'], statut: Statut): boolean {
   return audience !== 'actifs' || statut === 'actif';
@@ -46,43 +53,43 @@ export function Screen() {
 
   return (
     <Page title={T('news.title')} subtitle={T('news.sub')}>
-      <Reveal>
-        <Section title={T('news.title')}>
-          <Card padded={false} style={s.list}>
-            {loading ? (
-              <View style={s.pad}>
-                <Body tone="muted">{T('common.loading')}</Body>
-              </View>
-            ) : news.length ? (
-              news.map((item, i) => (
-                <NewsRow key={item.id} item={item} last={i === news.length - 1 && !events.length} />
-              ))
-            ) : (
-              <View style={s.pad}>
-                <Body tone="muted">{T('news.empty')}</Body>
-              </View>
-            )}
+      {loading ? (
+        <Reveal style={s.affiche}>
+          <Card>
+            <Body tone="muted">{T('common.loading')}</Body>
           </Card>
-        </Section>
-      </Reveal>
+        </Reveal>
+      ) : null}
 
-      <Reveal>
-        <Section title={T('news.events')}>
-          <Card padded={false} style={s.list}>
-            {loading ? (
-              <View style={s.pad}>
-                <Body tone="muted">{T('common.loading')}</Body>
-              </View>
-            ) : events.length ? (
-              events.map((item, i) => <EventRow key={item.id} item={item} last={i === events.length - 1} />)
-            ) : (
-              <View style={s.pad}>
-                <Body tone="muted">{T('news.eventsEmpty')}</Body>
-              </View>
-            )}
-          </Card>
-        </Section>
-      </Reveal>
+      {!loading && !news.length && !events.length ? (
+        <View style={s.affiche}>
+          <Poster index={0} height={320} photo={VIE_DU_CLUB} cornerLeft={T('news.title')} cornerRight={T('news.waitClub')} title={T('news.waitTitle')} sub={T('news.waitBody')} meta={T('news.waitMeta')} />
+        </View>
+      ) : null}
+
+      {news.length ? (
+        <Reveal>
+          <Section title={T('news.title')}>
+            <View style={s.cartes}>
+              {news.map((item) => (
+                <NewsRow key={item.id} item={item} />
+              ))}
+            </View>
+          </Section>
+        </Reveal>
+      ) : null}
+
+      {events.length ? (
+        <Reveal>
+          <Section title={T('news.events')}>
+            <View style={s.cartes}>
+              {events.map((item) => (
+                <EventRow key={item.id} item={item} />
+              ))}
+            </View>
+          </Section>
+        </Reveal>
+      ) : null}
 
       <Reveal>
         <Section title={T('news.fights')}>
@@ -97,26 +104,70 @@ export function Screen() {
   );
 }
 
-function NewsRow({ item, last }: { item: PublicNews; last: boolean }) {
-  const club = item.club ? clubById(item.club).court : null;
-  const sub = [item.date, club].filter(Boolean).join(' · ');
-  const open = () => {
-    if (item.link?.url) void Linking.openURL(item.link.url);
-  };
-  return <Row title={item.title} subtitle={sub || item.body.slice(0, 80)} onPress={item.link?.url ? open : undefined} last={last} />;
+/** Une publication : sa photo quand elle en a une, ce qu'elle est, son texte et son lien. */
+function Carte({ photo, surtitre, titre, meta, corps, detail, lien, lienLabel }: { photo: PublicNews['photo']; surtitre: string; titre: string; meta: string; corps: string; detail?: string; lien?: string | null; lienLabel?: string }) {
+  const s = useStyles();
+  return (
+    <Card padded={false}>
+      {photo ? <Photo source={{ uri: photo.url }} style={s.cartePhoto} darken={0} scrim={0} vignette={false} /> : null}
+      <View style={s.carte}>
+        <Body size="caption" weight="bold" eyebrow tone="muted">
+          {surtitre}
+        </Body>
+        <Heading level="card">{titre}</Heading>
+        {meta ? (
+          <Body size="caption" weight="semi" tone="dim">
+            {meta}
+          </Body>
+        ) : null}
+        {corps ? (
+          <Body size="bodySmall" tone="muted" numberOfLines={5}>
+            {corps}
+          </Body>
+        ) : null}
+        {detail ? (
+          <Body size="bodySmall" weight="semi">
+            {detail}
+          </Body>
+        ) : null}
+        {lien && lienLabel ? <Button small label={lienLabel} variant="secondary" onPress={() => void Linking.openURL(lien)} style={s.carteLien} /> : null}
+      </View>
+    </Card>
+  );
 }
 
-function EventRow({ item, last }: { item: PublicEvent; last: boolean }) {
-  const club = item.club ? clubById(item.club).court : item.venue;
-  const when = item.startsAt.replace('T', ' · ');
-  const sub = [when, club].filter(Boolean).join(' · ');
-  const open = () => {
-    if (item.ticketUrl) void Linking.openURL(item.ticketUrl);
-  };
-  return <Row title={item.title} subtitle={sub || item.body.slice(0, 80)} onPress={item.ticketUrl ? open : undefined} last={last} />;
+function NewsRow({ item }: { item: PublicNews }) {
+  const T = useT();
+  const lang = useLocale();
+  const club = item.club ? clubById(item.club).court : null;
+  return <Carte photo={item.photo} surtitre={T(`news.kind.${item.kind}`)} titre={item.title} meta={[shortDay(item.date, lang), club].filter(Boolean).join(' · ')} corps={item.body} lien={item.link?.url} lienLabel={item.link?.label} />;
+}
+
+function EventRow({ item }: { item: PublicEvent }) {
+  const T = useT();
+  const lang = useLocale();
+  const lieu = item.venue ?? (item.club ? clubById(item.club).court : null);
+  const [jour = '', horaire = ''] = item.startsAt.split('T');
+  const combat = item.fight;
+  return (
+    <Carte
+      photo={item.photo}
+      surtitre={T(`news.eventKind.${item.kind}`)}
+      titre={combat ? T('news.versus', { a: combat.fighter, b: combat.opponent }) : item.title}
+      meta={[`${shortDay(jour, lang)} · ${horaire.replace(':', 'h')}`, lieu].filter(Boolean).join(' · ')}
+      corps={item.body}
+      detail={combat ? [combat.weightClass, combat.title, combat.broadcaster].filter(Boolean).join(' · ') : undefined}
+      lien={item.ticketUrl}
+      lienLabel={T('news.tickets')}
+    />
+  );
 }
 
 const useStyles = makeStyles((t) => ({
   list: { paddingHorizontal: space[5], borderWidth: t.scheme === 'dark' ? stroke.hair : 0 },
-  pad: { paddingVertical: space[4] },
+  affiche: { marginTop: space[5] },
+  cartes: { gap: space[3] },
+  cartePhoto: { height: 170, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  carte: { gap: space[2], padding: space[5] },
+  carteLien: { alignSelf: 'flex-start', marginTop: space[1] },
 }));

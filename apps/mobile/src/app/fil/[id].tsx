@@ -51,10 +51,10 @@ export default function ThreadScreen() {
   const [err, setErr] = useState<string | null>(null);
 
   const filId = typeof id === 'string' ? id : '';
-  const ok = filId && threadId === filId && token;
+  const ok = filId && threadId === filId;
 
   const reload = useCallback(async () => {
-    if (!ok || !token) return;
+    if (!ok) return;
     try {
       const res = await lireFil(filId, token);
       setMessages(res.messages);
@@ -90,7 +90,7 @@ export default function ThreadScreen() {
         text,
         name: `${me.prenom} ${me.nom}`.trim(),
         threadId: filId,
-      });
+      }, token);
       setDraft('');
       await reload();
     } catch (e) {

@@ -177,6 +177,27 @@ export function jourFr(d: Date): number {
   return (d.getDay() + 6) % 7;
 }
 
+/** AAAA-MM-JJ, à l'heure du téléphone. */
+export function isoLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** La date d'un jour de la semaine en cours (0 = lundi). */
+export function dateDeLaSemaine(jour: number, now = new Date()): string {
+  return isoLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() - jourFr(now) + jour));
+}
+
+/** La séance est annulée ce jour-là : l'admin l'a dit, l'app barre la date (contrat `cancellations`). */
+export function estAnnule(slotId: string, date: string): boolean {
+  return usePlanningStore.getState().cancellations.some((c) => c.slotId === slotId && c.date === date);
+}
+
+/** Le club ferme ce jour-là : férié, gala, travaux (contrat `fermetures`). */
+export function estFerme(club: ClubId, date: string): boolean {
+  return usePlanningStore.getState().fermetures.some((f) => f.club === club && f.date === date);
+}
+
 /** Les créneaux d’accès libre du jour, pour la rubrique « entraînements entre membres ». */
 export function accesLibreFor(club: ClubId, jour: number): Slot[] {
   return slotsFor(club, jour).filter((s) => normaliseActivite(s.activite).famille === 'accesLibre');
@@ -193,9 +214,11 @@ export function nextSession(club: ClubId, now = new Date(), age = 30): NextSessi
   const nowMin = now.getHours() * 60 + now.getMinutes();
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
+    const date = isoLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
+    if (estFerme(club, date)) continue;
     const slots = slotsFor(club, jour).filter((s) => {
       const a = normaliseActivite(s.activite);
-      return a.famille !== 'accesLibre' && convientA(a, age);
+      return a.famille !== 'accesLibre' && convientA(a, age) && !estAnnule(s.id, date);
     });
     for (const slot of slots) {
       if (offset === 0 && slot.debut <= nowMin) continue;
@@ -214,7 +237,8 @@ export function nextFavorite(favorites: string[], now = new Date()): NextSession
   const nowMin = now.getHours() * 60 + now.getMinutes();
   for (let offset = 0; offset < 7; offset++) {
     const jour = (today + offset) % 7;
-    const slots = allSlots().filter((s) => s.jour === jour && favorites.includes(s.id)).sort((a, b) => a.debut - b.debut);
+    const date = isoLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
+    const slots = allSlots().filter((s) => s.jour === jour && favorites.includes(s.id) && !estAnnule(s.id, date) && !estFerme(s.club, date)).sort((a, b) => a.debut - b.debut);
     for (const slot of slots) {
       if (offset === 0 && slot.debut <= nowMin) continue;
       const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;

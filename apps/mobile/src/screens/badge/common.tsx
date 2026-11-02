@@ -3,7 +3,6 @@ import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { urlBoutique } from '@/features/sections';
-import { track } from '@/features/analytics';
 import { useT, type MessageKey } from '@/i18n';
 import { DEFAULT_OFFER_SLUG } from '@/lib/checkout-flow';
 import { useSession } from '@/state/session';
@@ -14,9 +13,11 @@ import { Photo } from '@/ui/Photo';
 import { Body, Display } from '@/ui/Text';
 import { GUTTER, makeStyles, radius, space, stroke, useTheme } from '@/ui/theme';
 
+import { ActionsDecouverte } from '../common/ActionsDecouverte';
+
 /**
  * Pas de badge virtuel sans badge physique enregistre, et pas de badge sans
- * abonnement actif. L'invite voit comment ouvrir un compte.
+ * abonnement actif. Sans abonnement, on voit comment en prendre un.
  */
 export type BadgeReason = 'sans-badge' | 'restreint' | 'invite';
 
@@ -85,13 +86,7 @@ export function BadgeLockedView({ reason }: { reason: BadgeReason }) {
 
         <Reveal style={s.actions}>
           {reason === 'invite' ? (
-            <>
-              <Button label={T('guest.create')} onPress={() => {
-              track('cta_create_account', { from: 'badge' });
-              router.push('/connexion');
-            }} />
-              <Button label={T('messages.seeOffers')} variant="secondary" onPress={() => void Linking.openURL(shop)} />
-            </>
+            <ActionsDecouverte from="badge" />
           ) : reason === 'restreint' ? (
             <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} />
           ) : (

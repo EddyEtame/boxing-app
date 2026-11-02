@@ -14,7 +14,8 @@ import { GUTTER, makeStyles, radius, space, stroke, useTheme } from '@/ui/theme'
 
 /**
  * Actualité des combats, boxe et MMA (CDC §13). Rubrique distincte, accessible à
- * tous. Chaque entrée dit sa source et sa date ; rien n'est réécrit par l'app.
+ * tous : le club d'abord, puis l'actualité générale. Chaque entrée dit sa source et
+ * sa date ; rien n'est réécrit par l'app.
  */
 export default function CombatsScreen() {
   const T = useT();
@@ -33,7 +34,7 @@ export default function CombatsScreen() {
             {T('fights.title')}
           </Display>
           <Body size="bodySmall" weight="semi" tone="muted">
-            {origine === 'club' ? T('fights.live', { h: luA ? luA.toTimeString().slice(0, 5) : '' }) : T('fights.empty')}
+            {origine === 'direct' ? T('fights.live', { h: luA ? luA.toTimeString().slice(0, 5) : '' }) : T('fights.snapshot')}
           </Body>
         </View>
       </Photo>
@@ -47,6 +48,7 @@ export default function CombatsScreen() {
                 <View style={s.rowBody}>
                   <Body size="caption" weight="bold" tone="dim">
                     {c.date ? shortDay(c.date, lang) : ''} · {c.source}
+                    {lang === 'en' && !c.duClub ? ` · ${T('fights.inFrench')}` : ''}
                   </Body>
                   <Body weight="bold">{c.titre}</Body>
                   {c.resume ? (
@@ -55,7 +57,7 @@ export default function CombatsScreen() {
                     </Body>
                   ) : null}
                 </View>
-                <IconArrow size={18} color={t.textDim} />
+                {c.lien ? <IconArrow size={18} color={t.textDim} /> : null}
               </Tap>
             ))}
           </Card>

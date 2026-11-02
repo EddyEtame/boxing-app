@@ -100,12 +100,20 @@ export const ADMIN_API = {
   fonctions: '/api/fonctions',
   /** GET ?club=&statut= → NotificationsResponse. */
   notifications: '/api/notifications',
-  /** POST MemberMessageRequest → MemberMessageResponse. */
+  /** POST MemberMessageBody → MemberMessageResponse. Adhérent actif, `Authorization: Bearer`. */
   messages: '/api/messages',
-  /** GET (en-tête THREAD_TOKEN_HEADER) → ThreadResponse. */
+  /** GET → ThreadResponse. `Authorization: Bearer` du propriétaire du fil, ou l'en-tête THREAD_TOKEN_HEADER. */
   message: (threadId: string) => `/api/messages/${encodeURIComponent(threadId)}`,
-  /** GET ?club= → TrainingsResponse ; POST TrainingRequest → TrainingCreated. */
+  /** GET ?club= → TrainingsResponse ; POST TrainingBody → TrainingCreated. Adhérent actif, `Authorization: Bearer`. */
   entrainements: '/api/entrainements',
+  /** POST « Je participe » ; DELETE annule. → ParticipationResponse. Adhérent actif, `Authorization: Bearer` (CDC §11 B, C). */
+  participation: (trainingId: string) => `/api/entrainements/${encodeURIComponent(trainingId)}/participation`,
+  /** GET → ParticipantsResponse. L'organisateur seul, `Authorization: Bearer` (CDC §11 C). */
+  participants: (trainingId: string) => `/api/entrainements/${encodeURIComponent(trainingId)}/participants`,
+  /** GET → MemberThreadsResponse : les fils de cet adhérent. `Authorization: Bearer`. */
+  messagesFils: '/api/messages',
+  /** GET → ReceivedMessagesResponse : ce que l'équipe lui a écrit (CDC §10). `Authorization: Bearer`. */
+  messagesRecus: '/api/messages/recus',
 } as const;
 
 /** Le jeton d'un fil de messages, rendu une seule fois à sa création : l'app le garde. */
@@ -249,6 +257,8 @@ export type PublicTraining = {
   participants: number;
   /** Le prénom seulement. */
   organisateur: { prenom: string };
+  /** Ce qui concerne l'adhérent qui lit : a-t-il déjà répondu « Je participe », est-ce sa proposition ? */
+  moi?: { inscrit: boolean; organisateur: boolean };
 };
 
 export type TrainingsResponse = { items: PublicTraining[]; off: boolean; updatedAt: string };
@@ -265,8 +275,22 @@ export type TrainingRequest = {
   organisateur: { memberId: string; prenom: string; age?: number };
 };
 
+/**
+ * Ce que l'app envoie désormais pour proposer un entraînement : l'organisateur
+ * (numéro, prénom, âge) vient du jeton de session, et TrainingRequest.organisateur
+ * est ignoré s'il est encore envoyé.
+ */
+export type TrainingBody = Omit<TrainingRequest, 'organisateur'>;
+
 /** 201 : `a-verifier` tant que l'équipe n'a pas validé (prémodération ou vérification bloquante). */
 export type TrainingCreated = { id: string; status: 'a-verifier' | 'en-ligne'; checks: string[] };
+
+/** « Je participe » et son annulation : idempotents, le même appel répété ne compte qu'une fois. */
+export type ParticipationResponse = { id: string; inscrit: boolean; participants: number };
+
+/** Ce que l'organisateur lit : le prénom et la date d'inscription, rien d'autre (CDC §11 D). */
+export type TrainingParticipant = { prenom: string; at: string };
+export type ParticipantsResponse = { id: string; participants: number; items: TrainingParticipant[] };
 
 /* ------------------------------------------------------------------ */
 /* Messages et notifications (CDC §10, §14)                             */
@@ -286,6 +310,14 @@ export type MemberMessageRequest = {
   threadId?: string;
 };
 
+/**
+ * Ce que l'app envoie désormais : le nom, le numéro et le statut viennent du
+ * jeton de session, et les autres champs de MemberMessageRequest sont ignorés
+ * s'ils sont encore envoyés. `club` ne sert que si la fiche n'en donne aucun.
+ * Sans `threadId`, un fil s'ouvre ; avec, le message s'ajoute à ce fil.
+ */
+export type MemberMessageBody = { sujet: Sujet; text: string; club?: ClubId; threadId?: string };
+
 /** 201 à la création d'un fil (le jeton n'est donné qu'une fois), 200 quand on ajoute à un fil. */
 export type MemberMessageResponse = { threadId: string; token?: string; status: 'nouveau' | 'en-cours' | 'traite' };
 
@@ -294,9 +326,39 @@ export type ThreadMessage = { id: string; from: 'member' | 'staff' | 'auto'; sig
 /** Jamais une note interne de l'équipe. */
 export type ThreadResponse = { id: string; status: 'nouveau' | 'en-cours' | 'traite'; sujet: Sujet; messages: ThreadMessage[]; updatedAt: string };
 
+/** Les fils d'un adhérent, le plus récent en tête : assez pour la liste, le texte complet est dans ThreadResponse. */
+export type MemberThreadSummary = { id: string; status: ThreadResponse['status']; sujet: Sujet; updatedAt: string; dernier: { from: ThreadMessage['from']; text: string; at: string } | null };
+export type MemberThreadsResponse = { items: MemberThreadSummary[] };
+
+/**
+ * Un message d'un coach ou du staff vers cet adhérent, à lui seul (`cible: 'membre'`)
+ * ou à un groupe qui le comprend (CDC §10) : à sens unique, on n'y répond pas.
+ * `familles` : les disciplines visées quand l'équipe en a choisi ; le serveur
+ * ne connaît pas celles de l'adhérent et ne filtre donc pas dessus.
+ */
+export type ReceivedMessage = { id: string; signature: string; text: string; at: string; cible: 'membre' | 'groupe'; familles?: Famille[] };
+export type ReceivedMessagesResponse = { items: ReceivedMessage[] };
+
 export type PublicNotification = { id: string; type: NotifType; title: string; body: string; link?: string; at: string };
 
 /** Trente jours, sans aucune donnée personnelle ; `en-file` tant que l'envoi (Expo Push) n'est pas branché. */
 export type NotificationsResponse = { items: PublicNotification[]; delivery: 'en-file' };
 
-export type PublicError = { error: 'off' | 'statut' | 'invalide' | 'debit' | 'taille' | 'introuvable'; fields?: string[]; retryAfter?: number };
+/**
+ * Tous les refus de l'API publique de l'admin.
+ *  - `session` (401) : jeton absent ou expiré ; `email_non_verifie` (403) ;
+ *    `indisponible` (503) : la base des comptes ne répond pas, rien n'est écrit ;
+ *  - `statut` (403) : réservé aux adhérents actifs ; `droits` (403) : pas son fil, pas sa séance ;
+ *  - `age` (403) : l'âge du compte ne permet pas ce type de séance (CDC §11 E) ;
+ *  - `coupee` (403, `quoi`) : la catégorie est coupée dans « Fonctions » ; `off` (503) : la messagerie aussi ;
+ *  - `passee`, `organisateur` (409) : la séance a commencé, ou c'est la sienne ;
+ *  - `champs` (400, `champs`), `invalide` (400, `fields`), `json`, `club` (400) ; `taille`, `trop_gros` (413) ;
+ *  - `debit` (429, `retryAfter`) ; `introuvable` (404) ; `stream` (409) : la vidéo n'a pas d'adresse de lecture.
+ */
+export type PublicError = {
+  error: 'off' | 'statut' | 'invalide' | 'debit' | 'taille' | 'introuvable' | 'session' | 'email_non_verifie' | 'indisponible' | 'droits' | 'age' | 'coupee' | 'passee' | 'organisateur' | 'champs' | 'json' | 'club' | 'trop_gros' | 'stream';
+  fields?: string[];
+  retryAfter?: number;
+  champs?: string[];
+  quoi?: string;
+};

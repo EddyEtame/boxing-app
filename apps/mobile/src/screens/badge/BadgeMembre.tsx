@@ -4,12 +4,14 @@ import { View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { track } from '@/features/analytics';
+import { useBadgeProtection } from '@/features/badge/useBadgeProtection';
 import { heure, nextSession, usePlanningSlots } from '@/features/planning/model';
 import { relativeDay, shortDay } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { Card } from '@/ui/kit';
 import { QR } from '@/ui/QR';
+import { Tap } from '@/ui/Tap';
 import { Page } from '@/ui/Page';
 import { Body, Heading } from '@/ui/Text';
 import { makeStyles, space, stroke, useTheme } from '@/ui/theme';
@@ -25,6 +27,7 @@ export function BadgeMembre() {
   usePlanningSlots();
   const me = useSession((st) => st.me);
   const clubActif = useSession((st) => st.clubActif);
+  const { hidden, captured, acknowledgeCapture } = useBadgeProtection(true);
   useEffect(() => {
     track('badge_open');
   }, []);
@@ -56,13 +59,31 @@ export function BadgeMembre() {
         </View>
         {enregistre && me.deciplusMemberId ? (
           <View style={s.qr}>
-            <QR value={me.deciplusMemberId} size={196} />
+            {hidden ? (
+              <View style={s.masque}>
+                <Body weight="bold" tone="muted">
+                  {T('badge.masked')}
+                </Body>
+              </View>
+            ) : (
+              <QR value={me.deciplusMemberId} size={196} />
+            )}
           </View>
         ) : (
           <Body tone="muted" style={s.note}>
             {T('badge.qrSoon')}
           </Body>
         )}
+        {captured ? (
+          <Tap onPress={acknowledgeCapture} accessibilityRole="button" accessibilityLabel={T('common.close')} style={s.note}>
+            <Body size="bodySmall" weight="bold" tone="negative">
+              {T('badge.captured')}
+            </Body>
+            <Body size="bodySmall" tone="muted">
+              {T('badge.capturedPersonal')}
+            </Body>
+          </Tap>
+        ) : null}
         {me.consentementParentalRequis ? (
           <Body size="bodySmall" tone="muted" style={s.note}>
             {T('plus.parental')}
@@ -108,6 +129,7 @@ const useStyles = makeStyles((t) => ({
   initials: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   note: { marginTop: space[3] },
   qr: { marginTop: space[4], alignItems: 'center' },
+  masque: { width: 196, height: 196, alignItems: 'center', justifyContent: 'center' },
   block: { marginTop: space[4] },
   entry: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
   sep: { height: stroke.hair, marginVertical: space[3] },

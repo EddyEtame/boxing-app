@@ -124,7 +124,7 @@ export function periodRange(du: string, au: string, lang: Lang): string {
 
 /** « 24 octobre 2026 » · « 24 October 2026 » */
 export function longDate(iso: string, lang: Lang): string {
-  const d = new Date(iso + 'T12:00:00');
+  const d = new Date(iso.length > 10 ? iso : iso + 'T12:00:00');
   return `${d.getDate()} ${MONTHS[lang][d.getMonth()]} ${d.getFullYear()}`;
 }
 

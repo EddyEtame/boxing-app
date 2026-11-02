@@ -8,7 +8,7 @@ export function Screen() {
   const me = useSession((s) => s.me);
   if (auth === 'connecte' && !me) return <HorsLigne />;
   if (!me) return <BadgeLockedView reason="invite" />;
+  if (me.statut !== 'actif') return <BadgeLockedView reason={me.link.status === 'lie' ? 'restreint' : 'invite'} />;
   if (me.snapshot?.badgeEnregistre) return <BadgeMembre />;
-  if (me.statut !== 'actif') return <BadgeLockedView reason="restreint" />;
   return <BadgeLockedView reason="sans-badge" />;
 }

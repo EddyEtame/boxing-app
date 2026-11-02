@@ -6,3 +6,4 @@ export * from './api';
 export * from './admin';
 export * from './me';
 export * from './commerce';
+export * from './documents';

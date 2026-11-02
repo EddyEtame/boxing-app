@@ -1,4 +1,3 @@
-import { getLocales } from 'expo-localization';
 import { useCallback } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -13,25 +12,8 @@ export type Locale = 'fr' | 'en';
 export type MessageKey = Path<typeof fr>;
 type Params = Record<string, string | number>;
 
-/**
- * L'anglais est prêt mais en sommeil (Eddy, 24/10/2026) : l'app parle français tant
- * que la direction n'a pas validé une version anglaise. À `true`, le choix de la
- * langue revient dans Plus et la langue du téléphone est suivie.
- */
-export const ANGLAIS_ACTIF = true;
-
 /** Le français fait foi ; l'anglais doit avoir exactement les mêmes clés (vérifié par le typage). */
 const dictionaries: Record<Locale, Translation> = { fr, en };
-
-function detectLocale(): Locale {
-  if (!ANGLAIS_ACTIF) return 'fr';
-  try {
-    const code = getLocales()[0]?.languageCode ?? 'fr';
-    return code === 'en' ? 'en' : 'fr';
-  } catch {
-    return 'fr';
-  }
-}
 
 type I18nState = {
   locale: Locale;
@@ -39,13 +21,17 @@ type I18nState = {
   setLocale: (l: Locale) => void;
 };
 
-/** La langue choisie survit à la fermeture de l'app ; par défaut, celle du téléphone. */
+/**
+ * Les deux langues restent, le français d'abord (Eddy, 02/11/2026) : tant que la
+ * personne n'a pas choisi, l'app parle français, quelle que soit la langue du téléphone.
+ * La langue choisie survit à la fermeture de l'app.
+ */
 export const useI18nStore = create<I18nState>()(
   persist(
     (set) => ({
-      locale: detectLocale(),
+      locale: 'fr',
       hydrated: false,
-      setLocale: (locale) => set({ locale: ANGLAIS_ACTIF ? locale : 'fr' }),
+      setLocale: (locale) => set({ locale }),
     }),
     {
       name: 'bc-locale',
@@ -55,8 +41,7 @@ export const useI18nStore = create<I18nState>()(
       partialize: (s) => ({ locale: s.locale }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<I18nState>;
-        // Un « en » enregistré par une version précédente ne compte plus tant que l'anglais dort.
-        return { ...current, locale: ANGLAIS_ACTIF && (p.locale === 'en' || p.locale === 'fr') ? p.locale : current.locale };
+        return { ...current, locale: p.locale === 'en' || p.locale === 'fr' ? p.locale : current.locale };
       },
       onRehydrateStorage: () => () => {
         useI18nStore.setState({ hydrated: true });

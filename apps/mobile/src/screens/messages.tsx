@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, TextInput, View } from 'react-native';
 
-import type { PublicNotification, Sujet, ThreadResponse } from '@bc/contract';
+import type { PublicNotification, ReceivedMessage, Sujet, ThreadResponse } from '@bc/contract';
 
 import { longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
-import { AdminApiError, envoyerMessage, lireFil, lireNotifications } from '@/lib/admin-api';
+import { AdminApiError, envoyerMessage, lireFil, lireFils, lireMessagesRecus, lireNotifications } from '@/lib/admin-api';
 import { useLiveTick } from '@/lib/app-realtime';
 import { configReady } from '@/lib/config';
 import { onLiveSignal } from '@/lib/live-bus';
@@ -60,6 +60,7 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
   const setPreview = useMessageThread((st) => st.setPreview);
 
   const [notifs, setNotifs] = useState<PublicNotification[]>([]);
+  const [recus, setRecus] = useState<ReceivedMessage[]>([]);
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [draft, setDraft] = useState('');
   const [sujet] = useState<Sujet>('general');
@@ -77,7 +78,7 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
   }, [clubActif]);
 
   const reloadThread = useCallback(async () => {
-    if (!threadId || !token) {
+    if (!threadId) {
       setThread(null);
       return;
     }
@@ -97,6 +98,24 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
   useEffect(() => {
     void reloadThread();
   }, [reloadThread, liveTick]);
+
+  // Sur un autre téléphone ou après une reconnexion, le fil se retrouve avec le compte.
+  useEffect(() => {
+    if (threadId || !configReady) return;
+    void lireFils()
+      .then((res) => {
+        if (res.items[0]) setSession(res.items[0].id, null);
+      })
+      .catch(() => undefined);
+  }, [threadId, setSession]);
+
+  // Ce que les coachs et l'équipe ont écrit (CDC §10) : l'admin déjà en ligne ne le sert pas encore, la section reste alors absente.
+  useEffect(() => {
+    if (!configReady) return;
+    void lireMessagesRecus()
+      .then((res) => setRecus(res.items))
+      .catch(() => undefined);
+  }, [liveTick]);
 
   useEffect(() => {
     return onLiveSignal((signal) => {
@@ -119,7 +138,7 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
         text,
         name: `${me.prenom} ${me.nom}`.trim(),
         threadId: threadId ?? undefined,
-      });
+      }, threadId ? token : null);
       if (res.token) setSession(res.threadId, res.token);
       setDraft('');
       router.push(`/fil/${res.threadId}`);
@@ -175,6 +194,30 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
                 <Button label={T('messages.send')} icon={IconSend} disabled={!draft.trim() || busy} onPress={() => void envoyer()} />
               </Card>
             </Reveal>
+            {recus.length ? (
+              <Reveal>
+                <Heading level="section" style={s.sectionTitle}>
+                  {T('messages.receivedTitle')}
+                </Heading>
+                <Body tone="muted" size="caption" style={s.sectionSub}>
+                  {T('messages.coachesNote')}
+                </Body>
+                <View style={s.recus}>
+                  {recus.map((m) => (
+                    <Card key={m.id} style={s.notif} padded={false}>
+                      <View style={s.notifInner}>
+                        <Body weight="semi">{m.signature}</Body>
+                        <Body tone="muted" size="caption">
+                          {longDate(m.at, lang)}
+                        </Body>
+                        <Body>{m.text}</Body>
+                        <Button small variant="ghost" label={T('messages.replyViaDirection')} onPress={() => setDraft(`${T('messages.aboutMessage', { from: m.signature, date: longDate(m.at, lang) })}\n`)} style={s.repondre} />
+                      </View>
+                    </Card>
+                  ))}
+                </View>
+              </Reveal>
+            ) : null}
             <Reveal>
               <Heading level="section" style={s.sectionTitle}>
                 {T('messages.broadcastTitle')}
@@ -223,6 +266,8 @@ const useStyles = makeStyles((theme) => ({
   },
   sectionTitle: { marginTop: space[2] },
   sectionSub: { marginBottom: space[2] },
+  recus: { gap: space[3] },
+  repondre: { alignSelf: 'flex-start' },
   list: { gap: space[3], paddingBottom: space[6] },
   notif: { borderWidth: theme.scheme === 'dark' ? stroke.hair : 0 },
   notifInner: { padding: space[4], gap: space[2] },

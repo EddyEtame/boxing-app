@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
+import { LangPill } from '@/screens/common/LangPill';
 import { usePrefs, type Appearance } from '@/state/prefs';
 import { GlassSurface } from '@/ui/Glass';
 import { IconChevron, IconMoon, IconSun } from '@/ui/icons';
@@ -27,10 +28,9 @@ const SALLE = require('@/assets/photos/portet-ring-drapeaux.jpg');
 const SALLE_CADRAGE = 'center';
 
 /**
- * L'entrée, au premier lancement seulement (24/10/2026). Elle tenait en trois
- * étapes (langue, ambiance, profil) ; l'app parle désormais français, et
- * l'ambiance suit le téléphone : il ne reste qu'une question, « qui es-tu ? ».
- * Un seul écran, un seul toucher pour entrer. Le clair et le sombre se
+ * L'entrée, tant qu'il n'y a pas de compte (Eddy, 30/10/2026 : tout le monde en
+ * crée un pour continuer). Il ne reste qu'une question, « qui es-tu ? » : la porte
+ * choisie pré-remplit l'abonnement dans le formulaire. Le clair et le sombre se
  * changent d'un geste avec le bouton en haut à droite, et dans Plus.
  */
 export default function Preface() {
@@ -38,14 +38,17 @@ export default function Preface() {
   const s = useStyles();
   const top = useTopInset();
   const insets = useSafeAreaInsets();
-  const setOnboarded = usePrefs((st) => st.setOnboarded);
+  // Petit téléphone : le logo rétrécit et l'accroche s'efface, le titre n'est jamais masqué par les portes.
+  const compact = useWindowDimensions().height < 700;
+
+  // L'ambiance et « qui es-tu ? » sont sur cet écran : l'entonnoir du back office les atteint d'un coup.
+  useEffect(() => {
+    track('preface_step', { step: 3 });
+  }, []);
 
   const enter = (who: 'member' | 'guest') => {
     track('preface_done', { choice: who });
-    // « Je découvre » : la vitrine. Un compte déjà ouvert (l'entrée revue depuis Plus) reste ouvert ;
-    // au premier lancement, il n'y en a pas. « Je suis membre » : invité tant que la connexion n'a pas abouti.
-    setOnboarded(true);
-    if (who === 'member') setTimeout(() => router.push('/connexion?mode=connexion'), 60);
+    router.push({ pathname: '/connexion', params: { profil: who === 'member' ? 'abonne' : 'decouverte' } });
   };
 
   return (
@@ -53,19 +56,22 @@ export default function Preface() {
       <StatusBar style="light" />
       <Entrance />
       <View style={[s.topBar, { paddingTop: top + space[2] }]}>
+        <LangPill />
         <AmbianceButton />
       </View>
 
       <OnPhotoContext.Provider value>
-        <View style={s.hero}>
-          <SpotLogo />
+        <View style={[s.hero, compact && s.heroCompact]}>
+          <SpotLogo compact={compact} />
           <Animated.View entering={FadeInDown.delay(260).duration(560).easing(ARRIVE)} style={s.heroText}>
             <Display size="display2" tight style={s.center}>
               {T('preface.headline')}
             </Display>
-            <Body weight="semi" tone="muted" style={[s.center, s.lead]}>
-              {T('preface.lead')}
-            </Body>
+            {compact ? null : (
+              <Body weight="semi" tone="muted" style={[s.center, s.lead]}>
+                {T('preface.lead')}
+              </Body>
+            )}
           </Animated.View>
         </View>
       </OnPhotoContext.Provider>
@@ -73,6 +79,23 @@ export default function Preface() {
       <Animated.View entering={FadeInDown.delay(340).duration(560).easing(ARRIVE)} style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + space[3] }]}>
         <Door who="member" index={0} primary title={T('preface.member')} sub={T('preface.memberSub')} meta={T('preface.memberMeta')} onPress={enter} />
         <Door who="guest" index={1} title={T('preface.discover')} sub={T('preface.discoverSub')} meta={T('preface.discoverMeta')} onPress={enter} />
+        <Animated.View entering={FadeInDown.delay(620).duration(480).easing(ARRIVE)}>
+          <Tap
+            onPress={() => {
+              track('cta_sign_in', { from: 'preface' });
+              router.push({ pathname: '/connexion', params: { mode: 'connexion' } });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`${T('preface.haveAccount')} ${T('preface.signIn')}`}
+            style={s.dejaCompte}>
+            <Body size="bodySmall" weight="semi" tone="muted">
+              {T('preface.haveAccount')}{' '}
+              <Body size="bodySmall" weight="bold">
+                {T('preface.signIn')}
+              </Body>
+            </Body>
+          </Tap>
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -98,7 +121,7 @@ function Entrance() {
 }
 
 /** Le logo s'allume sous son projecteur : il monte de 0,9 à 1 et sort du noir. */
-function SpotLogo() {
+function SpotLogo({ compact }: { compact: boolean }) {
   const s = useStyles();
   const reduced = useReducedMotion();
   const p = useSharedValue(reduced ? 1 : 0);
@@ -107,8 +130,8 @@ function SpotLogo() {
   }, [p, reduced]);
   const style = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scale: 0.9 + p.value * 0.1 }] }));
   return (
-    <Animated.View style={[s.logo, style]}>
-      <Logo width={196} variant="spot" />
+    <Animated.View style={[s.logo, compact && s.logoCompact, style]}>
+      <Logo width={compact ? 132 : 196} variant="spot" />
     </Animated.View>
   );
 }
@@ -181,10 +204,12 @@ function Door({ who, index, primary, title, sub, meta, onPress }: DoorProps) {
 const useStyles = makeStyles((t) => ({
   root: { flex: 1, backgroundColor: t.bg },
   entrance: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
-  topBar: { position: 'absolute', top: 0, right: 0, zIndex: 2, paddingHorizontal: space[4] },
+  topBar: { position: 'absolute', top: 0, right: 0, zIndex: 2, flexDirection: 'row', gap: space[2], paddingHorizontal: space[4] },
   round: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: GUTTER, paddingTop: space[8], paddingBottom: space[7] },
+  heroCompact: { paddingTop: space[7], paddingBottom: space[3] },
   logo: { marginBottom: space[6] },
+  logoCompact: { marginBottom: space[3] },
   heroText: { alignItems: 'center', gap: space[2], maxWidth: 360 },
   center: { textAlign: 'center' },
   lead: { marginTop: space[1] },
@@ -209,4 +234,5 @@ const useStyles = makeStyles((t) => ({
   },
   doorText: { flex: 1, gap: 2 },
   doorMeta: { marginTop: space[2] },
+  dejaCompte: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 }));

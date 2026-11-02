@@ -5,12 +5,16 @@ import {
   type FeaturesResponse,
   type MemberMessageRequest,
   type MemberMessageResponse,
+  type MemberThreadsResponse,
   type NotificationsResponse,
+  type ParticipantsResponse,
+  type ParticipationResponse,
   type PlanningResponse,
   type PublicError,
   type PublicEvent,
   type PublicNews,
   type PublicVideo,
+  type ReceivedMessagesResponse,
   type Statut,
   type ThreadResponse,
   type TrainingsResponse,
@@ -20,6 +24,7 @@ import {
 import type { ClubId } from '@bc/brand';
 
 import { API_URL } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
 
 export class AdminApiError extends Error {
   readonly code: PublicError['error'];
@@ -63,6 +68,15 @@ async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new AdminApiError(body.error, res.status, body.retryAfter);
   }
   return (await res.json()) as T;
+}
+
+/**
+ * Ce qui concerne un adhérent porte son jeton de session : c'est lui qui l'identifie
+ * auprès de l'admin, et le seul qui traverse le relais du serveur.
+ */
+async function membreFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const jeton = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+  return adminFetch<T>(path, { ...init, headers: { ...(init.headers as Record<string, string>), ...(jeton ? { authorization: `Bearer ${jeton}` } : {}) } });
 }
 
 export function lireNotifications(club: ClubId, statut: Statut): Promise<NotificationsResponse> {
@@ -122,27 +136,53 @@ export function lireFonctions(): Promise<FeaturesResponse> {
 
 export function lireEntrainements(club: ClubId): Promise<TrainingsResponse> {
   const q = new URLSearchParams({ club });
-  return adminFetch<TrainingsResponse>(`${ADMIN_API.entrainements}?${q}`);
+  return membreFetch<TrainingsResponse>(`${ADMIN_API.entrainements}?${q}`);
 }
 
+/** `organisateur` reste envoyé pour l'admin déjà en ligne ; le nouveau le lit dans le jeton de session et l'ignore. */
 export function proposerEntrainement(body: TrainingRequest): Promise<TrainingCreated> {
-  return adminFetch<TrainingCreated>(ADMIN_API.entrainements, {
+  return membreFetch<TrainingCreated>(ADMIN_API.entrainements, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
-export function envoyerMessage(body: MemberMessageRequest): Promise<MemberMessageResponse> {
-  return adminFetch<MemberMessageResponse>(ADMIN_API.messages, {
+/** « Je participe » et son annulation (CDC §11 B, C) : le même appel répété ne compte qu'une fois. */
+export function participer(trainingId: string): Promise<ParticipationResponse> {
+  return membreFetch<ParticipationResponse>(ADMIN_API.participation(trainingId), { method: 'POST' });
+}
+
+export function annulerParticipation(trainingId: string): Promise<ParticipationResponse> {
+  return membreFetch<ParticipationResponse>(ADMIN_API.participation(trainingId), { method: 'DELETE' });
+}
+
+/** Les prénoms des inscrits : l'organisateur seul (CDC §11 C). */
+export function lireParticipants(trainingId: string): Promise<ParticipantsResponse> {
+  return membreFetch<ParticipantsResponse>(ADMIN_API.participants(trainingId));
+}
+
+/** Les fils de cet adhérent : ils se retrouvent avec le compte, sur un autre téléphone ou après une reconnexion. */
+export function lireFils(): Promise<MemberThreadsResponse> {
+  return membreFetch<MemberThreadsResponse>(ADMIN_API.messagesFils);
+}
+
+/** Ce que les coachs et l'équipe lui ont écrit (CDC §10) : en lecture. */
+export function lireMessagesRecus(): Promise<ReceivedMessagesResponse> {
+  return membreFetch<ReceivedMessagesResponse>(ADMIN_API.messagesRecus);
+}
+
+/** Le jeton du fil accompagne celui de la session pour l'admin déjà en ligne, qui ne connaît que le premier. */
+export function envoyerMessage(body: MemberMessageRequest, token?: string | null): Promise<MemberMessageResponse> {
+  return membreFetch<MemberMessageResponse>(ADMIN_API.messages, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(token ? { [THREAD_TOKEN_HEADER]: token } : {}) },
     body: JSON.stringify(body),
   });
 }
 
-export function lireFil(threadId: string, token: string): Promise<ThreadResponse> {
-  return adminFetch<ThreadResponse>(ADMIN_API.message(threadId), {
-    headers: { [THREAD_TOKEN_HEADER]: token },
+export function lireFil(threadId: string, token?: string | null): Promise<ThreadResponse> {
+  return membreFetch<ThreadResponse>(ADMIN_API.message(threadId), {
+    headers: token ? { [THREAD_TOKEN_HEADER]: token } : {},
   });
 }

@@ -90,7 +90,6 @@ function RootLayout() {
   const localeReady = useI18nStore((s) => s.hydrated);
   const clubsReady = useSession((s) => s.clubsHydrated);
   const auth = useSession((s) => s.auth);
-  const onboarded = usePrefs((s) => s.onboarded);
   const appearance = usePrefs((s) => s.appearance);
   const [loaded, error] = useFonts({
     BebasNeue_400Regular,
@@ -120,14 +119,14 @@ function RootLayout() {
 
   return (
     <View style={[styles.fill, { backgroundColor: t.bg }]}>
-      {ready ? (configReady ? <AppTree onboarded={onboarded} /> : <ConfigManquante />) : null}
+      {ready ? (configReady ? <AppTree connecte={auth === 'connecte'} /> : <ConfigManquante />) : null}
       {booted ? null : <BootScreen ready={ready} onDone={onBooted} />}
     </View>
   );
 }
 
 /** L'app elle-même, dessinée sous l'écran de lancement dès que tout est prêt. */
-function AppTree({ onboarded }: { onboarded: boolean }) {
+function AppTree({ connecte }: { connecte: boolean }) {
   const t = useTheme();
   useAdminBootstrap();
   return (
@@ -141,10 +140,11 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
             contentStyle: { backgroundColor: t.bg },
             animation: 'slide_from_right',
           }}>
-          <Stack.Protected guard={!onboarded}>
+          {/* Tout le monde a un compte pour continuer (Eddy, 30/10/2026) ; sans abonnement, on visite en découverte. */}
+          <Stack.Protected guard={!connecte}>
             <Stack.Screen name="preface" options={{ animation: 'fade', gestureEnabled: false }} />
           </Stack.Protected>
-          <Stack.Protected guard={onboarded}>
+          <Stack.Protected guard={connecte}>
             <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
             <Stack.Screen name="fil/[id]" />
             <Stack.Screen name="alertes" />
@@ -153,8 +153,10 @@ function AppTree({ onboarded }: { onboarded: boolean }) {
             <Stack.Screen name="combats" />
             <Stack.Screen name="notifications" />
             <Stack.Screen name="barre" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="bienvenue" options={{ presentation: 'modal', animation: 'fade', gestureEnabled: false }} />
           </Stack.Protected>
+          {/* Hors des deux gardes : l'écran reste ouvert quand la session arrive, jusqu'au résultat. */}
+          <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </Stack>
         <ThemeFade />
         <BandeauHorsLigne />

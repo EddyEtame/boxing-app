@@ -4,7 +4,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 
 import type { Slot } from '@/data/planning';
 import { bandAt, buildWeekGrid, inkOn, type GridCell } from '@/features/planning/grid';
-import { familleColor, heure, normaliseActivite } from '@/features/planning/model';
+import { familleColor, heure, normaliseActivite, dateDeLaSemaine, estAnnule, estFerme } from '@/features/planning/model';
 import { WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { IconStar } from '@/ui/icons';
@@ -157,6 +157,7 @@ function EmptyCell({ top, label }: { top: number; label: string }) {
 }
 
 function Block({ cell, top, index, jour, favorite, onOpen, freeLabel }: { cell: Extract<GridCell, { kind: 'free' | 'course' }>; top: number; index: number; jour: number; favorite: boolean; onOpen: (slot: Slot, jour: number) => void; freeLabel: string }) {
+  const T = useT();
   const s = useStyles();
   const t = useTheme();
   const a = normaliseActivite(cell.slot.activite);
@@ -180,14 +181,16 @@ function Block({ cell, top, index, jour, favorite, onOpen, freeLabel }: { cell: 
   }
   const bg = familleColor(a.famille);
   const ink = inkOn(bg);
-  const meta = [a.public, a.niveau].filter(Boolean).join(' · ');
+  const date = dateDeLaSemaine(jour);
+  const annule = estAnnule(cell.slot.id, date) || estFerme(cell.slot.club, date);
+  const meta = annule ? T('planning.cancelled') : [a.public, a.niveau].filter(Boolean).join(' · ');
   return (
-    <Animated.View style={[s.blockWrap, { top: top + 2, height: h }, anim]}>
+    <Animated.View style={[s.blockWrap, { top: top + 2, height: h }, annule && s.blockAnnule, anim]}>
       <Tap onPress={() => onOpen(cell.slot, jour)} scaleTo={0.95} haptic="selection" style={[s.block, { backgroundColor: bg }]} accessibilityRole="button" accessibilityLabel={`${a.libelle}, ${heure(cell.slot.debut)}`}>
-        <Body size="micro" weight="bold" numberOfLines={h >= 52 ? 3 : 2} style={[s.blockTitle, { color: ink }]}>
+        <Body size="micro" weight="bold" numberOfLines={h >= 52 ? 3 : 2} style={[s.blockTitle, { color: ink }, annule && s.blockBarre]}>
           {a.libelle.toUpperCase()}
         </Body>
-        {meta && (h >= 100 || (h >= 52 && a.libelle.length <= 14)) ? (
+        {meta && (annule || h >= 100 || (h >= 52 && a.libelle.length <= 14)) ? (
           <Body size="micro" weight="semi" numberOfLines={1} style={[s.blockMeta, { color: ink }]}>
             {meta}
           </Body>
@@ -218,6 +221,8 @@ const useStyles = makeStyles((t) => ({
   col: {},
   cell: { borderTopWidth: stroke.hair },
   blockWrap: { position: 'absolute', left: 3, right: 3 },
+  blockAnnule: { opacity: 0.45 },
+  blockBarre: { textDecorationLine: 'line-through' },
   block: { flex: 1, borderRadius: 8, paddingHorizontal: 3, paddingVertical: 4, alignItems: 'center', justifyContent: 'center', gap: 2, overflow: 'hidden' },
   blockTitle: { fontSize: 10, lineHeight: 12, textAlign: 'center', letterSpacing: 0 },
   blockMeta: { fontSize: 9, lineHeight: 11, textAlign: 'center', opacity: 0.85 },

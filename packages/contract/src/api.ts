@@ -45,4 +45,6 @@ export const MEMBER_API = {
   invoices: '/v1/me/invoices',
   /** GET -> avis personnels (prelevement, resiliation). */
   notices: '/v1/me/notices',
+  /** GET -> SignedDocumentsResponse. À écrire sur le pont : l'app affiche déjà la rubrique et lit cette route. */
+  documents: '/v1/me/documents',
 } as const;

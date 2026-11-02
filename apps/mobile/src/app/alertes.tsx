@@ -9,6 +9,7 @@ import { duree } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { lireAvis } from '@/lib/api';
 import { lireNotifications } from '@/lib/admin-api';
+import { usePrefs } from '@/state/prefs';
 import { selectStatut, useSession } from '@/state/session';
 import { IconClock, IconGear } from '@/ui/icons';
 import { Button, Card, IconTile, Row } from '@/ui/kit';
@@ -30,7 +31,8 @@ export default function AlertesScreen() {
   const age = me ? ageAt(me.dateNaissance, now) : 30;
   const next = nextSession(clubActif, now, age);
   const club = clubById(clubActif);
-  const [notifs, setNotifs] = useState<{ id: string; title: string; body: string; link?: string }[]>([]);
+  const reglages = usePrefs((st) => st.notif);
+  const [notifs, setNotifs] = useState<{ id: string; type: string; title: string; body: string; link?: string }[]>([]);
   const [avis, setAvis] = useState<{ id: string; title: string; body: string }[]>([]);
 
   const load = useCallback(async () => {
@@ -54,9 +56,13 @@ export default function AlertesScreen() {
     void load();
   }, [load]);
 
+  // L'admin vise des écrans de l'app ; les vidéos et les événements vivent dans deux rubriques au nom différent.
   const openLink = (url?: string) => {
-    if (url) void Linking.openURL(url);
+    if (!url) return;
+    if (url.startsWith('/')) router.push((url === '/evenements' ? '/actualites' : url === '/videos' ? '/entrainer' : url) as never);
+    else void Linking.openURL(url);
   };
+  const visibles = notifs.filter((n) => reglages[n.type] !== false);
 
   return (
     <Page title={T('alerts.title')} leading="back" tabBar={false}>
@@ -82,13 +88,13 @@ export default function AlertesScreen() {
           {avis.map((n) => (
             <Row key={n.id} title={n.title} subtitle={n.body} />
           ))}
-          {notifs.map((n, i) => (
+          {visibles.map((n, i) => (
             <Row
               key={n.id}
               title={n.title}
               subtitle={n.body}
               onPress={n.link ? () => openLink(n.link) : undefined}
-              last={i === notifs.length - 1}
+              last={i === visibles.length - 1}
             />
           ))}
         </Card>

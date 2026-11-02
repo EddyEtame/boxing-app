@@ -13,7 +13,7 @@ import { useLocale, useT, type MessageKey } from '@/i18n';
 import { selectStatut, useSession } from '@/state/session';
 import { HorsLigne } from '@/ui/Offline';
 import { useUsage } from '@/state/usage';
-import { IconShare } from '@/ui/icons';
+import { IconShare, IconChart, IconPin, IconStar } from '@/ui/icons';
 import { Button, Card, Chip, Section } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
 import { ProgressRing } from '@/ui/ProgressRing';
@@ -42,7 +42,7 @@ export function Screen() {
   if (statut === 'invite') {
     return (
       <Page title={T('stats.title')}>
-        <MembersOnly title={T('stats.lockedTitle')} body={T('stats.lockedBody')} />
+        <MembersOnly title={T('stats.lockedTitle')} body={T('stats.lockedBody')} photo={require('@/assets/photos/portet-rig-rouge.jpg')} atouts={[{ icon: IconChart, title: T('stats.perkRegular'), sub: T('stats.perkRegularSub') }, { icon: IconStar, title: T('stats.perkGoal'), sub: T('stats.perkGoalSub') }, { icon: IconPin, title: T('stats.perkClubs'), sub: T('stats.perkClubsSub') }]} />
       </Page>
     );
   }

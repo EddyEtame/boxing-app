@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { CLUBS, clubById, estOuvert } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
 import { track } from '@/features/analytics';
-import { espaceLabel, espacesFor, familleColor, heure, jourFr, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
+import { dateDeLaSemaine, espaceLabel, espacesFor, estAnnule, estFerme, familleColor, heure, isoLocal, jourFr, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
 import { shareWeek } from '@/features/planning/share';
 import { duree, relativeDay, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -23,9 +23,11 @@ import { duration, GUTTER, makeStyles, MAX_CONTENT_WIDTH, radius, space, stroke,
 
 type Mode = 'jour' | 'semaine';
 
-/** Les cours d'un jour, sans les plages d'accès libre. */
+/** Les cours qui ont vraiment lieu ce jour-là cette semaine : sans l'accès libre, ni ce que l'admin a annulé ou fermé. */
 function coursesOn(club: ClubId, jour: number, espace?: string): Slot[] {
-  return slotsFor(club, jour, espace).filter((s) => normaliseActivite(s.activite).famille !== 'accesLibre');
+  const date = dateDeLaSemaine(jour);
+  if (estFerme(club, date)) return [];
+  return slotsFor(club, jour, espace).filter((s) => normaliseActivite(s.activite).famille !== 'accesLibre' && !estAnnule(s.id, date));
 }
 
 /** Le premier jour, à partir d'aujourd'hui, où ce club donne des cours. */
@@ -117,7 +119,9 @@ export function Screen() {
   // Plus rien à venir aujourd'hui (aucun cours, ou tous finis) : le planning a sauté au prochain jour et le dit.
   const todayOver = !coursesOn(club, today).some((sl) => sl.fin > nowMin);
   const firstCourse = coursesOn(club, jour)[0];
-  const nextToday = jour === today ? slots.find((sl) => sl.debut > nowMin && normaliseActivite(sl.activite).famille !== 'accesLibre') : undefined;
+  const dateJour = isoLocal(dates[jour]);
+  const fermeCeJour = estFerme(club, dateJour);
+  const nextToday = jour === today ? slots.find((sl) => sl.debut > nowMin && normaliseActivite(sl.activite).famille !== 'accesLibre' && !estAnnule(sl.id, dateJour)) : undefined;
 
   const pick = (id: ClubId, scrollTo?: number) => {
     setClub(id);
@@ -172,7 +176,7 @@ export function Screen() {
           contentContainerStyle={[s.plates, { paddingRight: colWidth - plateW - GUTTER }]}>
           {ordered.map((c, i) => {
             const on = c.id === club;
-            const ouvert = estOuvert(c, now);
+            const ouvert = estOuvert(c, now) && !estFerme(c.id, isoLocal(now));
             const n = coursesOn(c.id, jour).length;
             return (
               <Tap key={c.id} onPress={() => pick(c.id, i)} scaleTo={0.985} style={{ width: plateW }} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={c.nom}>
@@ -242,12 +246,12 @@ export function Screen() {
           ) : null}
 
           <Animated.View layout={LinearTransition.duration(duration.cross)} style={s.listWrap}>
-            {slots.length === 0 ? (
-              <EmptyDay club={club} jour={jour} today={today} onJump={setJour} />
+            {fermeCeJour || slots.length === 0 ? (
+              <EmptyDay club={club} jour={jour} today={today} ferme={fermeCeJour} onJump={setJour} />
             ) : (
               <Card padded={false} style={s.list}>
                 {slots.map((sl, i) => (
-                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} favorite={favorites.includes(sl.id)} showEspace={!espaceActif} onPress={() => openSession(sl, jour)} />
+                  <SlotRow key={sl.id} slot={sl} last={i === slots.length - 1} isToday={jour === today} nowMin={nowMin} next={nextToday?.id === sl.id} favorite={favorites.includes(sl.id)} showEspace={!espaceActif} annule={estAnnule(sl.id, dateJour)} onPress={() => openSession(sl, jour)} />
                 ))}
               </Card>
             )}
@@ -299,7 +303,7 @@ function DayPill({ label, date, active, today, empty, onPress, a11y }: { label: 
   );
 }
 
-function EmptyDay({ club, jour, today, onJump }: { club: ClubId; jour: number; today: number; onJump: (j: number) => void }) {
+function EmptyDay({ club, jour, ferme, onJump }: { club: ClubId; jour: number; today: number; ferme: boolean; onJump: (j: number) => void }) {
   const T = useT();
   const s = useStyles();
   const lang = useLocale();
@@ -312,13 +316,13 @@ function EmptyDay({ club, jour, today, onJump }: { club: ClubId; jour: number; t
       <Display size="display4" tone="dim" tight>
         {WEEKDAYS[lang][jour]}
       </Display>
-      <Body tone="muted">{ouvert ? T('planning.emptyOpen', { day: weekdayIn(jour, lang) }) : T('planning.emptyClosed', { day: weekdayIn(jour, lang) })}</Body>
+      <Body tone="muted">{ferme ? T('planning.closedDate', { day: weekdayIn(jour, lang) }) : ouvert ? T('planning.emptyOpen', { day: weekdayIn(jour, lang) }) : T('planning.emptyClosed', { day: weekdayIn(jour, lang) })}</Body>
       {first ? <Button small label={`${WEEKDAYS[lang][next]} ${heure(first.debut)} · ${normaliseActivite(first.activite).libelle}`} onPress={() => onJump(next)} style={s.emptyCta} /> : null}
     </Card>
   );
 }
 
-function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, onPress }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean; favorite: boolean; showEspace: boolean; onPress: () => void }) {
+function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, annule, onPress }: { slot: Slot; last: boolean; isToday: boolean; nowMin: number; next: boolean; favorite: boolean; showEspace: boolean; annule: boolean; onPress: () => void }) {
   const T = useT();
   const s = useStyles();
   const t = useTheme();
@@ -326,12 +330,12 @@ function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, onPr
   const a = normaliseActivite(slot.activite);
   const libre = a.famille === 'accesLibre';
   const tint = familleColor(a.famille);
-  const enCours = isToday && nowMin >= slot.debut && nowMin < slot.fin;
+  const enCours = !annule && isToday && nowMin >= slot.debut && nowMin < slot.fin;
   const passe = isToday && nowMin >= slot.fin;
   // La salle n'est rappelée que si on ne l'a pas déjà choisie au-dessus.
   const meta = [a.public, a.niveau, showEspace && slot.espace ? espaceLabel(slot.espace) : undefined].filter(Boolean).join(' · ');
   return (
-    <Tap onPress={libre ? undefined : onPress} disabled={libre} scaleTo={0.985} style={[s.row, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }, passe && s.rowPast]} accessibilityRole={libre ? undefined : 'button'} accessibilityLabel={`${a.libelle} ${heure(slot.debut)}`}>
+    <Tap onPress={libre ? undefined : onPress} disabled={libre} scaleTo={0.985} style={[s.row, !last && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }, passe && s.rowPast]} accessibilityRole={libre ? undefined : 'button'} accessibilityLabel={`${a.libelle} ${heure(slot.debut)}${annule ? `, ${T('planning.cancelled')}` : ''}`}>
       <View style={s.time}>
         <Display size="display5" tone={passe ? 'dim' : 'text'} tight upper={false} tabular>
           {heure(slot.debut)}
@@ -343,7 +347,7 @@ function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, onPr
       <View style={[s.bar, { backgroundColor: libre ? t.lineStrong : tint }, (enCours || next) && { backgroundColor: t.accent, width: stroke.accentBar }]} />
       <View style={s.body}>
         <View style={s.titleRow}>
-          <Body weight="bold" tone={libre || passe ? 'muted' : 'text'} numberOfLines={2} style={{ flexShrink: 1 }}>
+          <Body weight="bold" tone={libre || passe || annule ? 'muted' : 'text'} numberOfLines={2} style={[{ flexShrink: 1 }, annule && s.barre]}>
             {a.libelle}
           </Body>
           {favorite ? <IconStar size={14} color={t.accent} fill={t.accent} /> : null}
@@ -355,7 +359,11 @@ function SlotRow({ slot, last, isToday, nowMin, next, favorite, showEspace, onPr
         ) : null}
       </View>
       <View style={s.right}>
-        {enCours ? (
+        {annule ? (
+          <Body size="caption" weight="bold" tone="negative">
+            {T('planning.cancelled')}
+          </Body>
+        ) : enCours ? (
           <Body size="caption" weight="bold" tone="accent">
             {T('planning.live')}
           </Body>
@@ -399,6 +407,7 @@ const useStyles = makeStyles((t) => ({
   emptyCta: { marginTop: space[1] },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 72, paddingVertical: space[3], gap: space[3] },
   rowPast: { opacity: 0.5 },
+  barre: { textDecorationLine: 'line-through' },
   time: { width: 62 },
   bar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   body: { flex: 1, gap: 2 },

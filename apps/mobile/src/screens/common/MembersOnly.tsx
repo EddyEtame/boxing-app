@@ -1,49 +1,66 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Linking, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { urlBoutique } from '@/features/sections';
-import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
 import { useSession } from '@/state/session';
-import { IconLock } from '@/ui/icons';
-import { Button, Card } from '@/ui/kit';
+import { IconLock, type IconProps } from '@/ui/icons';
+import { Button, Card, IconTile } from '@/ui/kit';
 import { Reveal } from '@/ui/Page';
-import { Body, Display, Heading, type DisplayProps } from '@/ui/Text';
+import { Photo, type PhotoSource } from '@/ui/Photo';
+import { Body, Display, type DisplayProps } from '@/ui/Text';
 import { makeStyles, radius, space } from '@/ui/theme';
 
+import { ActionsDecouverte } from './ActionsDecouverte';
+
+export type Atout = { icon: ComponentType<IconProps>; title: string; sub: string };
+
 /**
- * Une rubrique réservée (CDC §3B, §16) : on montre ce qu'elle contient et
+ * Une rubrique réservée (CDC §3B, §16) : une vraie photo, ce qu'elle contient et
  * comment l'ouvrir, jamais un écran vide.
  */
-export function MembersOnly({ title, body, restricted }: { title: string; body: string; restricted?: boolean }) {
+export function MembersOnly({ title, body, restricted, photo, atouts }: { title: string; body: string; restricted?: boolean; photo: PhotoSource; atouts: Atout[] }) {
   const T = useT();
   const s = useStyles();
   const clubActif = useSession((st) => st.clubActif);
   const shop = urlBoutique({ club: clubActif });
   return (
     <Reveal>
-      <Card style={s.card}>
-        <View style={s.icon}>
-          <IconLock size={26} />
-        </View>
-        <Heading level="section">{title}</Heading>
+      <Card padded={false}>
+        <Photo source={photo} style={s.photo} darken={0.32} scrim={0.82}>
+          <View style={s.photoBas}>
+            <View style={s.icon}>
+              <IconLock size={20} color="#F5F5F5" />
+            </View>
+            <Display size="display3" tight>
+              {title}
+            </Display>
+          </View>
+        </Photo>
+        <View style={s.card}>
         <Body tone="muted">{body}</Body>
+        <View style={s.atouts}>
+          {atouts.map((a) => (
+            <View key={a.title} style={s.atout}>
+              <IconTile icon={a.icon} size={40} />
+              <View style={s.atoutTexte}>
+                <Body weight="bold">{a.title}</Body>
+                <Body size="caption" tone="muted">
+                  {a.sub}
+                </Body>
+              </View>
+            </View>
+          ))}
+        </View>
         {restricted ? (
           <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} style={s.cta} />
         ) : (
-          <>
-            <Button label={T('guest.create')} onPress={() => {
-              track('cta_create_account', { from: 'locked' });
-              router.push('/connexion');
-            }} style={s.cta} />
-            <Button label={T('guest.signIn')} variant="secondary" onPress={() => {
-              track('cta_sign_in', { from: 'locked' });
-              router.push('/connexion?mode=connexion');
-            }} />
-          </>
+          <View style={s.cta}>
+            <ActionsDecouverte from="locked" />
+          </View>
         )}
+        </View>
       </Card>
     </Reveal>
   );
@@ -73,8 +90,13 @@ export function CountUp({ value, duration = 800, ...rest }: { value: number; dur
   );
 }
 
-const useStyles = makeStyles((t) => ({
-  card: { gap: space[3] },
-  icon: { width: 56, height: 56, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center', backgroundColor: t.tint },
-  cta: { marginTop: space[3] },
+const useStyles = makeStyles(() => ({
+  photo: { height: 210, justifyContent: 'flex-end', borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  photoBas: { padding: space[5], gap: space[3] },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,245,245,0.18)' },
+  card: { gap: space[4], padding: space[5] },
+  atouts: { gap: space[3] },
+  atout: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  atoutTexte: { flex: 1, gap: 2 },
+  cta: { marginTop: space[1] },
 }));
