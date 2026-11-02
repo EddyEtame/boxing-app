@@ -2,11 +2,12 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 
-import { CLUBS, estOuvert } from '@/data/clubs';
+import { CLUBS } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
 import { DISCIPLINES } from '@/data/disciplines';
 import { useCombats } from '@/features/combats/useCombats';
-import { clubsProposant, estFerme, heure, isoLocal } from '@/features/planning/model';
+import { ouvertMaintenant } from '@/features/planning/live';
+import { clubsProposant, heure, useLivePlanning } from '@/features/planning/model';
 import { shortDay } from '@/features/time';
 import { ouvrirOffres } from '@/features/offres';
 import { useInLocale, useLocale, useT } from '@/i18n';
@@ -50,6 +51,8 @@ export function HomeInvite() {
   const discW = Math.round(col * 0.56);
   const portraitW = Math.round(col * 0.5);
   const portraits = PERSONNES.filter((p) => p.photo).slice(0, 10);
+  const live = useLivePlanning();
+  const maintenant = new Date();
 
   return (
     <Page trailing={<LangPill />}>
@@ -79,15 +82,15 @@ export function HomeInvite() {
           onScroll={(e) => setClubIndex(Math.min(CLUBS.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / (plateW + space[3])))))}
           scrollEventThrottle={32}>
           {CLUBS.map((c) => {
-            const open = estOuvert(c) && !estFerme(c.id, isoLocal(new Date()));
+            const etat = ouvertMaintenant(c, maintenant, live);
             return (
               <Tap key={c.id} style={{ width: plateW }} onPress={() => router.navigate('/planning')} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={c.nom}>
                 <Photo source={c.photo} style={s.club} darken={0.38} scrim={0.72}>
                   <View style={s.clubTop}>
                     <View style={s.openPill}>
-                      <View style={[s.openDot, { backgroundColor: open ? '#3DDC84' : 'rgba(245,245,245,0.55)' }]} />
+                      <View style={[s.openDot, { backgroundColor: etat.ouvert ? '#3DDC84' : 'rgba(245,245,245,0.55)' }]} />
                       <Body size="caption" weight="bold">
-                        {open ? T('home.openUntil', { h: heure(c.ouverture.fin) }) : T('home.closed')}
+                        {etat.ouvert ? T('home.openUntil', { h: heure(etat.jusqua ?? c.ouverture.fin) }) : T('home.closed')}
                       </Body>
                     </View>
                   </View>

@@ -45,7 +45,7 @@ const optionalEnv = (...names: string[]) => names.map((name) => ({ name, set: ha
 const DAY = 86_400_000;
 
 /** L'empreinte des deux fichiers de l'app dont l'admin a porté la règle de grille (22/10/2026). */
-const PORTED = { 'grid.ts': 'ac6a3f35a8fcc78c', 'model.ts': 'fe69158231582c5b' } as const;
+const PORTED = { 'grid.ts': 'ac6a3f35a8fcc78c', 'model.ts': 'e9512585693ce178' } as const;
 
 async function withTimeout<T>(ms: number, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const ctl = new AbortController();

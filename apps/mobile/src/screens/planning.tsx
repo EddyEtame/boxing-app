@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-import { CLUBS, clubById, estOuvert } from '@/data/clubs';
+import { CLUBS, clubById } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
 import { track } from '@/features/analytics';
-import { dateDeLaSemaine, espaceLabel, espacesFor, estAnnule, estFerme, familleColor, heure, isoLocal, jourFr, normaliseActivite, slotsFor, usePlanningSlots } from '@/features/planning/model';
+import { ouvertMaintenant } from '@/features/planning/live';
+import { dateDeLaSemaine, espaceLabel, espacesFor, estAnnule, estFerme, familleColor, heure, isoLocal, jourFr, normaliseActivite, slotsFor, useLivePlanning, usePlanningSlots } from '@/features/planning/model';
 import { shareWeek } from '@/features/planning/share';
 import { duree, relativeDay, weekdayIn, WEEKDAYS, WEEKDAYS_SHORT } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -68,6 +69,7 @@ function weekDates(now: Date): Date[] {
 export function Screen() {
   const T = useT();
   usePlanningSlots();
+  const live = useLivePlanning();
   const s = useStyles();
   const lang = useLocale();
   const clubActif = useSession((st) => st.clubActif);
@@ -176,16 +178,16 @@ export function Screen() {
           contentContainerStyle={[s.plates, { paddingRight: colWidth - plateW - GUTTER }]}>
           {ordered.map((c, i) => {
             const on = c.id === club;
-            const ouvert = estOuvert(c, now) && !estFerme(c.id, isoLocal(now));
+            const etat = ouvertMaintenant(c, now, live);
             const n = coursesOn(c.id, jour).length;
             return (
               <Tap key={c.id} onPress={() => pick(c.id, i)} scaleTo={0.985} style={{ width: plateW }} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={c.nom}>
                 <Photo source={c.photo} style={[s.plate, on && s.plateOn]} darken={on ? 0.32 : 0.58} scrim={0.75}>
                   <View style={s.plateTop}>
                     <View style={s.openPill}>
-                      <View style={[s.openDot, { backgroundColor: ouvert ? '#3DDC84' : 'rgba(245,245,245,0.55)' }]} />
+                      <View style={[s.openDot, { backgroundColor: etat.ouvert ? '#3DDC84' : 'rgba(245,245,245,0.55)' }]} />
                       <Body size="caption" weight="bold">
-                        {ouvert ? T('home.openUntil', { h: heure(c.ouverture.fin) }) : T('home.closed')}
+                        {etat.ouvert ? T('home.openUntil', { h: heure(etat.jusqua ?? c.ouverture.fin) }) : T('home.closed')}
                       </Body>
                     </View>
                   </View>

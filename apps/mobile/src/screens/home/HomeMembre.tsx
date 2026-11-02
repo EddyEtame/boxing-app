@@ -2,9 +2,10 @@ import { ageAt } from '@bc/contract';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { CLUBS, clubById, estOuvert } from '@/data/clubs';
+import { CLUBS, clubById } from '@/data/clubs';
 import { PERSONNES } from '@/data/coachs';
-import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor, usePlanningSlots, estFerme, isoLocal } from '@/features/planning/model';
+import { ouvertMaintenant } from '@/features/planning/live';
+import { auClub, jourFr, nextFavorite, nextSession, normaliseActivite, slotsFor, useLivePlanning, usePlanningSlots } from '@/features/planning/model';
 import { useStats } from '@/features/stats/model';
 import { fullDay, monthName } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
@@ -44,13 +45,14 @@ function Corps() {
   const stats = useStats();
   if (!me) return null;
   const now = new Date();
+  const live = useLivePlanning();
   const club = clubById(clubActif);
   const age = ageAt(me.dateNaissance, now);
   const fav = nextFavorite(favorites, now);
   const next = fav && fav.dansMinutes <= 7 * 24 * 60 ? fav : nextSession(clubActif, now, age);
   const nextClub = next ? clubById(next.slot.club) : club;
   const topClub = stats.byClub[0] ? clubById(stats.byClub[0].club) : club;
-  const ouvert = estOuvert(club, now) && !estFerme(club.id, isoLocal(now));
+  const ouvert = ouvertMaintenant(club, now, live).ouvert;
   const coursToday = slotsFor(clubActif, jourFr(now)).filter((sl) => normaliseActivite(sl.activite).famille !== 'accesLibre').length;
   const snap = me.snapshot;
   const coachs = PERSONNES.filter((p) => p.type === 'coach' && p.clubs.includes(clubActif));
@@ -113,7 +115,7 @@ function Corps() {
       ) : null}
 
       <Reveal delay={120} style={s.block}>
-        <NextSessionCard club={nextClub} next={next} ouvert={nextClub.id === club.id ? ouvert : estOuvert(nextClub, now)} onPress={() => router.navigate('/planning')} />
+        <NextSessionCard club={nextClub} next={next} ouvert={nextClub.id === club.id ? ouvert : ouvertMaintenant(nextClub, now, live).ouvert} onPress={() => router.navigate('/planning')} />
       </Reveal>
 
       <Reveal delay={180} style={s.tiles}>

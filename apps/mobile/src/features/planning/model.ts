@@ -6,6 +6,8 @@ import { planningSlots, usePlanningStore } from '@/state/planning';
 import { useI18nStore, type Locale } from '@/i18n';
 import { discipline, type ClubId } from '@/ui/theme';
 
+import { prochaineCours, type LivePlanning } from './live';
+
 /**
  * Les libellés de la direction sont hétérogènes ("BOXE EDUCATIVE 7/11 ANS",
  * "BOXE EDUCATIVE 7/11ANS", "BOXE ANGLAISE (LOISIRS)"). On les ramène à une
@@ -172,6 +174,22 @@ export function usePlanningSlots(): Slot[] {
   return usePlanningStore((st) => st.slots);
 }
 
+/** Horaires, fermetures et annulations quand l'admin a repondu. Null hors ligne. */
+export function useLivePlanning(): LivePlanning | null {
+  const source = usePlanningStore((st) => st.source);
+  const horaires = usePlanningStore((st) => st.horaires);
+  const fermetures = usePlanningStore((st) => st.fermetures);
+  const cancellations = usePlanningStore((st) => st.cancellations);
+  if (source !== 'network' || !horaires) return null;
+  return { horaires, fermetures, cancellations };
+}
+
+function liveMaintenant(): LivePlanning | null {
+  const st = usePlanningStore.getState();
+  if (st.source !== 'network' || !st.horaires) return null;
+  return { horaires: st.horaires, fermetures: st.fermetures, cancellations: st.cancellations };
+}
+
 /** Jour de la semaine à la française (0 = lundi) pour une date. */
 export function jourFr(d: Date): number {
   return (d.getDay() + 6) % 7;
@@ -209,44 +227,28 @@ export type NextSession = { slot: Slot; activite: Activite; dansMinutes: number;
  * La prochaine séance dans le club principal, hors accès libre, qui convient à
  * l’âge de l’adhérent : aujourd’hui après maintenant, sinon le prochain jour.
  */
+function etiquette(offset: number, jour: number): string {
+  return offset === 0 ? "Aujourd’hui" : offset === 1 ? 'Demain' : JOURS[jour];
+}
+
 export function nextSession(club: ClubId, now = new Date(), age = 30): NextSession | null {
-  const today = jourFr(now);
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  for (let offset = 0; offset < 7; offset++) {
-    const jour = (today + offset) % 7;
-    const date = isoLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
-    if (estFerme(club, date)) continue;
-    const slots = slotsFor(club, jour).filter((s) => {
-      const a = normaliseActivite(s.activite);
-      return a.famille !== 'accesLibre' && convientA(a, age) && !estAnnule(s.id, date);
-    });
-    for (const slot of slots) {
-      if (offset === 0 && slot.debut <= nowMin) continue;
-      const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;
-      const jourLabel = offset === 0 ? "Aujourd’hui" : offset === 1 ? 'Demain' : JOURS[jour];
-      return { slot, activite: normaliseActivite(slot.activite), dansMinutes, jourLabel, offset, jour };
-    }
-  }
-  return null;
+  const slots = allSlots().filter((s) => {
+    if (s.club !== club) return false;
+    const a = normaliseActivite(s.activite);
+    return a.famille !== 'accesLibre' && convientA(a, age);
+  });
+  const found = prochaineCours(slots, now, liveMaintenant());
+  if (!found) return null;
+  return { slot: found.slot, activite: normaliseActivite(found.slot.activite), dansMinutes: found.dansMinutes, jourLabel: etiquette(found.offset, found.jour), offset: found.offset, jour: found.jour };
 }
 
 /** Le prochain cours suivi (étoile), tous clubs confondus, dans les sept jours. */
 export function nextFavorite(favorites: string[], now = new Date()): NextSession | null {
   if (!favorites.length) return null;
-  const today = jourFr(now);
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  for (let offset = 0; offset < 7; offset++) {
-    const jour = (today + offset) % 7;
-    const date = isoLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
-    const slots = allSlots().filter((s) => s.jour === jour && favorites.includes(s.id) && !estAnnule(s.id, date) && !estFerme(s.club, date)).sort((a, b) => a.debut - b.debut);
-    for (const slot of slots) {
-      if (offset === 0 && slot.debut <= nowMin) continue;
-      const dansMinutes = offset * 24 * 60 + slot.debut - nowMin;
-      const jourLabel = offset === 0 ? "Aujourd’hui" : offset === 1 ? 'Demain' : JOURS[jour];
-      return { slot, activite: normaliseActivite(slot.activite), dansMinutes, jourLabel, offset, jour };
-    }
-  }
-  return null;
+  const slots = allSlots().filter((s) => favorites.includes(s.id));
+  const found = prochaineCours(slots, now, liveMaintenant());
+  if (!found) return null;
+  return { slot: found.slot, activite: normaliseActivite(found.slot.activite), dansMinutes: found.dansMinutes, jourLabel: etiquette(found.offset, found.jour), offset: found.offset, jour: found.jour };
 }
 
 /** « aux Minimes », « à Saint-Cyprien », « aux États-Unis »… */
