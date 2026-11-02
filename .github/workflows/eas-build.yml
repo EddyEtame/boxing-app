@@ -1,0 +1,96 @@
+# Builds Play Store (AAB) et App Store via Expo EAS.
+#
+# Quand : a la main (Actions, « Build Expo »), ou a chaque tag v*.
+# Le secret EXPO_TOKEN est un jeton d'acces du compte Expo angoularaphael
+# (expo.dev, Account settings, Access tokens). Sans lui, le workflow s'arrete.
+#
+# Les quatre EXPO_PUBLIC_* sont les variables du depot (onglet Variables).
+# Elles sont copiees dans l'environnement EAS « production » avant le build :
+# le worker Expo ne voit pas les variables GitHub tout seul.
+#
+# L'APK de test reste le workflow « APK Android ». Celui-ci produit le binaire
+# des stores.
+
+name: Build Expo
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: eas-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Construire sur Expo
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dependances
+        run: npm ci
+
+      - name: Jeton Expo et adresses publiques
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_MEMBER_API_URL: ${{ vars.EXPO_PUBLIC_MEMBER_API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Secret EXPO_TOKEN absent. Cree un jeton sur expo.dev (compte angoularaphael, Access tokens) et ajoute-le dans Settings, Secrets, Actions."
+            exit 1
+          fi
+          for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Variable de depot $v absente"
+              exit 1
+            fi
+          done
+          for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL; do
+            case "${!v}" in
+              https://*) ;;
+              *) echo "::error::$v doit etre en https"; exit 1 ;;
+            esac
+          done
+          echo "EXPO_TOKEN=${EXPO_TOKEN}" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_MEMBER_API_URL=${EXPO_PUBLIC_MEMBER_API_URL}" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}" >> "$GITHUB_ENV"
+
+      - name: Projet Expo deja lie
+        working-directory: apps/mobile
+        run: |
+          if ! grep -q '"projectId"' app.json; then
+            echo "::error::apps/mobile/app.json n'a pas extra.eas.projectId. Une fois EXPO_TOKEN pose, lancer dans apps/mobile : npx eas-cli init --non-interactive"
+            exit 1
+          fi
+
+      - name: Copier les adresses dans l'environnement Expo production
+        working-directory: apps/mobile
+        run: |
+          for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            npx --yes eas-cli@latest env:create production \
+              --name "$v" \
+              --value "${!v}" \
+              --visibility plaintext \
+              --force \
+              --non-interactive
+          done
+
+      - name: Build Android et iOS
+        working-directory: apps/mobile
+        run: npx --yes eas-cli@latest build --platform all --profile production --non-interactive --no-wait
