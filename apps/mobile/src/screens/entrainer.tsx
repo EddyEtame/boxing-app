@@ -51,7 +51,7 @@ export function Screen() {
   const videosOn = useFeature('videos');
   const trainOn = useFeature('entrainements');
   const defaultVue: Vue = videosOn ? 'videos' : 'membres';
-  const [vue, setVue] = useState<Vue>(defaultVue);
+  const [choix, setChoix] = useState<Vue>(defaultVue);
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [trainings, setTrainings] = useState<PublicTraining[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,40 +63,32 @@ export function Screen() {
     return opts;
   }, [T, videosOn, trainOn]);
 
-  useEffect(() => {
-    if (!tabs.some((t) => t.value === vue)) setVue(tabs[0]?.value ?? 'videos');
-  }, [tabs, vue]);
+  // Un onglet coupé dans l'admin ne reste pas affiché : on se replace sur le premier encore ouvert.
+  const vue: Vue = tabs.some((x) => x.value === choix) ? choix : (tabs[0]?.value ?? 'videos');
 
-  const load = useCallback(async (discret = false) => {
-    if (!discret) setLoading(true);
-    try {
-      const jobs: Promise<void>[] = [];
-      if (videosOn) {
-        jobs.push(
-          lireVideos().then((r) => {
-            setVideos(r.enabled ? r.items : []);
-          }),
-        );
-      } else setVideos([]);
-      if (trainOn && statut === 'actif') {
-        jobs.push(
-          lireEntrainements(clubActif).then((r) => {
-            setTrainings(r.off ? [] : r.items);
-          }),
-        );
-      } else setTrainings([]);
-      await Promise.all(jobs);
-    } catch {
-      setVideos([]);
-      setTrainings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [clubActif, statut, trainOn, videosOn]);
+  const charger = useCallback(
+    () =>
+      Promise.all([
+        videosOn ? lireVideos().then((r) => (r.enabled ? r.items : [])) : Promise.resolve<PublicVideo[]>([]),
+        trainOn && statut === 'actif' ? lireEntrainements(clubActif).then((r) => (r.off ? [] : r.items)) : Promise.resolve<PublicTraining[]>([]),
+      ])
+        .then(
+          ([v, e]) => {
+            setVideos(v);
+            setTrainings(e);
+          },
+          () => {
+            setVideos([]);
+            setTrainings([]);
+          },
+        )
+        .finally(() => setLoading(false)),
+    [clubActif, statut, trainOn, videosOn],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void charger();
+  }, [charger]);
 
   if (!videosOn && !trainOn) {
     return (
@@ -114,7 +106,7 @@ export function Screen() {
     <Page title={T('train.title')} subtitle={vue === 'videos' ? T('train.subVideos') : T('train.subMembers')}>
       {tabs.length > 1 ? (
         <Reveal>
-          <Segmented<Vue> full value={vue} onChange={setVue} options={tabs} />
+          <Segmented<Vue> full value={vue} onChange={setChoix} options={tabs} />
         </Reveal>
       ) : null}
       <Reveal>
@@ -128,7 +120,7 @@ export function Screen() {
           ) : statut === 'actif' ? (
             <View style={s.seances}>
               <TrainingList items={trainings} />
-              <ProposeForm clubDefaut={clubActif} onSent={() => load(true)} />
+              <ProposeForm clubDefaut={clubActif} onSent={charger} />
             </View>
           ) : (
             <MembersOnly

@@ -67,28 +67,23 @@ function Boite({ me }: { me: NonNullable<ReturnType<typeof useSession.getState>[
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const reloadNotifs = useCallback(async () => {
-    if (!configReady) return;
-    try {
-      const res = await lireNotifications(clubActif, 'actif');
-      setNotifs(res.items);
-    } catch {
-      setNotifs([]);
-    }
+  const reloadNotifs = useCallback(() => {
+    if (!configReady) return Promise.resolve();
+    return lireNotifications(clubActif, 'actif').then(
+      (res) => setNotifs(res.items),
+      () => setNotifs([]),
+    );
   }, [clubActif]);
 
-  const reloadThread = useCallback(async () => {
-    if (!threadId) {
-      setThread(null);
-      return;
-    }
-    try {
-      const res = await lireFil(threadId, token);
-      setThread(res);
-      setPreview({ status: res.status, updatedAt: res.updatedAt, sujet: res.sujet });
-    } catch {
-      setThread(null);
-    }
+  const reloadThread = useCallback(() => {
+    const lecture = threadId ? lireFil(threadId, token) : Promise.resolve(null);
+    return lecture.then(
+      (res) => {
+        setThread(res);
+        if (res) setPreview({ status: res.status, updatedAt: res.updatedAt, sujet: res.sujet });
+      },
+      () => setThread(null),
+    );
   }, [threadId, token, setPreview]);
 
   useEffect(() => {

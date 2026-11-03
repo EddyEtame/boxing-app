@@ -64,14 +64,14 @@ function Corps() {
   const [documents, setDocuments] = useState<SignedDocumentRef[]>([]);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
 
-  const chargerFactures = useCallback(async () => {
-    if (!configReady) return;
-    try {
-      const res = await lireFactures();
-      setFactures(res.items);
-    } catch {
-      /* hors ligne ou serveur : on garde la liste actuelle */
-    }
+  const chargerFactures = useCallback(() => {
+    if (!configReady) return Promise.resolve();
+    return lireFactures().then(
+      (res) => setFactures(res.items),
+      () => {
+        /* hors ligne ou serveur : on garde la liste actuelle */
+      },
+    );
   }, []);
 
   useEffect(() => {

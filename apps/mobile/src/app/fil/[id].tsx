@@ -53,17 +53,17 @@ export default function ThreadScreen() {
   const filId = typeof id === 'string' ? id : '';
   const ok = filId && threadId === filId;
 
-  const reload = useCallback(async () => {
-    if (!ok) return;
-    try {
-      const res = await lireFil(filId, token);
-      setMessages(res.messages);
-      setSujet(res.sujet);
-      setPreview({ status: res.status, updatedAt: res.updatedAt, sujet: res.sujet });
-      markSeen(res.updatedAt);
-    } catch {
-      setMessages([]);
-    }
+  const reload = useCallback(() => {
+    if (!ok) return Promise.resolve();
+    return lireFil(filId, token).then(
+      (res) => {
+        setMessages(res.messages);
+        setSujet(res.sujet);
+        setPreview({ status: res.status, updatedAt: res.updatedAt, sujet: res.sujet });
+        markSeen(res.updatedAt);
+      },
+      () => setMessages([]),
+    );
   }, [ok, token, filId, setPreview, markSeen]);
 
   useEffect(() => {

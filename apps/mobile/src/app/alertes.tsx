@@ -1,6 +1,6 @@
 import { ageAt } from '@bc/contract';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
@@ -35,26 +35,31 @@ export default function AlertesScreen() {
   const [notifs, setNotifs] = useState<{ id: string; type: string; title: string; body: string; link?: string }[]>([]);
   const [avis, setAvis] = useState<{ id: string; title: string; body: string }[]>([]);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await lireNotifications(clubActif, statut);
-      setNotifs(res.items);
-    } catch {
-      setNotifs([]);
-    }
-    if (me) {
-      try {
-        const perso = await lireAvis();
-        setAvis(perso.items);
-      } catch {
-        setAvis([]);
-      }
-    }
-  }, [clubActif, statut, me]);
-
+  // Les annonces et les avis : lus à l'ouverture, posés à leur arrivée.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let actif = true;
+    void lireNotifications(clubActif, statut).then(
+      (res) => {
+        if (actif) setNotifs(res.items);
+      },
+      () => {
+        if (actif) setNotifs([]);
+      },
+    );
+    if (me) {
+      void lireAvis().then(
+        (perso) => {
+          if (actif) setAvis(perso.items);
+        },
+        () => {
+          if (actif) setAvis([]);
+        },
+      );
+    }
+    return () => {
+      actif = false;
+    };
+  }, [clubActif, statut, me]);
 
   // L'admin vise des écrans de l'app ; les vidéos et les événements vivent dans deux rubriques au nom différent.
   const openLink = (url?: string) => {

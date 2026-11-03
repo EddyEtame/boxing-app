@@ -43,9 +43,9 @@ function Corps() {
   const setClubActif = useSession((st) => st.setClubActif);
   const favorites = useUsage((st) => st.favorites);
   const stats = useStats();
+  const live = useLivePlanning();
   if (!me) return null;
   const now = new Date();
-  const live = useLivePlanning();
   const club = clubById(clubActif);
   const age = ageAt(me.dateNaissance, now);
   const fav = nextFavorite(favorites, now);

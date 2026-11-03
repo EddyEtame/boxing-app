@@ -1,6 +1,6 @@
 import type { PublicEvent, PublicNews, Statut } from '@bc/contract';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
@@ -33,23 +33,27 @@ export function Screen() {
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [a, e] = await Promise.all([lireActualites(), lireEvenements()]);
-      setNews(a.enabled ? a.items.filter((n) => audienceOk(n.audience, statut)) : []);
-      setEvents(e.enabled ? e.items.filter((n) => audienceOk(n.audience, statut)) : []);
-    } catch {
-      setNews([]);
-      setEvents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [statut]);
-
+  // Lues à l'ouverture et quand le statut change ; l'écran garde ce qu'il montre jusqu'à la réponse.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let actif = true;
+    void Promise.all([lireActualites(), lireEvenements()]).then(
+      ([a, e]) => {
+        if (!actif) return;
+        setNews(a.enabled ? a.items.filter((n) => audienceOk(n.audience, statut)) : []);
+        setEvents(e.enabled ? e.items.filter((n) => audienceOk(n.audience, statut)) : []);
+        setLoading(false);
+      },
+      () => {
+        if (!actif) return;
+        setNews([]);
+        setEvents([]);
+        setLoading(false);
+      },
+    );
+    return () => {
+      actif = false;
+    };
+  }, [statut]);
 
   return (
     <Page title={T('news.title')} subtitle={T('news.sub')}>
