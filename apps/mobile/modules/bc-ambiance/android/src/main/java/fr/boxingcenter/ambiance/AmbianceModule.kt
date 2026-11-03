@@ -20,13 +20,22 @@ class AmbianceModule : Module() {
     Function("setAppNightMode") { mode: String ->
       if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@Function
       val context = appContext.reactContext ?: return@Function
-      val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager ?: return@Function
-      val wanted = when (mode) {
-        "light" -> UiModeManager.MODE_NIGHT_NO
-        "dark" -> UiModeManager.MODE_NIGHT_YES
-        else -> UiModeManager.MODE_NIGHT_AUTO
+      // setApplicationNightMode detruit l'activite. Sans memoire, chaque
+      // ouverture le rappelait et l'application se fermait tout de suite.
+      val prefs = context.getSharedPreferences("bc-ambiance", Context.MODE_PRIVATE)
+      if (prefs.getString("mode", null) == mode) return@Function
+      if (!prefs.edit().putString("mode", mode).commit()) return@Function
+      try {
+        val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager ?: return@Function
+        val wanted = when (mode) {
+          "light" -> UiModeManager.MODE_NIGHT_NO
+          "dark" -> UiModeManager.MODE_NIGHT_YES
+          else -> UiModeManager.MODE_NIGHT_AUTO
+        }
+        uiModeManager.setApplicationNightMode(wanted)
+      } catch (_: Throwable) {
+        // Le theme de l'app reste celui choisi en JavaScript.
       }
-      uiModeManager.setApplicationNightMode(wanted)
     }
   }
 }

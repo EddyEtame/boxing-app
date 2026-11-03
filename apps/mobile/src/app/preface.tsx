@@ -5,6 +5,7 @@ import { StyleSheet, View, useColorScheme, useWindowDimensions } from 'react-nat
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { confierAmbiance } from '@/features/ambiance';
 import { track } from '@/features/analytics';
 import { useT } from '@/i18n';
 import { LangPill } from '@/screens/common/LangPill';
@@ -154,6 +155,7 @@ function AmbianceButton() {
     <Tap
       onPress={() => {
         setAppearance(next);
+        confierAmbiance(next);
         track('theme_change', { value: next, step: 1 });
       }}
       scaleTo={0.9}

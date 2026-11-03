@@ -4,6 +4,7 @@ import { Linking, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
+import { confierAmbiance } from '@/features/ambiance';
 import { sectionVisible } from '@/features/flags';
 import { PLUS_GRID, SECTIONS, urlBoutique, type SectionId } from '@/features/sections';
 import { useI18nStore, useT, type Locale } from '@/i18n';
@@ -225,7 +226,10 @@ function AppearancePicker() {
       <Segmented<Appearance>
         full
         value={appearance}
-        onChange={setAppearance}
+        onChange={(value) => {
+          setAppearance(value);
+          confierAmbiance(value);
+        }}
         options={[
           { value: 'light', label: T('plus.light'), icon: IconSun },
           { value: 'dark', label: T('plus.dark'), icon: IconMoon },

@@ -21,7 +21,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/global.css';
 
-import { confierAmbiance } from '@/features/ambiance';
 import { useBadgeClockTicker } from '@/features/badge/clock';
 import { AppRealtimeRoot } from '@/components/AppRealtimeRoot';
 import { useAdminBootstrap } from '@/lib/admin-bootstrap';
@@ -91,7 +90,6 @@ function RootLayout() {
   const localeReady = useI18nStore((s) => s.hydrated);
   const clubsReady = useSession((s) => s.clubsHydrated);
   const auth = useSession((s) => s.auth);
-  const appearance = usePrefs((s) => s.appearance);
   const [loaded, error] = useFonts({
     BebasNeue_400Regular,
     Montserrat_400Regular,
@@ -117,11 +115,6 @@ function RootLayout() {
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.bg);
   }, [t.bg]);
-
-  // Le système garde l'ambiance de l'app : l'écran natif du prochain lancement la reprend.
-  useEffect(() => {
-    if (prefsReady) confierAmbiance(appearance);
-  }, [appearance, prefsReady]);
 
   return (
     <View style={[styles.fill, { backgroundColor: t.bg }]}>
