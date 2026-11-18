@@ -58,7 +58,7 @@ if (process.env.ROBOT_DIR) {
 
 if (process.env.CLOUDFLARE_TUNNEL_TOKEN) {
   const bin = process.env.CLOUDFLARED_BIN || join(root, 'bin', 'cloudflared');
-  slots.push(supervise('tunnel', bin, ['tunnel', '--no-autoupdate', 'run', '--token', process.env.CLOUDFLARE_TUNNEL_TOKEN], {
+  slots.push(supervise('tunnel', bin, ['tunnel', '--no-autoupdate', '--protocol', 'http2', 'run', '--token', process.env.CLOUDFLARE_TUNNEL_TOKEN], {
     cwd: root,
     env: process.env,
   }));
