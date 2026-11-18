@@ -14,10 +14,10 @@ test('le demarrage ne demande pas a Android de relancer l activite', () => {
   assert.equal(layout.includes("from 'react-native-reanimated'"), false);
 });
 
-test('la version affichee est 0.1.3 et le numero Android est 4', () => {
+test('la version affichee est 0.1.6 et le numero Android est 7', () => {
   const app = readFileSync(join(ici, '../../app.json'), 'utf8');
-  assert.match(app, /"version": "0\.1\.3"/);
-  assert.match(app, /"versionCode": 4/);
+  assert.match(app, /"version": "0\.1\.6"/);
+  assert.match(app, /"versionCode": 7/);
   assert.match(app, /extends androidx\.room\.RoomDatabase/);
   assert.match(app, /extends androidx\.work\.InputMerger/);
 });

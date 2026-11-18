@@ -6,6 +6,7 @@ import { Linking, View } from 'react-native';
 import { clubById } from '@/data/clubs';
 import { shortDay } from '@/features/time';
 import { lireActualites, lireEvenements } from '@/lib/admin-api';
+import { configReady } from '@/lib/config';
 import { useLocale, useT } from '@/i18n';
 import { selectStatut, useSession } from '@/state/session';
 import { IconBelt } from '@/ui/icons';
@@ -31,10 +32,11 @@ export function Screen() {
   const statut = useSession(selectStatut);
   const [news, setNews] = useState<PublicNews[]>([]);
   const [events, setEvents] = useState<PublicEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(configReady);
 
   // Lues à l'ouverture et quand le statut change ; l'écran garde ce qu'il montre jusqu'à la réponse.
   useEffect(() => {
+    if (!configReady) return undefined;
     let actif = true;
     void Promise.all([lireActualites(), lireEvenements()]).then(
       ([a, e]) => {

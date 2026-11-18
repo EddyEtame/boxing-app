@@ -1,8 +1,11 @@
 /** Variables injectees au build (CI). Aucune valeur de demonstration. */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
-/** Pont adherent (apps/bridge). Distinct de l'admin, qui reste sur API_URL. */
-export const MEMBER_API_URL = (process.env.EXPO_PUBLIC_MEMBER_API_URL ?? '').replace(/\/$/, '');
-export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const adminUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/$/, '');
+const memberUrl = (process.env.EXPO_PUBLIC_MEMBER_API_URL ?? '').trim().replace(/\/$/, '');
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? '';
+export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 
-export const configReady = API_URL.length > 0 && MEMBER_API_URL.length > 0 && SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
+export const configReady = Boolean(adminUrl && memberUrl && SUPABASE_URL && SUPABASE_ANON_KEY);
+
+// Une configuration partielle coupe les deux API et laisse les données locales à l'écran.
+export const API_URL = configReady ? adminUrl : '';
+export const MEMBER_API_URL = configReady ? memberUrl : '';

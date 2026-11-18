@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import { COMBATS_FLUX, COMBATS_INSTANTANE, type ArticleCombat } from '@/data/combats';
+import { COMBATS_INSTANTANE, COMBATS_SOURCES, type ArticleCombat, type IdSourceCombats } from '@/data/combats';
 import { lireActualites, lireEvenements } from '@/lib/admin-api';
+import { configReady } from '@/lib/config';
 
-/**
- * L'actualité des combats (CDC §13) : ce que le club publie dans l'admin (galas,
- * stages, combats, résultats), puis l'actualité générale de la boxe et du MMA lue
- * en direct sur le flux RSS de actu-mma.com, avec l'instantané embarqué comme
- * repli : l'écran n'est jamais vide, et il dit toujours d'où vient ce qu'il montre.
- */
+import { lireArticles } from './flux';
+
 export type Combat = {
   id: string;
   titre: string;
@@ -20,50 +17,47 @@ export type Combat = {
   duClub: boolean;
 };
 
-export type CombatsState = { items: Combat[]; origine: 'direct' | 'instantané'; luA: Date | null };
+type CombatsState = { items: Combat[]; lectures: Partial<Record<IdSourceCombats, Date>> };
+const DELAI_FLUX_MS = 8_000;
+const INTERVALLE_FLUX_MS = 5 * 60_000;
+const releves = new Map<IdSourceCombats, { articles: ArticleCombat[]; luA: Date }>();
+let rafraichissement: Promise<void> | undefined;
+let dernierEssai = 0;
 
-function decode(s: string): string {
-  return s
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, '’')
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
-    .trim();
+/** L’accueil et l’écran des combats partagent la lecture des médias. */
+function actualiserSources(): Promise<void> {
+  if (rafraichissement) return rafraichissement;
+  if (Date.now() - dernierEssai < INTERVALLE_FLUX_MS) return Promise.resolve();
+  dernierEssai = Date.now();
+
+  const controleur = new AbortController();
+  const timer = setTimeout(() => controleur.abort(), DELAI_FLUX_MS);
+  rafraichissement = Promise.allSettled(COMBATS_SOURCES.map(async (source) => {
+    const articles = await lireArticles(source, controleur.signal);
+    if (articles.length) releves.set(source.id, { articles, luA: new Date() });
+  })).then(() => undefined).finally(() => {
+    clearTimeout(timer);
+    rafraichissement = undefined;
+  });
+  return rafraichissement;
 }
 
-function tag(block: string, name: string): string {
-  const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`));
-  return m ? decode(m[1]) : '';
+function lireReleves(): CombatsState {
+  const lectures: CombatsState['lectures'] = {};
+  const items = COMBATS_SOURCES.flatMap(({ id }) => {
+    const releve = releves.get(id);
+    if (releve && releve.luA.getTime() >= dernierEssai) lectures[id] = releve.luA;
+    return releve?.articles ?? COMBATS_INSTANTANE.filter((article) => article.source === id);
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  return { items: items.map((article) => ({ ...article, id: article.lien, photo: null, duClub: false })), lectures };
 }
-
-export function parseRss(xml: string): ArticleCombat[] {
-  const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
-  return items
-    .slice(0, 12)
-    .map((it) => {
-      const pub = tag(it, 'pubDate');
-      const d = pub ? new Date(pub) : null;
-      return {
-        titre: tag(it, 'title'),
-        lien: tag(it, 'link'),
-        date: d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '',
-        resume: tag(it, 'description').replace(/<[^>]+>/g, '').slice(0, 220),
-        source: 'actu-mma.com' as const,
-      };
-    })
-    .filter((c) => c.titre && c.lien);
-}
-
-const versLigne = (a: ArticleCombat): Combat => ({ id: a.lien, titre: a.titre, date: a.date, resume: a.resume, source: a.source, lien: a.lien, photo: null, duClub: false });
 
 export function useCombats(): CombatsState {
   const [club, setClub] = useState<Combat[]>([]);
-  const [flux, setFlux] = useState<{ items: Combat[]; origine: CombatsState['origine']; luA: Date | null }>({ items: COMBATS_INSTANTANE.map(versLigne), origine: 'instantané', luA: null });
+  const [flux, setFlux] = useState(lireReleves);
 
   useEffect(() => {
+    if (!configReady) return undefined;
     let cancelled = false;
     Promise.all([lireEvenements().catch(() => null), lireActualites().catch(() => null)]).then(([events, news]) => {
       if (cancelled) return;
@@ -93,21 +87,13 @@ export function useCombats(): CombatsState {
         }));
       setClub([...fromEvents, ...fromNews].sort((a, b) => b.date.localeCompare(a.date)));
     });
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    fetch(COMBATS_FLUX, { signal: controller.signal })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
-      .then((xml) => {
-        const items = parseRss(xml);
-        if (!cancelled && items.length) setFlux({ items: items.map(versLigne), origine: 'direct', luA: new Date() });
-      })
-      .catch(() => undefined)
-      .finally(() => clearTimeout(timer));
+    void actualiserSources().then(() => {
+      if (!cancelled) setFlux(lireReleves());
+    });
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, []);
 
-  return { items: [...club, ...flux.items], origine: flux.origine, luA: flux.luA };
+  return { items: [...club, ...flux.items], lectures: flux.lectures };
 }

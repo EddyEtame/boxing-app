@@ -12,6 +12,7 @@ import { shortDay } from '@/features/time';
 import { ouvrirOffres } from '@/features/offres';
 import { useInLocale, useLocale, useT } from '@/i18n';
 import { lireMe } from '@/lib/api';
+import { configReady } from '@/lib/config';
 import { selectAcces, useSession } from '@/state/session';
 import { Anneau } from '@/ui/Etincelles';
 import { IconChevron } from '@/ui/icons';
@@ -285,7 +286,7 @@ function CarteAcces() {
         title={T('guest.promptTitle')}
         sub={T('guest.promptBody')}
         meta={T('guest.promptMeta')}
-        onPress={() => ouvrirOffres(clubActif, 'home')}
+        onPress={configReady ? () => ouvrirOffres(clubActif, 'home') : undefined}
       />
       <ActionsDecouverte from="home" />
     </View>

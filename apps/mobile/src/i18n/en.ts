@@ -38,7 +38,7 @@ export const en: Translation = {
     disciplines: 'Disciplines',
     disciplinesSub: 'What we teach, and who it’s for',
     fights: 'Fights',
-    fightsSub: 'Boxing and MMA news',
+    fightsSub: 'Boxing, MMA and kickboxing',
     shop: 'Shop',
     shopSub: 'Offers and sign-ups',
     plusSub: 'Everything else, tidied up',
@@ -587,11 +587,13 @@ export const en: Translation = {
   },
 
   fights: {
-    eyebrow: 'Boxing · MMA',
+    eyebrow: 'Boxing · MMA · Kickboxing',
     title: 'Fight news',
     live: 'Updated at {h}',
+    mixed: 'Recent and saved stories',
     snapshot: 'Last saved selection',
-    note: 'Club announcements first, then boxing and MMA news. Each story opens at its source.',
+    allSources: 'All publishers',
+    note: 'Club announcements lead the full feed. Each press article opens on its publisher’s site.',
     inFrench: 'in French',
   },
 
@@ -641,6 +643,8 @@ export const en: Translation = {
     birth: 'Date of birth',
     birthPh: 'DD/MM/YYYY',
     password: 'Password',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
     passwordPh: 'At least 8 characters',
     createNote: 'We check at least two of these details against the club’s records before activating your badge.',
     createNoteDiscover: 'If you’ve been a member before, we’ll find your record too.',
@@ -728,12 +732,8 @@ export const en: Translation = {
     body: 'This part of the app arrives in a later update.',
   },
 
-  config: {
-    title: 'Missing configuration',
-    body: 'The app is not connected to the server. The build must provide EXPO_PUBLIC_API_URL, EXPO_PUBLIC_MEMBER_API_URL, EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.',
-  },
-
   net: {
+    backendUnavailable: 'Backend not connected',
     offline: 'No connection',
     offlineBody: 'Clubs, the schedule, disciplines, coaches and fights stay available. Your account resumes when the network is back.',
     serverTitle: 'Your account isn’t responding',

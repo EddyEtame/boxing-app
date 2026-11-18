@@ -1,11 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
-import { createContext, useCallback, useContext, type PropsWithChildren, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, type PropsWithChildren, type ReactNode } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
   interpolate,
   useAnimatedReaction,
-  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -28,6 +28,7 @@ const ARRIVE = Easing.bezier(easing.arrive[0], easing.arrive[1], easing.arrive[2
 
 /** Hauteur de la barre de titre compacte (sous la zone sûre). */
 const BAR = 52;
+const PageScrollView = Platform.OS === 'web' ? Animated.ScrollView : KeyboardAwareScrollView;
 
 type ScrollState = { y: SharedValue<number>; viewport: number };
 const ScrollStateContext = createContext<ScrollState | null>(null);
@@ -88,7 +89,7 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
   const onScroll = useAnimatedScrollHandler((e) => {
     y.value = e.contentOffset.y;
   });
-  const scroller = useAnimatedRef<Animated.ScrollView>();
+  const scroller = useRef<KeyboardAwareScrollViewRef>(null);
   // La page au premier plan répond au second toucher sur son onglet : retour en haut.
   useFocusEffect(
     useCallback(() => {
@@ -190,8 +191,9 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
   return (
     <View style={[styles.root, { backgroundColor: t.bg }, style]}>
       <ScrollStateContext.Provider value={{ y, viewport }}>
-        <Animated.ScrollView
+        <PageScrollView
           ref={scroller}
+          bottomOffset={space[4]}
           onScroll={onScroll}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
@@ -200,7 +202,7 @@ export function Page({ children, scroll = true, padded = true, bleedTop = false,
           contentContainerStyle={[styles.column, inner, contentStyle]}>
           {header}
           {children}
-        </Animated.ScrollView>
+        </PageScrollView>
       </ScrollStateContext.Provider>
       {bar}
     </View>

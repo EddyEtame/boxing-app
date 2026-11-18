@@ -44,7 +44,7 @@ export const fr = {
     disciplines: 'Disciplines',
     disciplinesSub: 'Ce qu’on enseigne, et pour qui',
     fights: 'Combats',
-    fightsSub: 'L’actualité de la boxe et du MMA',
+    fightsSub: 'Boxe anglaise, MMA et pieds-poings',
     shop: 'Boutique',
     shopSub: 'Les offres et les inscriptions',
     plusSub: 'Tout le reste, rangé',
@@ -593,11 +593,13 @@ export const fr = {
   },
 
   fights: {
-    eyebrow: 'Boxe · MMA',
+    eyebrow: 'Boxe · MMA · Pieds-poings',
     title: 'L’actu des combats',
     live: 'Mis à jour à {h}',
+    mixed: 'Articles récents et sélection enregistrée',
     snapshot: 'Dernière sélection enregistrée',
-    note: 'Les annonces du club d’abord, puis l’actualité de la boxe et du MMA. Chaque article s’ouvre chez sa source.',
+    allSources: 'Tous les médias',
+    note: 'Les annonces du club ouvrent le fil complet. Chaque article de presse s’ouvre sur le site de son média.',
     inFrench: 'en français',
   },
 
@@ -647,6 +649,8 @@ export const fr = {
     birth: 'Date de naissance',
     birthPh: 'JJ/MM/AAAA',
     password: 'Mot de passe',
+    showPassword: 'Afficher le mot de passe',
+    hidePassword: 'Masquer le mot de passe',
     passwordPh: '8 caractères minimum',
     createNote: 'On vérifie au moins deux de ces informations avec la base du club avant d’activer ton badge.',
     createNoteDiscover: 'Si tu as déjà été adhérent, on retrouve aussi ta fiche.',
@@ -734,12 +738,8 @@ export const fr = {
     body: 'Cette partie de l’app arrive dans une prochaine mise à jour.',
   },
 
-  config: {
-    title: 'Configuration manquante',
-    body: 'L’application n’est pas reliée au serveur. Le build doit fournir EXPO_PUBLIC_API_URL, EXPO_PUBLIC_MEMBER_API_URL, EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY.',
-  },
-
   net: {
+    backendUnavailable: 'Serveur non connecté',
     offline: 'Pas de connexion',
     offlineBody: 'Les clubs, le planning, les disciplines, les coachs et les combats restent consultables. Le compte reprend dès que le réseau revient.',
     serverTitle: 'Ton compte ne répond pas',

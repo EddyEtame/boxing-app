@@ -16,6 +16,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -30,12 +31,11 @@ import { setAnalyticsScheme, startAnalytics, track, trackScreen } from '@/featur
 import { configReady } from '@/lib/config';
 import { demanderDroitsAppareil } from '@/lib/droits';
 import '@/lib/background';
-import { ConfigManquante } from '@/screens/ConfigManquante';
 import { usePrefs } from '@/state/prefs';
 import { bootSession, useSession } from '@/state/session';
 import { useUsage } from '@/state/usage';
 import { BootScreen } from '@/ui/BootScreen';
-import { BandeauHorsLigne } from '@/ui/Offline';
+import { BandeauHorsLigne, BandeauServeurInactif } from '@/ui/Offline';
 import { useTheme } from '@/ui/theme';
 
 // L'écran natif reste jusqu'à ce que l'écran de lancement (identique) soit dessiné : c'est lui qui le congédie.
@@ -100,7 +100,7 @@ function RootLayout() {
     Montserrat_800ExtraBold,
     IBMPlexMono_500Medium,
   });
-  const ready = (loaded || !!error) && prefsReady && localeReady && clubsReady && (!configReady || auth !== 'chargement');
+  const ready = (loaded || !!error) && prefsReady && localeReady && clubsReady && auth !== 'chargement';
   const [booted, setBooted] = useState(false);
   const onBooted = useCallback(() => setBooted(true), []);
 
@@ -121,7 +121,7 @@ function RootLayout() {
 
   return (
     <View style={[styles.fill, { backgroundColor: t.bg }]}>
-      {ready ? (configReady ? <AppTree connecte={auth === 'connecte'} /> : <ConfigManquante />) : null}
+      {ready ? <AppTree connecte={auth === 'connecte'} /> : null}
       {booted ? null : <BootScreen ready={ready} onDone={onBooted} />}
     </View>
   );
@@ -134,35 +134,42 @@ function AppTree({ connecte }: { connecte: boolean }) {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
       <SafeAreaProvider>
-        <AppRealtimeRoot>
-          <StatusBar style={t.statusBar} />
-          <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: t.bg },
-            animation: 'slide_from_right',
-          }}>
-          {/* Tout le monde a un compte pour continuer (Eddy, 30/10/2026) ; sans abonnement, on visite en découverte. */}
-          <Stack.Protected guard={!connecte}>
-            <Stack.Screen name="preface" options={{ animation: 'fade', gestureEnabled: false }} />
-          </Stack.Protected>
-          <Stack.Protected guard={connecte}>
-            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-            <Stack.Screen name="fil/[id]" />
-            <Stack.Screen name="alertes" />
-            <Stack.Screen name="equipe" />
-            <Stack.Screen name="disciplines" />
-            <Stack.Screen name="combats" />
-            <Stack.Screen name="notifications" />
-            <Stack.Screen name="barre" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="bienvenue" options={{ presentation: 'modal', animation: 'fade', gestureEnabled: false }} />
-          </Stack.Protected>
-          {/* Hors des deux gardes : l'écran reste ouvert quand la session arrive, jusqu'au résultat. */}
-          <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        </Stack>
-        <ThemeFade />
-        <BandeauHorsLigne />
-        </AppRealtimeRoot>
+        <KeyboardProvider preload={false}>
+          <AppRealtimeRoot>
+            <StatusBar style={t.statusBar} />
+            {!configReady ? <BandeauServeurInactif /> : null}
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: t.bg },
+                animation: 'slide_from_right',
+              }}>
+              {/* L'entrée demande un compte quand le serveur est configuré. */}
+              <Stack.Protected guard={configReady && !connecte}>
+                <Stack.Screen name="preface" options={{ animation: 'fade', gestureEnabled: false }} />
+              </Stack.Protected>
+              <Stack.Protected guard={connecte || !configReady}>
+                <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="alertes" />
+                <Stack.Screen name="equipe" />
+                <Stack.Screen name="disciplines" />
+                <Stack.Screen name="combats" />
+                <Stack.Screen name="notifications" />
+                <Stack.Screen name="barre" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+              </Stack.Protected>
+              <Stack.Protected guard={connecte}>
+                <Stack.Screen name="fil/[id]" />
+                <Stack.Screen name="bienvenue" options={{ presentation: 'modal', animation: 'fade', gestureEnabled: false }} />
+              </Stack.Protected>
+              {/* Le formulaire reste ouvert quand la session arrive, jusqu'au résultat. */}
+              <Stack.Protected guard={configReady}>
+                <Stack.Screen name="connexion" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+              </Stack.Protected>
+            </Stack>
+            <ThemeFade />
+            {configReady ? <BandeauHorsLigne /> : null}
+          </AppRealtimeRoot>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
