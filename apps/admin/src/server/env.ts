@@ -41,10 +41,20 @@ export function sessionSecret(): string | null {
   return g.__bcaDevSecret;
 }
 
+function envValue(raw: string | undefined): string {
+  const trimmed = raw?.trim() ?? '';
+  if (trimmed.length >= 2) {
+    const a = trimmed[0];
+    const b = trimmed[trimmed.length - 1];
+    if ((a === '"' && b === '"') || (a === "'" && b === "'")) return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 /** Le compte Direction : les identifiants du super administrateur de la boutique. */
 export function directionCredentials(): { email: string; password: string } | null {
-  const email = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase() ?? '';
-  const password = process.env.SUPER_ADMIN_PASSWORD ?? '';
+  const email = envValue(process.env.SUPER_ADMIN_EMAIL).toLowerCase();
+  const password = envValue(process.env.SUPER_ADMIN_PASSWORD);
   if (!email || !password) return null;
   return { email, password };
 }
