@@ -58,9 +58,10 @@ if (process.env.ROBOT_DIR) {
 
 if (process.env.CLOUDFLARE_TUNNEL_TOKEN) {
   const bin = process.env.CLOUDFLARED_BIN || join(root, 'bin', 'cloudflared');
+  // BotHosting bloque souvent le QUIC/7844 : forcer HTTP/2 (443) via CLI + env.
   slots.push(supervise('tunnel', bin, ['tunnel', '--no-autoupdate', '--protocol', 'http2', 'run', '--token', process.env.CLOUDFLARE_TUNNEL_TOKEN], {
     cwd: root,
-    env: process.env,
+    env: { ...process.env, TUNNEL_TRANSPORT_PROTOCOL: 'http2' },
   }));
 }
 
