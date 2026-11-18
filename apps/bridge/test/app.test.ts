@@ -397,6 +397,7 @@ test('crochet e-mail : signature valide envoie le code, signature invalide -> 40
     assert.match(mailer.sent[0]?.text ?? '', /123456/);
     assert.match(mailer.sent[0]?.html ?? '', /123456/);
     assert.match(mailer.sent[0]?.text ?? '', /1 heure/);
+    assert.equal(mailer.sent[0]?.subject, 'Boxing Center : 123456');
     assert.equal(mailer.sent[0]?.to, 'ada@boxingcenter.fr');
 
     const flipped = signature.slice(0, -1) + (signature.endsWith('A') ? 'B' : 'A');

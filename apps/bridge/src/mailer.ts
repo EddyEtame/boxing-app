@@ -28,10 +28,12 @@ export function createMailer(env: Env, fetchImpl: FetchLike = fetch): Mailer {
           body: JSON.stringify({
             sender: { email: env.BREVO_SENDER_EMAIL, name: env.BREVO_SENDER_NAME },
             to: [{ email: mail.to }],
-            replyTo: { email: env.BREVO_REPLY_TO },
+            replyTo: { email: env.BREVO_SENDER_EMAIL, name: env.BREVO_SENDER_NAME },
             subject: mail.subject,
             htmlContent: mail.html,
             textContent: mail.text,
+            tags: ['transactional', 'auth-otp'],
+            headers: { 'X-Mailin-custom': 'auth-otp' },
           }),
           signal: AbortSignal.timeout(15_000),
         });

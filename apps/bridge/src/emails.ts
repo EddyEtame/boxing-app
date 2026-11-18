@@ -12,54 +12,47 @@ function cleanPrenom(value: string | null): string | null {
   return cleaned || null;
 }
 
-const SUBJECTS: Record<string, string> = {
-  signup: 'Verifiez votre adresse e-mail',
-  recovery: 'Reinitialisation du mot de passe',
-  email_change: 'Confirmez votre nouvelle adresse',
-  reauthentication: 'Confirmez votre identite',
-  magiclink: 'Votre code de connexion',
-  invite: 'Votre invitation Boxing Center',
-};
-
 const INTROS: Record<string, string> = {
-  signup: 'Utilisez ce code pour verifier votre adresse e-mail.',
-  recovery: 'Utilisez ce code pour choisir un nouveau mot de passe.',
-  email_change: 'Utilisez ce code pour confirmer votre nouvelle adresse e-mail.',
-  reauthentication: 'Utilisez ce code pour confirmer qu\'il s\'agit bien de vous.',
-  magiclink: 'Utilisez ce code pour vous connecter.',
-  invite: 'Utilisez ce code pour accepter votre invitation.',
+  signup: 'Voici le code pour confirmer ton compte sur l’application Boxing Center.',
+  recovery: 'Voici le code pour choisir un nouveau mot de passe sur l’application Boxing Center.',
+  email_change: 'Voici le code pour confirmer ta nouvelle adresse e-mail.',
+  reauthentication: 'Voici le code pour confirmer qu’il s’agit bien de toi.',
+  magiclink: 'Voici le code pour te connecter à l’application Boxing Center.',
+  invite: 'Voici le code pour accepter ton invitation Boxing Center.',
 };
 
 export function buildAuthEmail(input: { action: string; prenom: string | null; code: string }): { subject: string; text: string; html: string } {
   const prenom = cleanPrenom(input.prenom);
   const hello = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const intro = INTROS[input.action] ?? INTROS.magiclink;
-  const subject = SUBJECTS[input.action] ?? SUBJECTS.magiclink;
+  const code = input.code.trim();
+  const subject = `Boxing Center : ${code}`;
   const text = [
     hello,
     '',
     intro ?? '',
     '',
-    `Code : ${input.code}`,
+    code,
     '',
-    'Ce code est valable 1 heure.',
+    'Valable 1 heure. Un seul usage.',
     '',
-    'Si vous n\'etes pas a l\'origine de cette demande, ignorez ce message.',
+    'Si tu n’as pas demandé ce code, ignore ce message.',
     '',
     'Boxing Center',
   ].join('\n');
   const html = [
     '<!DOCTYPE html>',
     '<html lang="fr">',
-    '<body style="font-family: Arial, sans-serif; color: #20254B; line-height: 1.5;">',
+    '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>',
+    '<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#111111;background:#ffffff;">',
     `<p>${escapeHtml(hello)}</p>`,
     `<p>${escapeHtml(intro ?? '')}</p>`,
-    `<p style="font-size: 28px; letter-spacing: 6px; font-weight: bold;">${escapeHtml(input.code)}</p>`,
-    '<p>Ce code est valable 1 heure.</p>',
-    '<p>Si vous n\'etes pas a l\'origine de cette demande, ignorez ce message.</p>',
+    `<p style="font-size:28px;font-weight:bold;letter-spacing:4px;color:#111111;">${escapeHtml(code)}</p>`,
+    '<p>Valable 1 heure. Un seul usage.</p>',
+    '<p>Si tu n’as pas demandé ce code, ignore ce message.</p>',
     '<p>Boxing Center</p>',
     '</body>',
     '</html>',
   ].join('');
-  return { subject: subject ?? 'Votre code Boxing Center', text, html };
+  return { subject, text, html };
 }
