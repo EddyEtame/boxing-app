@@ -658,6 +658,7 @@ export const fr = {
     codeLabel: 'Code',
     verify: 'Valider le code',
     resend: 'Renvoyer le code',
+    resendWait: 'Renvoyer dans {s} s',
     resent: 'Un nouveau code a été envoyé.',
     forgotTitle: 'Mot de passe oublié',
     forgotSub: 'Nous envoyons un code à cet e-mail.',

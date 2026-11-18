@@ -26,6 +26,7 @@ type AuthEchec = { message?: string; code?: string; name?: string };
 
 const ATTENTE_MS = 3 * 60 * 1000;
 const SONDE_MS = 5_000;
+const RENVOI_MS = 60_000;
 
 function cleAuth(error: AuthEchec): MessageKey {
   const code = error.code ?? '';
@@ -68,6 +69,7 @@ export default function ConnexionScreen() {
   const [erreur, setErreur] = useState<MessageKey | null>(null);
   const [info, setInfo] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
+  const [renvoiDans, setRenvoiDans] = useState(0);
   const [fiche, setFiche] = useState<Me | null>(null);
   const [retour, setRetour] = useState(false);
   const nomRef = useRef<ComponentRef<typeof TextInput>>(null);
@@ -98,6 +100,17 @@ export default function ConnexionScreen() {
   useEffect(() => {
     if (retour && connecte) router.replace('/');
   }, [retour, connecte]);
+
+  useEffect(() => {
+    if (etape === 'code') setRenvoiDans(Math.ceil(RENVOI_MS / 1000));
+    else setRenvoiDans(0);
+  }, [etape]);
+
+  useEffect(() => {
+    if (renvoiDans <= 0) return undefined;
+    const timer = setTimeout(() => setRenvoiDans((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [renvoiDans]);
 
   const apresSession = async () => {
     setBusy(true);
@@ -262,7 +275,7 @@ export default function ConnexionScreen() {
   };
 
   const renvoyer = async () => {
-    if (!supabase) return;
+    if (!supabase || renvoiDans > 0) return;
     setBusy(true);
     setErreur(null);
     try {
@@ -280,6 +293,7 @@ export default function ConnexionScreen() {
         }
       }
       setInfo('auth.resent');
+      setRenvoiDans(Math.ceil(RENVOI_MS / 1000));
     } catch {
       setErreur('auth.offline');
     } finally {
@@ -408,7 +422,12 @@ export default function ConnexionScreen() {
           <>
             <CodeSaisie label={T('auth.codeLabel')} email={email.trim()} value={code} onChange={setCode} onComplete={(v) => void verifierCode(v)} />
             <Button label={T('auth.verify')} disabled={busy || code.length !== 6} onPress={() => void verifierCode()} />
-            <Button label={T('auth.resend')} variant="secondary" disabled={busy} onPress={() => void renvoyer()} />
+            <Button
+              label={renvoiDans > 0 ? T('auth.resendWait', { s: renvoiDans }) : T('auth.resend')}
+              variant="secondary"
+              disabled={busy || renvoiDans > 0}
+              onPress={() => void renvoyer()}
+            />
           </>
         ) : null}
 

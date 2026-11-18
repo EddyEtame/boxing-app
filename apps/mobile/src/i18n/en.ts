@@ -652,6 +652,7 @@ export const en: Translation = {
     codeLabel: 'Code',
     verify: 'Confirm the code',
     resend: 'Send the code again',
+    resendWait: 'Resend in {s} s',
     resent: 'A new code has been sent.',
     forgotTitle: 'Forgot password',
     forgotSub: 'We send a code to this email.',
