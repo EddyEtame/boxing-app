@@ -192,14 +192,35 @@ async function checkPlanningRule(): Promise<Connection> {
 }
 
 export async function checkDeciplus(): Promise<Connection> {
-  const vars = env('DECIPLUS_BRIDGE_URL', 'DECIPLUS_BRIDGE_SECRET');
-  if (!vars.every((v) => v.set)) return { id: 'deciplus', state: 'off', facts: [{ k: 'sys.fact.mode', v: 'sys.val.localDemo', as: 'key' }], env: vars, href: '/deciplus' };
-  const url = process.env.DECIPLUS_BRIDGE_URL!.replace(/\/+$/, '');
+  // Live : MEMBER_BRIDGE_* (admin) ; alias DECIPLUS_BRIDGE_* conserve pour l'ancien nommage.
+  const urlSet = has('MEMBER_BRIDGE_URL') || has('DECIPLUS_BRIDGE_URL');
+  const secretSet = has('ADMIN_BRIDGE_SECRET') || has('DECIPLUS_BRIDGE_SECRET');
+  const vars = [
+    { name: 'MEMBER_BRIDGE_URL', set: urlSet },
+    { name: 'ADMIN_BRIDGE_SECRET', set: secretSet },
+  ];
+  if (!urlSet || !secretSet) {
+    return { id: 'deciplus', state: 'off', facts: [{ k: 'sys.fact.mode', v: 'sys.val.localDemo', as: 'key' }], env: vars, href: '/deciplus' };
+  }
+  const url = (process.env.MEMBER_BRIDGE_URL || process.env.DECIPLUS_BRIDGE_URL)!.replace(/\/+$/, '');
+  const secret = (process.env.ADMIN_BRIDGE_SECRET || process.env.DECIPLUS_BRIDGE_SECRET)!.trim();
   const t0 = Date.now();
   try {
-    const res = await withTimeout(4000, (signal) => fetch(`${url}/health`, { headers: { authorization: `Bearer ${process.env.DECIPLUS_BRIDGE_SECRET}` }, signal, cache: 'no-store' }));
+    const res = await withTimeout(4000, (signal) =>
+      fetch(`${url}/health`, { headers: { authorization: `Bearer ${secret}` }, signal, cache: 'no-store' }),
+    );
     const ms = Date.now() - t0;
-    return { id: 'deciplus', state: res.ok ? 'ok' : 'erreur', facts: [{ k: 'sys.fact.http', v: res.status, as: 'num' }, { k: 'sys.fact.latency', v: ms, as: 'ms' }], env: vars, error: res.ok ? undefined : `HTTP ${res.status}`, href: '/deciplus' };
+    return {
+      id: 'deciplus',
+      state: res.ok ? 'ok' : 'erreur',
+      facts: [
+        { k: 'sys.fact.http', v: res.status, as: 'num' },
+        { k: 'sys.fact.latency', v: ms, as: 'ms' },
+      ],
+      env: vars,
+      error: res.ok ? undefined : `HTTP ${res.status}`,
+      href: '/deciplus',
+    };
   } catch (err) {
     return { id: 'deciplus', state: 'erreur', facts: [{ k: 'sys.fact.latency', v: Date.now() - t0, as: 'ms' }], env: vars, error: shortError(err), href: '/deciplus' };
   }

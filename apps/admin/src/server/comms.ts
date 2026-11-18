@@ -302,5 +302,10 @@ export async function createOutgoing(user: SessionUser, raw: OutgoingDraft): Pro
  * seulement que la clé attend.
  */
 export function deliveryStatus(): { pushKey: boolean; deciplusBridge: boolean } {
-  return { pushKey: Boolean(process.env.EXPO_ACCESS_TOKEN?.trim()), deciplusBridge: Boolean(process.env.DECIPLUS_BRIDGE_URL?.trim()) };
+  return {
+    pushKey: Boolean(process.env.EXPO_ACCESS_TOKEN?.trim()),
+    deciplusBridge: Boolean(
+      process.env.MEMBER_BRIDGE_URL?.trim() || process.env.DECIPLUS_BRIDGE_URL?.trim(),
+    ),
+  };
 }
