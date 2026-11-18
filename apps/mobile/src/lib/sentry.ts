@@ -1,8 +1,10 @@
 import * as Sentry from '@sentry/react-native';
 
+import { configReady } from '@/lib/config';
+
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
 
-if (dsn) {
+if (configReady && dsn) {
   try {
     Sentry.init({
       dsn,

@@ -9,6 +9,7 @@ import { confierAmbiance } from '@/features/ambiance';
 import { sectionVisible } from '@/features/flags';
 import { PLUS_GRID, SECTIONS, urlBoutique, type SectionId } from '@/features/sections';
 import { useI18nStore, useT, type Locale } from '@/i18n';
+import { configReady } from '@/lib/config';
 import { useFeaturesStore } from '@/state/features';
 import { usePrefs, type Appearance } from '@/state/prefs';
 import { useUsage } from '@/state/usage';
@@ -175,7 +176,7 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
   };
   return (
     <Animated.View style={[{ width }, style]}>
-      <Tap onPress={open} scaleTo={0.94} haptic="light" accessibilityRole="button" accessibilityLabel={T(section.title)} style={s.tile}>
+      <Tap onPress={open} disabled={!configReady && !!section.external} scaleTo={0.94} haptic="light" accessibilityRole="button" accessibilityLabel={T(section.title)} style={s.tile}>
         <View>
           <IconTile icon={section.icon} size={44} tone={id === 'badge' ? 'accent' : 'neutral'} />
           {locked ? (

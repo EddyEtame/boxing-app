@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { ouvrirOffres } from '@/features/offres';
 import { useT, type MessageKey } from '@/i18n';
 import { ApiError, cleErreurApi, lancerLien, lireMe } from '@/lib/api';
+import { configReady } from '@/lib/config';
 import { useSession } from '@/state/session';
 import { Button } from '@/ui/kit';
 import { Body } from '@/ui/Text';
@@ -40,8 +41,8 @@ export function ActionsDecouverte({ from }: { from: string }) {
 
   return (
     <View style={s.actions}>
-      <Button label={T('messages.seeOffers')} onPress={() => ouvrirOffres(clubActif, from)} />
-      <Button label={T('guest.haveSub')} variant="secondary" disabled={busy} onPress={() => void verifier()} />
+      <Button label={T('messages.seeOffers')} disabled={!configReady} onPress={() => ouvrirOffres(clubActif, from)} />
+      <Button label={T('guest.haveSub')} variant="secondary" disabled={!configReady || busy} onPress={() => void verifier()} />
       {retour ? (
         <Body size="caption" tone="muted">
           {T(retour)}

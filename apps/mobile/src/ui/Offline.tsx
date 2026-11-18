@@ -1,14 +1,14 @@
 import { useNetworkState } from 'expo-network';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n';
 import { useSession } from '@/state/session';
 import { Button, Card } from '@/ui/kit';
 import { Page } from '@/ui/Page';
 import { Body, Heading } from '@/ui/Text';
-import { makeStyles, space } from '@/ui/theme';
+import { makeStyles, space, stroke } from '@/ui/theme';
 
 /** Carte ou ecran : le reseau manque, on peut reessayer la fiche. */
 export function HorsLigne({ page = true }: { page?: boolean }) {
@@ -74,6 +74,18 @@ export function BandeauHorsLigne() {
   );
 }
 
+export function BandeauServeurInactif() {
+  const T = useT();
+  const s = useStyles();
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.serveurInactif}>
+      <Body size="caption" weight="semi" tone="muted" accessibilityLiveRegion="polite" style={s.serveurTexte}>
+        {T('net.backendUnavailable')}
+      </Body>
+    </SafeAreaView>
+  );
+}
+
 const useStyles = makeStyles((t) => ({
   body: { marginTop: space[2], marginBottom: space[4] },
   cta: { marginTop: space[2] },
@@ -94,4 +106,6 @@ const useStyles = makeStyles((t) => ({
   },
   bandeauTexte: { flex: 1 },
   bandeauBtn: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[3] },
+  serveurInactif: { backgroundColor: t.bg, borderBottomWidth: stroke.hair, borderBottomColor: t.line },
+  serveurTexte: { textAlign: 'center', paddingHorizontal: space[4], paddingVertical: space[2] },
 }));

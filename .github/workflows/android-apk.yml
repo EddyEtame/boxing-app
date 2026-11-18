@@ -65,7 +65,7 @@ jobs:
           npm run test:db
 
       # Variables du dépôt (Settings, Secrets and variables, Actions, onglet Variables).
-      # Absentes : l'APK se construit quand même et affiche l'écran de configuration.
+      # Absentes : l'APK ouvre la découverte avec les données locales et affiche « Serveur non connecté ».
       # Présente mais pas en https : le build s'arrête, Android refuse le clair.
       - name: Adresses du serveur et de Supabase
         env:
@@ -76,7 +76,7 @@ jobs:
         run: |
           for v in EXPO_PUBLIC_API_URL EXPO_PUBLIC_MEMBER_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
             if [ -z "${!v}" ]; then
-              echo "::warning::Variable de dépôt $v absente : l'APK affichera l'écran de configuration"
+              echo "::warning::Variable de dépôt $v absente : l'APK ouvrira la découverte sans accès serveur"
             else
               echo "$v=${!v}" >> "$GITHUB_ENV"
             fi

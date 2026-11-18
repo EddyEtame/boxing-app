@@ -102,7 +102,7 @@ function attendreClubs(): Promise<void> {
 export const useSession = create<SessionState>()(
   persist(
     (set, get) => ({
-      auth: 'chargement',
+      auth: configReady ? 'chargement' : 'deconnecte',
       me: null,
       erreur: null,
       abonnementDeclare: null,

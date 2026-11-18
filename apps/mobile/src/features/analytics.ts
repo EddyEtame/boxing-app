@@ -11,8 +11,8 @@ import { IS_SERVER, persistStorage } from '@/state/storage';
 import { useUsage } from '@/state/usage';
 
 /**
- * La mesure d'usage (CDC §15). Rien ne part sans EXPO_PUBLIC_API_URL, rien ne
- * part si la personne a coupe la mesure. File de 500 evenements au plus.
+ * La mesure d'usage (CDC §15). Une configuration complète et l'accord de la
+ * personne sont nécessaires. File de 500 événements au plus.
  */
 const VISIT_GAP = 30 * 60 * 1000;
 const MAX_QUEUE = 500;
@@ -44,7 +44,7 @@ export function setAnalyticsScheme(s: 'light' | 'dark') {
 }
 
 export function track(name: EventName, props?: Record<string, unknown>, path?: string) {
-  if (IS_SERVER) return;
+  if (IS_SERVER || !API_URL) return;
   const usage = useUsage.getState();
   if (!usage.analytics) return;
   const now = Date.now();

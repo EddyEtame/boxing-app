@@ -19,6 +19,17 @@ function useIcon(color?: string): string {
 
 const SW = 1.75;
 
+export function IconEye({ size = 24, color, strokeWidth = SW, hidden = false }: IconProps & { hidden?: boolean }) {
+  const c = useIcon(color);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke={c} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Circle cx={12} cy={12} r={2.75} stroke={c} strokeWidth={strokeWidth} />
+      {hidden ? <Path d="m3 3 18 18" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" /> : null}
+    </Svg>
+  );
+}
+
 /** Accueil : le ring vu du dessus, un carré et ses quatre poteaux. */
 export function IconRing({ size = 24, color, strokeWidth = SW }: IconProps) {
   const c = useIcon(color);

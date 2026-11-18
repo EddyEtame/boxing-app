@@ -12,6 +12,7 @@ import { useSession } from '@/state/session';
 import { Ceremonie } from '@/screens/compte/Ceremonie';
 import { CodeSaisie } from '@/screens/compte/CodeSaisie';
 import { Button, Segmented } from '@/ui/kit';
+import { IconEye } from '@/ui/icons';
 import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body } from '@/ui/Text';
@@ -440,7 +441,7 @@ export default function ConnexionScreen() {
 
         {etape === 'nouveau' ? (
           <>
-            <Field label={T('auth.newPassword')} value={nouveau} onChange={setNouveau} placeholder={T('auth.passwordPh')} secure />
+            <Field label={T('auth.newPassword')} value={nouveau} onChange={setNouveau} placeholder={T('auth.passwordPh')} secure autoComplete="new-password" />
             {nouveau.length > 0 && nouveau.length < 8 ? <Body size="caption" tone="negative">{T('auth.passwordShort')}</Body> : null}
             <Button label={T('auth.newPasswordCta')} disabled={busy || nouveau.length < 8} onPress={() => void changerMotDePasse()} />
           </>
@@ -474,32 +475,47 @@ type FieldProps = {
 function Field({ label, value, onChange, placeholder, keyboard, secure, style, inputRef, autoComplete, maxLength, returnKey = 'next', onNext }: FieldProps) {
   const s = useStyles();
   const t = useTheme();
+  const T = useT();
   const [focus, setFocus] = useState(false);
+  const [visible, setVisible] = useState(false);
   return (
     <View style={[s.field, style]}>
       <Body size="caption" weight="bold" tone="muted">
         {label}
       </Body>
-      <TextInput
-        ref={inputRef}
-        returnKeyType={returnKey}
-        submitBehavior={returnKey === 'next' ? 'submit' : 'blurAndSubmit'}
-        onSubmitEditing={onNext}
-        autoComplete={autoComplete}
-        maxLength={maxLength}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={t.textDim}
-        keyboardType={keyboard}
-        secureTextEntry={secure}
-        autoCapitalize={keyboard || secure ? 'none' : 'words'}
-        autoCorrect={false}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
-        style={[s.input, { color: t.text, borderColor: focus ? t.text : t.line }]}
-        accessibilityLabel={label}
-      />
+      <View style={s.inputWrap}>
+        <TextInput
+          ref={inputRef}
+          returnKeyType={returnKey}
+          submitBehavior={returnKey === 'next' ? 'submit' : 'blurAndSubmit'}
+          onSubmitEditing={onNext}
+          autoComplete={autoComplete}
+          maxLength={maxLength}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor={t.textDim}
+          keyboardType={keyboard}
+          secureTextEntry={secure && !visible}
+          autoCapitalize={keyboard || secure ? 'none' : 'words'}
+          autoCorrect={false}
+          onFocus={() => setFocus(true)}
+          onBlur={() => setFocus(false)}
+          style={[s.input, secure && s.passwordInput, { color: t.text, borderColor: focus ? t.text : t.line }]}
+          accessibilityLabel={label}
+        />
+        {secure ? (
+          <Tap
+            style={s.passwordToggle}
+            onPress={() => setVisible((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={T(visible ? 'auth.hidePassword' : 'auth.showPassword')}
+            accessibilityState={{ checked: visible }}
+            haptic="none">
+            <IconEye size={22} hidden={visible} />
+          </Tap>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -508,6 +524,9 @@ const useStyles = makeStyles((t) => ({
   form: { gap: space[4] },
   row: { flexDirection: 'row', gap: space[3] },
   field: { gap: 6 },
+  inputWrap: { position: 'relative' },
+  passwordInput: { paddingRight: 60 },
+  passwordToggle: { position: 'absolute', right: 5, top: 5, bottom: 5, width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.control },
   input: { minHeight: 54, backgroundColor: t.card, borderRadius: radius.control + 2, borderWidth: 1.5, paddingHorizontal: space[4], fontFamily: fontFamily.textMedium, fontSize: fontSize.body, ...(t.scheme === 'light' ? { boxShadow: t.shadowCard } : null) },
   cta: { marginTop: space[2] },
   lien: { minHeight: 44, justifyContent: 'center' },
