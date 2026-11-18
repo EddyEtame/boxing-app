@@ -27,7 +27,7 @@ type AuthEchec = { message?: string; code?: string; name?: string };
 
 const ATTENTE_MS = 3 * 60 * 1000;
 const SONDE_MS = 5_000;
-const RENVOI_MS = 60_000;
+const RENVOI_SECONDES = 60;
 
 function cleAuth(error: AuthEchec): MessageKey {
   const code = error.code ?? '';
@@ -103,15 +103,17 @@ export default function ConnexionScreen() {
   }, [retour, connecte]);
 
   useEffect(() => {
-    if (etape === 'code') setRenvoiDans(Math.ceil(RENVOI_MS / 1000));
-    else setRenvoiDans(0);
-  }, [etape]);
-
-  useEffect(() => {
-    if (renvoiDans <= 0) return undefined;
+    if (etape !== 'code' || renvoiDans <= 0) return undefined;
     const timer = setTimeout(() => setRenvoiDans((s) => Math.max(0, s - 1)), 1000);
     return () => clearTimeout(timer);
-  }, [renvoiDans]);
+  }, [etape, renvoiDans]);
+
+  const ouvrirSaisieCode = (pour: CodePour) => {
+    setCodePour(pour);
+    setCode('');
+    setRenvoiDans(RENVOI_SECONDES);
+    setEtape('code');
+  };
 
   const apresSession = async () => {
     setBusy(true);
@@ -220,9 +222,7 @@ export default function ConnexionScreen() {
         await apresSession();
         return;
       }
-      setCodePour('signup');
-      setCode('');
-      setEtape('code');
+      ouvrirSaisieCode('signup');
     } catch {
       setErreur('auth.offline');
     } finally {
@@ -239,10 +239,8 @@ export default function ConnexionScreen() {
       if (error) {
         if (cleAuth(error) === 'auth.emailUnverified') {
           await supabase.auth.resend({ type: 'signup', email: email.trim() });
-          setCodePour('signup');
-          setCode('');
           setInfo('auth.emailUnverified');
-          setEtape('code');
+          ouvrirSaisieCode('signup');
           return;
         }
         setErreur(cleAuth(error));
@@ -294,7 +292,7 @@ export default function ConnexionScreen() {
         }
       }
       setInfo('auth.resent');
-      setRenvoiDans(Math.ceil(RENVOI_MS / 1000));
+      setRenvoiDans(RENVOI_SECONDES);
     } catch {
       setErreur('auth.offline');
     } finally {
@@ -312,9 +310,7 @@ export default function ConnexionScreen() {
         setErreur(cleAuth(error));
         return;
       }
-      setCodePour('recovery');
-      setCode('');
-      setEtape('code');
+      ouvrirSaisieCode('recovery');
     } catch {
       setErreur('auth.offline');
     } finally {
