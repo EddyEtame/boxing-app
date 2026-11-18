@@ -25,12 +25,16 @@ le meme login se marchent dessus (OTP, session).
 ## Qui parle a qui
 
 ```
-telephone  --https-->  pont (api.boxingcenter.fr)
-equipe     --https-->  admin (ex. admin.boxingcenter.fr)
+telephone  --https-->  pont (Domains BotHosting, ex. bc-api.apps.bot-hosting.cloud)
+equipe     --https-->  admin (Domains ou hostname admin)
 pont       --http+secret-->  robot (port BotHosting, pas de DNS public)
 admin      --https-->  pont (MEMBER_BRIDGE_URL)
 boutique   --https-->  pont (SHOP_BRIDGE_SECRET, APP_BRIDGE_PUBLIC_URL)
 ```
+
+Sans toucher au DNS OVH de boxingcenter.fr : publier le pont via
+**BotHosting Domains** (`*.apps.bot-hosting.cloud`) et pointer
+`PUBLIC_URL` / `EXPO_PUBLIC_API_URL` / `MEMBER_BRIDGE_URL` dessus.
 
 Le robot n'est pas public. Le pont l'appelle avec `BOT_URL` + `BOT_SYNC_SECRET`.
 
@@ -54,7 +58,7 @@ Ne pas poser `ROBOT_DIR` ni `ADMIN_APP_DIR` ici.
 ### Admin (`apps/admin/.env.local`)
 
 `ADMIN_DATA_DIR` sur le disque local, `TRUST_PROXY=1`,
-`MEMBER_BRIDGE_URL=https://api.boxingcenter.fr`, `ADMIN_BRIDGE_SECRET`
+`MEMBER_BRIDGE_URL` (URL Domains du pont), `ADMIN_BRIDGE_SECRET`
 (identique au pont), `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPER_ADMIN_EMAIL`,
 `SUPER_ADMIN_PASSWORD`, `SESSION_SECRET`, `BOUTIQUE_URL`,
@@ -64,19 +68,26 @@ existent.
 ### Boutique (Vercel)
 
 Memes `APP_BRIDGE_SECRET` et `SHOP_BRIDGE_SECRET`,
-`APP_BRIDGE_PUBLIC_URL=https://api.boxingcenter.fr`,
-cron `GET /api/cron/app-bridge-outbox`.
+`APP_BRIDGE_PUBLIC_URL` = URL Domains du pont (ex. bc-api…),
+cron `GET /api/cron/app-bridge-outbox`. Ne pas changer la boutique
+tant que le flux shop-bridge n'est pas reteste.
 
-## DNS Cloudflare
+## Publication HTTPS (sans DNS OVH)
 
-- `api.boxingcenter.fr` -> pont, `localhost:8080` (ou le PORT du panel relais)
-- hostname admin (ex. `admin.boxingcenter.fr`) -> serveur admin, port Next
+1. Activer Domains sur **bc-pont** (alias optionnel, ex. `bc-api`).
+2. Le pont ecoute le `SERVER_PORT` / `PORT` du panel.
+3. Hook Auth Send Email Supabase vers
+   `https://bc-api.apps.bot-hosting.cloud/hooks/auth-email`
+   (ou l'URL Domains actuelle).
+
+Un CNAME `api.boxingcenter.fr` vers BotHosting n'est possible que si on
+modifie la zone DNS (OVH) : hors scope tant qu'on n'y touche pas.
 
 ## Ce qui reste un compte externe (pas le CPU)
 
 - Supabase : migrations du depot (socle, commerce, live_signals, passages,
   notices, admin_collections).
-- Hook Auth Send Email vers `https://api.boxingcenter.fr/hooks/auth-email`.
+- Hook Auth Send Email (URL Domains du pont, ci-dessus).
 - Expo Push, Sentry, Cloudflare Stream : coller les cles des qu'un compte existe.
 - Sauvegardes : export Supabase (PITR ou dump quotidien) + copie de
   `ADMIN_DATA_DIR` sur le serveur admin.
