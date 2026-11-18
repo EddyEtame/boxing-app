@@ -30,7 +30,7 @@ function pick(source: NodeJS.ProcessEnv, key: string): string | undefined {
 }
 
 function portOf(source: NodeJS.ProcessEnv): number {
-  const text = pick(source, 'PORT');
+  const text = pick(source, 'PORT') ?? pick(source, 'SERVER_PORT');
   if (text === undefined) return 8080;
   return Number(text);
 }
