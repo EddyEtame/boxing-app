@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { urlBoutique } from '@/features/sections';
 import { useT, type MessageKey } from '@/i18n';
 import { DEFAULT_OFFER_SLUG } from '@/lib/checkout-flow';
+import { ouvrirDansApp } from '@/lib/in-app-browser';
 import { useSession } from '@/state/session';
 import { IconCheck } from '@/ui/icons';
 import { Button, Card } from '@/ui/kit';
@@ -88,7 +89,7 @@ export function BadgeLockedView({ reason }: { reason: BadgeReason }) {
           {reason === 'invite' ? (
             <ActionsDecouverte from="badge" />
           ) : reason === 'restreint' ? (
-            <Button label={T('messages.renew')} onPress={() => void Linking.openURL(shop)} />
+            <Button label={T('messages.renew')} onPress={() => void ouvrirDansApp(shop)} />
           ) : (
             <Button label={T('badge.hours')} variant="secondary" onPress={() => router.navigate('/planning')} />
           )}

@@ -34,6 +34,8 @@ export type Deps = {
 const LINK_GAP_MS = 2 * 60 * 1000;
 const LINK_DAY_MS = 24 * 60 * 60 * 1000;
 const LINK_DAY_MAX = 5;
+/** Sans retour du robot, la fiche passe a « aucun abonnement trouve ». */
+const LINK_STALE_MS = 6 * 60 * 1000;
 /** Une relecture sans retour ne bloque pas les suivantes au-dela de ce delai. */
 const REREAD_LOCK_MS = 10 * 60 * 1000;
 const SIGNATURE_WINDOW_SEC = 300;
@@ -254,9 +256,50 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   }
 
   async function presentMe(profile: Profile): Promise<Me> {
-    const snapshot = await deps.store.getSnapshot(profile.id);
-    const stored = await deps.store.listPassages(profile.id);
-    return toMe(profile, snapshot, stored);
+    const current = await maybeExpireLink(profile);
+    const snapshot = await deps.store.getSnapshot(current.id);
+    const stored = await deps.store.listPassages(current.id);
+    return toMe(current, snapshot, stored);
+  }
+
+  async function maybeExpireLink(profile: Profile): Promise<Profile> {
+    if (profile.link_status !== 'en_attente' || !profile.link_updated_at) return profile;
+    const age = deps.now().getTime() - Date.parse(profile.link_updated_at);
+    if (!Number.isFinite(age) || age < LINK_STALE_MS) return profile;
+    const nowIso = deps.now().toISOString();
+    await deps.store.updateProfile(profile.id, { link_status: 'prospect', link_updated_at: nowIso });
+    try {
+      await deps.store.insertMemberNotice({
+        event_id: `lien-timeout:${profile.id}:${profile.link_updated_at}`,
+        profile_id: profile.id,
+        kind: 'lien_introuvable',
+        title: 'Aucun abonnement trouve',
+        body: 'Nous n avons pas retrouve d abonnement avec tes informations. Verifie-les a l accueil, ou prends une offre.',
+      });
+    } catch {
+      // Contrainte SQL pas encore elargie : l'ecran d'accueil suffit.
+    }
+    await pushLiveSignal(deps.env, { domain: 'member.link', action: 'prospect', profile_id: profile.id });
+    return (await deps.store.getProfile(profile.id)) ?? { ...profile, link_status: 'prospect', link_updated_at: nowIso };
+  }
+
+  async function notifierLien(profileId: string, requestId: string, status: 'lie' | 'a_revoir' | 'prospect'): Promise<void> {
+    const copy =
+      status === 'lie'
+        ? { kind: 'lien_trouve' as const, title: 'Abonnement retrouve', body: 'Ton abonnement est relie. Il est visible dans l app.' }
+        : status === 'a_revoir'
+          ? { kind: 'lien_revue' as const, title: 'Le club verifie', body: 'Tes informations ne correspondent pas tout a fait. Le club verifie ton compte.' }
+          : { kind: 'lien_introuvable' as const, title: 'Aucun abonnement trouve', body: 'Nous n avons pas retrouve d abonnement avec tes informations. Verifie-les a l accueil, ou prends une offre.' };
+    try {
+      await deps.store.insertMemberNotice({
+        event_id: `lien:${requestId}:${status}`,
+        profile_id: profileId,
+        ...copy,
+      });
+    } catch {
+      // Meme contrainte SQL : le signal live ouvre quand meme l'ecran.
+    }
+    await pushLiveSignal(deps.env, { domain: 'member.link', action: status, profile_id: profileId });
   }
 
   async function sendLookup(profile: Profile, orderId: string, memberId: string | null): Promise<void> {
@@ -310,6 +353,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     }
     if (profile.link_status === 'lie') {
       reply.code(200).send({ status: 'lie' satisfies LinkStatus });
+      return;
+    }
+    if (profile.link_status === 'en_attente') {
+      reply.code(202).send({ status: 'en_attente' satisfies LinkStatus });
       return;
     }
     if (!profileIsComplete(profile)) {
@@ -583,6 +630,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       return;
     }
     const status = await applyMemberStatus(deps.store, request, payload, deps.now());
+    await notifierLien(request.profile_id, request.id, status);
     reply.code(200).send({ status });
   });
 

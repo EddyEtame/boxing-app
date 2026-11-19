@@ -1,13 +1,15 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { confierAmbiance } from '@/features/ambiance';
 import { sectionVisible } from '@/features/flags';
-import { PLUS_GRID, SECTIONS, urlBoutique, type SectionId } from '@/features/sections';
+import { ouvrirOffres } from '@/features/offres';
+import { PLUS_GRID, SECTIONS, type SectionId } from '@/features/sections';
+import { ouvrirDansApp } from '@/lib/in-app-browser';
 import { useI18nStore, useT, type Locale } from '@/i18n';
 import { configReady } from '@/lib/config';
 import { useFeaturesStore } from '@/state/features';
@@ -171,7 +173,8 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
   }, [index, p]);
   const style = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scale: 0.9 + p.value * 0.1 }] }));
   const open = () => {
-    if (section.external || id === 'boutique') void Linking.openURL(id === 'boutique' ? urlBoutique({ club: clubActif }) : section.external!);
+    if (id === 'boutique') ouvrirOffres(clubActif, 'plus');
+    else if (section.external) void ouvrirDansApp(section.external);
     else router.navigate(section.href as never);
   };
   return (

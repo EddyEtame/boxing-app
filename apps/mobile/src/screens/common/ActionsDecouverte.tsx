@@ -33,7 +33,16 @@ export function ActionsDecouverte({ from }: { from: string }) {
       applyMe(await lireMe());
       setRetour('auth.verifyingBody');
     } catch (e) {
-      setRetour(e instanceof ApiError ? cleErreurApi(e.code) : 'auth.generic');
+      if (e instanceof ApiError && e.code === 'trop_de_demandes') {
+        try {
+          applyMe(await lireMe());
+        } catch {
+          // La recherche deja en cours reste visible meme si la fiche ne se relit pas.
+        }
+        setRetour('auth.verifyingBody');
+      } else {
+        setRetour(e instanceof ApiError ? cleErreurApi(e.code) : 'auth.generic');
+      }
     } finally {
       setBusy(false);
     }

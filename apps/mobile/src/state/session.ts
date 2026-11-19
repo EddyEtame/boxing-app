@@ -5,6 +5,7 @@ import { persist } from 'zustand/middleware';
 
 import { ApiError, lireMe, rafraichirMe, supprimerCompte } from '@/lib/api';
 import { activerRafraichissementFond, arreterRafraichissementFond } from '@/lib/background';
+import { onLiveSignal } from '@/lib/live-bus';
 import { configReady } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 import { useMessageThread } from '@/state/message-thread';
@@ -64,6 +65,7 @@ function clubsApresFiche(
 
 let demarre = false;
 let ecoutePosee = false;
+let livePose = false;
 
 /** Ce qui appartient au compte s'en va avec lui : le compte suivant sur ce téléphone ne lit pas le fil du précédent. */
 function oublierCompte(): void {
@@ -155,6 +157,15 @@ export const useSession = create<SessionState>()(
             });
             AppState.addEventListener('change', (state) => {
               if (state === 'active') void rafraichirSiAncien();
+            });
+          }
+          if (!livePose) {
+            livePose = true;
+            onLiveSignal((signal) => {
+              if (signal.domain !== 'member.link' && signal.domain !== 'comms.notifications') return;
+              const moi = get().me?.id;
+              if (signal.profile_id && moi && signal.profile_id !== moi) return;
+              if (get().auth === 'connecte') void chargerMe(get, set);
             });
           }
           if (data.session) void rafraichirSiAncien();

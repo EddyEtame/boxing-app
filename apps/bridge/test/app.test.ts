@@ -200,6 +200,8 @@ test('lie avec abonnement actif -> GET /v1/me statut actif', async () => {
     });
     const posted = await postSigned(app, '/internal/app-member-status', raw, env.APP_BRIDGE_SECRET);
     assert.equal(posted.statusCode, 200);
+    const avis = await store.listMemberNotices(userA.id);
+    assert.equal(avis[0]?.kind, 'lien_trouve');
     const me = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: 'Bearer token-a' } });
     assert.equal(me.statusCode, 200);
     const body = me.json();
@@ -287,6 +289,30 @@ test('POST /v1/link refuse un e-mail non confirme', async () => {
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().error, 'email_non_verifie');
     assert.equal(robot.jobs.length, 0);
+  });
+});
+
+test('POST /v1/link deja en cours renvoie 202', async () => {
+  await withApp(async ({ app, store, robot }) => {
+    store.profiles.set(userA.id, profile({ link_status: 'en_attente' }));
+    const res = await app.inject({ method: 'POST', url: '/v1/link', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(res.statusCode, 202);
+    assert.equal(res.json().status, 'en_attente');
+    assert.equal(robot.jobs.length, 0);
+  });
+});
+
+test('GET /v1/me clot une recherche trop longue', async () => {
+  await withApp(async ({ app, store }) => {
+    store.profiles.set(userA.id, profile({
+      link_status: 'en_attente',
+      link_updated_at: new Date(NOW.getTime() - 7 * 60 * 1000).toISOString(),
+    }));
+    const me = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(me.statusCode, 200);
+    assert.equal(me.json().link.status, 'prospect');
+    const notices = await store.listMemberNotices(userA.id);
+    assert.equal(notices[0]?.kind, 'lien_introuvable');
   });
 });
 

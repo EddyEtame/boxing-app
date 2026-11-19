@@ -1,9 +1,9 @@
-import * as WebBrowser from 'expo-web-browser';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import { clubById } from '@/data/clubs';
 import { BOUTIQUE_ROOT, urlBoutique } from '@/features/sections';
+import { ouvrirDansApp } from '@/lib/in-app-browser';
 import { clock, longDate } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { ApiError, lireDocuments, lireFactures } from '@/lib/api';
@@ -139,7 +139,7 @@ function Corps() {
     setCheckoutBusy(true);
     try {
       if (!tunnelOuvert(clubCheckout)) {
-        await Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
+        await ouvrirDansApp(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
         return;
       }
       await ouvrirCheckoutBoutique(DEFAULT_OFFER_SLUG, clubCheckout);
@@ -148,7 +148,7 @@ function Corps() {
     } catch (err) {
       // Le tunnel relié au compte ne s'ouvre pas : la boutique reste accessible, sauf sans réseau.
       if (!(err instanceof ApiError && err.code === 'hors_ligne')) {
-        await Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
+        await ouvrirDansApp(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }));
       }
     } finally {
       setCheckoutBusy(false);
@@ -164,7 +164,7 @@ function Corps() {
       onPress={() => void payerDansApp()}
     />
   ) : (
-    <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void Linking.openURL(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }))} />
+    <Button label={actif ? T('sub.change') : T('messages.renew')} variant="secondary" icon={IconCard} onPress={() => void ouvrirDansApp(urlBoutique({ club: clubCheckout, offer: DEFAULT_OFFER_SLUG }))} />
   );
 
   return (
@@ -273,7 +273,7 @@ function Corps() {
       {enVerification ? null : (
         <Reveal style={s.block}>
           {ctaCheckout}
-          {actif ? <Button label={T('sub.manage')} variant="ghost" onPress={() => void Linking.openURL(`${BOUTIQUE_ROOT}gerer-abonnement`)} style={s.gerer} /> : null}
+          {actif ? <Button label={T('sub.manage')} variant="ghost" onPress={() => void ouvrirDansApp(`${BOUTIQUE_ROOT}gerer-abonnement`)} style={s.gerer} /> : null}
         </Reveal>
       )}
     </Page>
@@ -315,7 +315,7 @@ function DocumentsSignes({ documents, enVerification, mineur }: { documents: Sig
                 right={<Pastille label={T('sub.documentPdf')} />}
                 chevron={false}
                 last={index === documents.length - 1}
-                onPress={() => void WebBrowser.openBrowserAsync(doc.url)}
+                onPress={() => void ouvrirDansApp(doc.url)}
               />
             ))
           : attendus.map((kind, index) => (

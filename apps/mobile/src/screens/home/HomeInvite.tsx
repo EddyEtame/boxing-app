@@ -208,13 +208,21 @@ function CarteAcces() {
     return () => clearTimeout(minuteur);
   }, [depuis]);
 
-  // Le robot répond en quelques minutes : l'espace adhérent s'ouvre tout seul dès que la fiche est trouvée.
+  // Tant que le robot n'a pas tranche, on relit la fiche : l'espace s'ouvre tout seul, ou « aucun abonnement trouvé ».
   useEffect(() => {
     if (!enAttente) return undefined;
     const debut = Date.now();
+    const sonder = () => {
+      void lireMe().then(applyMe).catch(() => undefined);
+    };
+    sonder();
     const sonde = setInterval(() => {
-      if (Date.now() - debut >= ATTENTE_MS) clearInterval(sonde);
-      else void lireMe().then(applyMe).catch(() => undefined);
+      const age = Date.now() - debut;
+      if (age >= 12 * 60 * 1000) {
+        clearInterval(sonde);
+        return;
+      }
+      sonder();
     }, SONDE_MS);
     return () => clearInterval(sonde);
   }, [enAttente, applyMe]);

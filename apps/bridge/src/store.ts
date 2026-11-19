@@ -105,7 +105,7 @@ export type MemberNotice = {
   id: string;
   event_id: string;
   profile_id: string;
-  kind: 'prelevement_retry' | 'prelevement_resilie';
+  kind: 'prelevement_retry' | 'prelevement_resilie' | 'lien_trouve' | 'lien_introuvable' | 'lien_revue';
   title: string;
   body: string;
   created_at: string;
@@ -276,7 +276,11 @@ function asPassage(row: Row): MemberPassage {
 }
 
 function asNotice(row: Row): MemberNotice {
-  const kind = asText(row.kind) === 'prelevement_resilie' ? 'prelevement_resilie' : 'prelevement_retry';
+  const raw = asText(row.kind);
+  const kind: MemberNotice['kind'] =
+    raw === 'prelevement_resilie' || raw === 'lien_trouve' || raw === 'lien_introuvable' || raw === 'lien_revue'
+      ? raw
+      : 'prelevement_retry';
   return {
     id: String(row.id),
     event_id: asText(row.event_id) ?? '',
