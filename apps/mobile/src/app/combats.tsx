@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Linking, View } from 'react-native';
+import { Image, View } from 'react-native';
 
 import { COMBATS_SOURCES, type IdSourceCombats } from '@/data/combats';
 import { useCombats } from '@/features/combats/useCombats';
@@ -13,6 +13,7 @@ import { Photo } from '@/ui/Photo';
 import { Tap } from '@/ui/Tap';
 import { Body, Display } from '@/ui/Text';
 import { GUTTER, makeStyles, radius, space, stroke, useTheme } from '@/ui/theme';
+import { ouvrirLien } from '@/lib/in-app-browser';
 
 const COMBATS_PHOTO = require('@/assets/photos/gala-impact.jpg');
 
@@ -56,7 +57,7 @@ export default function CombatsScreen() {
         <Reveal>
           <Card padded={false} style={s.list}>
             {visibles.map((c, i) => (
-              <Tap key={c.id} disabled={!configReady || !c.lien} onPress={() => void Linking.openURL(c.lien)} scaleTo={0.985} style={[s.row, i < visibles.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]} accessibilityRole={configReady && c.lien ? 'link' : 'text'} accessibilityLabel={c.titre}>
+              <Tap key={c.id} disabled={!configReady || !c.lien} onPress={() => ouvrirLien(c.lien)} scaleTo={0.985} style={[s.row, i < visibles.length - 1 && { borderBottomWidth: stroke.hair, borderBottomColor: t.line }]} accessibilityRole={configReady && c.lien ? 'link' : 'text'} accessibilityLabel={c.titre}>
                 {c.photo ? <Image source={{ uri: c.photo }} style={s.thumb} /> : null}
                 <View style={s.rowBody}>
                   <Body size="caption" weight="bold" tone="dim">

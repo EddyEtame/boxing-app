@@ -23,6 +23,7 @@ export function tunnelOuvert(club: ClubId): boolean {
 export async function ouvrirCheckoutBoutique(offerSlug: string, club: ClubId): Promise<CheckoutSessionView | null> {
   if (!configReady) return null;
   const session = await creerSessionCheckout({ offerSlug, club });
-  await ouvrirDansApp(session.checkoutUrl);
+  // Une adresse de paiement qui n'est pas en https ne s'ouvre pas : l'appelant retombe sur l'inscription de la boutique.
+  if (!(await ouvrirDansApp(session.checkoutUrl))) throw new Error('adresse de paiement refusée');
   return lireSessionCheckout(session.id);
 }

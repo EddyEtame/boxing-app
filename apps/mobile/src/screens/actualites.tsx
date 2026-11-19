@@ -1,7 +1,7 @@
 import type { PublicEvent, PublicNews, Statut } from '@bc/contract';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { shortDay } from '@/features/time';
@@ -17,6 +17,7 @@ import { Body, Heading } from '@/ui/Text';
 import { makeStyles, radius, space, stroke } from '@/ui/theme';
 
 import { Poster } from './home/parts';
+import { ouvrirLien } from '@/lib/in-app-browser';
 
 /** Tout un club devant la fresque : l'affiche tant que rien n'est publié. */
 const VIE_DU_CLUB = require('@/assets/photos/ramonville-equipe.jpg');
@@ -136,7 +137,7 @@ function Carte({ photo, surtitre, titre, meta, corps, detail, lien, lienLabel }:
             {detail}
           </Body>
         ) : null}
-        {lien && lienLabel ? <Button small label={lienLabel} variant="secondary" onPress={() => void Linking.openURL(lien)} style={s.carteLien} /> : null}
+        {lien && lienLabel ? <Button small label={lienLabel} variant="secondary" onPress={() => ouvrirLien(lien)} style={s.carteLien} /> : null}
       </View>
     </Card>
   );

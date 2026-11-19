@@ -93,7 +93,8 @@ export function trackScreen(path: string) {
   if (path === '/preface' || path === '/connexion') return;
   const section = path.split('/')[1] || 'home';
   useUsage.getState().bump('sections', section);
-  track('screen_view', { section }, path);
+  // L'écran compte, pas la conversation : l'identifiant d'un fil ne part jamais dans une mesure.
+  track('screen_view', { section }, path.startsWith('/fil/') ? '/fil/[id]' : path);
 }
 
 export function startAnalytics() {

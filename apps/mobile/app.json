@@ -2,7 +2,7 @@
   "expo": {
     "name": "Boxing Center",
     "slug": "boxing-center",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "boxingcenter",
@@ -28,7 +28,7 @@
       }
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 9,
       "package": "fr.boxingcenter.app",
       "adaptiveIcon": {
         "backgroundColor": "#F4F2EE",

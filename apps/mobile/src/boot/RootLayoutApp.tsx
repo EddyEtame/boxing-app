@@ -1,13 +1,12 @@
 import { Sentry } from '@/lib/sentry';
-import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
-import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
-import {
-  Montserrat_400Regular,
-  Montserrat_500Medium,
-  Montserrat_600SemiBold,
-  Montserrat_700Bold,
-  Montserrat_800ExtraBold,
-} from '@expo-google-fonts/montserrat';
+// Une graisse par import : importer le paquet entier embarquait toutes ses graisses dans l'app.
+import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue/400Regular';
+import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono/500Medium';
+import { Montserrat_400Regular } from '@expo-google-fonts/montserrat/400Regular';
+import { Montserrat_500Medium } from '@expo-google-fonts/montserrat/500Medium';
+import { Montserrat_600SemiBold } from '@expo-google-fonts/montserrat/600SemiBold';
+import { Montserrat_700Bold } from '@expo-google-fonts/montserrat/700Bold';
+import { Montserrat_800ExtraBold } from '@expo-google-fonts/montserrat/800ExtraBold';
 import { useFonts } from 'expo-font';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';

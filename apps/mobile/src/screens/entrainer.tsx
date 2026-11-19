@@ -1,6 +1,5 @@
 import type { Niveau, PublicTraining, PublicVideo, TrainingParticipant, TrainingType } from '@bc/contract';
 import { ageAt, NIVEAUX, TRAINING_TYPES } from '@bc/contract';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 
@@ -25,6 +24,7 @@ import { makeStyles, radius, space, stroke, useTheme, type ClubId } from '@/ui/t
 import { ActionsDecouverte } from './common/ActionsDecouverte';
 import { MembersOnly } from './common/MembersOnly';
 import { Poster } from './home/parts';
+import { ouvrirDansApp } from '@/lib/in-app-browser';
 
 type Vue = 'videos' | 'membres';
 
@@ -162,7 +162,7 @@ function VideoList({ items }: { items: PublicVideo[] }) {
       track('video_open', { famille: v.famille });
       const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
       const lecture = await lireLecture(v.id, token);
-      await WebBrowser.openBrowserAsync(lecture.url);
+      if (!(await ouvrirDansApp(lecture.url))) throw new Error('adresse de lecture refusée');
     } catch (err) {
       const code = err instanceof AdminApiError ? err.status : 0;
       setNote({ id: v.id, texte: code === 409 ? T('train.streamOff') : code === 401 || code === 403 ? T('train.videoLocked') : T('train.off') });

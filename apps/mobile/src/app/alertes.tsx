@@ -1,7 +1,7 @@
 import { ageAt } from '@bc/contract';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 
 import { clubById } from '@/data/clubs';
 import { heure, nextSession, usePlanningSlots } from '@/features/planning/model';
@@ -17,6 +17,8 @@ import { Page, Reveal } from '@/ui/Page';
 import { Tap } from '@/ui/Tap';
 import { Body } from '@/ui/Text';
 import { makeStyles, space, stroke } from '@/ui/theme';
+import { ouvrirLien } from '@/lib/in-app-browser';
+import { routeInterne } from '@/lib/liens';
 
 /** Prochain cours (planning) et notifications club (GET admin). */
 export default function AlertesScreen() {
@@ -64,8 +66,12 @@ export default function AlertesScreen() {
   // L'admin vise des écrans de l'app ; les vidéos et les événements vivent dans deux rubriques au nom différent.
   const openLink = (url?: string) => {
     if (!url) return;
-    if (url.startsWith('/')) router.push((url === '/evenements' ? '/actualites' : url === '/videos' ? '/entrainer' : url) as never);
-    else void Linking.openURL(url);
+    if (url.startsWith('/')) {
+      const route = routeInterne(url);
+      if (route) router.push(route as never);
+      return;
+    }
+    ouvrirLien(url);
   };
   const visibles = notifs.filter((n) => reglages[n.type] !== false);
 
