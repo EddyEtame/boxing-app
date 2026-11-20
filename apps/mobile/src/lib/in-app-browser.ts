@@ -18,6 +18,8 @@ const OPTIONS: WebBrowser.WebBrowserOpenOptions = {
 };
 
 /** Rend false, sans rien ouvrir, si l'adresse n'est pas une adresse web en https (`lib/liens`). */
+export const URL_CONFIDENTIALITE = 'https://www.boxingcenter.fr/politique-de-confidentialite';
+
 export async function ouvrirDansApp(url: string | null | undefined): Promise<boolean> {
   const sur = lienSur(url);
   if (!sur) return false;

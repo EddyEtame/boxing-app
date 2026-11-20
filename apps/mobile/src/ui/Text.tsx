@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
+import { Platform, Text as RNText, StyleSheet, type TextProps, type TextStyle } from 'react-native';
 
 import { fontFamily, fontSize, letterSpacing, lineHeight, useTheme, type Theme } from '@/ui/theme';
 
@@ -64,6 +64,27 @@ export function useToneColor(tone: Tone = 'text'): string {
   return toneColor(t, tone, onPhoto);
 }
 
+/**
+ * Bebas Neue a bien É, È, À, Ç... mais l'accent monte à 0,86 em au-dessus de la ligne de base.
+ * Sur Android, un interligne serré (0,92) retire la moitié de l'écart en haut de la première ligne :
+ * il ne reste que 0,76 em et le texte est rogné à sa boîte, « CRÉER » se lisait « CREER ».
+ * On rend en marge haute ce qu'il manque pour que l'accent tienne (0,88 em), Android seulement.
+ */
+const BEBAS_ASCENT = 0.9; // hhea, unités / em
+const BEBAS_DESCENT = 0.3;
+const ACCENT_TOP = 0.88;
+
+function androidAccentRoom(base: TextStyle, style: DisplayProps['style']): TextStyle | null {
+  if (Platform.OS !== 'android') return null;
+  const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle;
+  const px = flat.fontSize ?? base.fontSize ?? 0;
+  const lh = flat.lineHeight ?? base.lineHeight ?? px;
+  if (!px) return null;
+  const ascent = BEBAS_ASCENT + (lh / px - (BEBAS_ASCENT + BEBAS_DESCENT)) / 2;
+  const manque = Math.ceil((ACCENT_TOP - ascent) * px);
+  return manque > 0 ? { paddingTop: manque } : null;
+}
+
 export type DisplayProps = TextProps & {
   size?: DisplaySize;
   tone?: Tone;
@@ -92,7 +113,7 @@ export function Display({ size = 'display3', tone = 'text', tight, tabular, uppe
     ...(tabular ? { fontVariant: ['tabular-nums'] } : null),
   };
   return (
-    <RNText {...rest} style={[base, style]} maxFontSizeMultiplier={1.2}>
+    <RNText {...rest} style={[base, androidAccentRoom(base, style), style]} maxFontSizeMultiplier={1.2}>
       {children}
     </RNText>
   );

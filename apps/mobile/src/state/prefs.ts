@@ -9,6 +9,11 @@ import { IS_SERVER, persistStorage } from './storage';
  * s'est composée. Rien de sensible ici : le badge et la session vivent ailleurs
  * (SecureStore, .research/08-SECURITE.md).
  */
+/** Les offres commerciales attendent un oui explicite ; le reste est actif tant qu'on ne l'a pas coupe. */
+export function notifActive(reglages: Record<string, boolean>, type: string): boolean {
+  return type === 'promo' ? reglages[type] === true : reglages[type] !== false;
+}
+
 export type Appearance = 'light' | 'dark' | 'system';
 
 /** Les rubriques qui peuvent occuper une place de la barre (entre Accueil et Plus). */
@@ -24,7 +29,7 @@ type PrefsState = {
   bar: BarSlot[];
   setAppearance: (appearance: Appearance) => void;
   setBar: (bar: BarSlot[]) => void;
-  /** Notifications non essentielles, par catégorie (CDC §14) ; vrai par défaut. */
+  /** Notifications non essentielles, par catégorie (CDC §14) ; vrai par défaut, sauf les offres. */
   notif: Record<string, boolean>;
   setNotif: (id: string, on: boolean) => void;
   resetNotif: () => void;

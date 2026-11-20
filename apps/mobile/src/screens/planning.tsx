@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import type { Slot } from '@/data/planning';
@@ -68,6 +68,8 @@ function weekDates(now: Date): Date[] {
  */
 export function Screen() {
   const T = useT();
+  // Animations coupées sur le téléphone : les puces d'espace apparaissent sans transition.
+  const reduced = useReducedMotion();
   usePlanningSlots();
   const live = useLivePlanning();
   const s = useStyles();
@@ -218,7 +220,7 @@ export function Screen() {
           style={s.modeSeg}
         />
         {espaces.length ? (
-          <Animated.View entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)} style={s.espaces}>
+          <Animated.View entering={reduced ? undefined : FadeIn.duration(duration.cross)} exiting={reduced ? undefined : FadeOut.duration(duration.jab)} style={s.espaces}>
             {espaces.map((e) => (
               <Chip key={e} label={espaceLabel(e)} selected={e === espaceActif} onPress={() => setEspace(e)} />
             ))}
@@ -247,7 +249,7 @@ export function Screen() {
             </View>
           ) : null}
 
-          <Animated.View layout={LinearTransition.duration(duration.cross)} style={s.listWrap}>
+          <Animated.View layout={reduced ? undefined : LinearTransition.duration(duration.cross)} style={s.listWrap}>
             {fermeCeJour || slots.length === 0 ? (
               <EmptyDay club={club} jour={jour} today={today} ferme={fermeCeJour} onJump={setJour} />
             ) : (

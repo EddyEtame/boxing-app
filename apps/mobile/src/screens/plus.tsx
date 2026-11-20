@@ -1,15 +1,15 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { PixelRatio, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 import { CLUBS, clubById } from '@/data/clubs';
 import { confierAmbiance } from '@/features/ambiance';
 import { sectionVisible } from '@/features/flags';
 import { ouvrirOffres } from '@/features/offres';
 import { PLUS_GRID, SECTIONS, type SectionId } from '@/features/sections';
-import { ouvrirDansApp } from '@/lib/in-app-browser';
+import { ouvrirDansApp, URL_CONFIDENTIALITE } from '@/lib/in-app-browser';
 import { useI18nStore, useT, type Locale } from '@/i18n';
 import { configReady } from '@/lib/config';
 import { useFeaturesStore } from '@/state/features';
@@ -83,7 +83,7 @@ export function Screen() {
           <Card padded={false} style={s.list}>
             <Row icon={IconBell} title={T('plus.notifications')} subtitle={T('plus.notificationsSub')} onPress={() => router.push('/notifications')} />
             <MyClubs />
-            <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} />
+            <Row icon={IconShield} title={T('plus.privacy')} subtitle={T('plus.privacySub')} onPress={() => void ouvrirDansApp(URL_CONFIDENTIALITE)} />
             <AnalyticsRow />
           </Card>
         </Section>
@@ -167,11 +167,15 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
   const t = useTheme();
   const clubActif = useSession((st) => st.clubActif);
   const section = SECTIONS[id];
-  const p = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const p = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
+    if (reduced) return;
     p.value = withDelay(Math.min(index, 8) * (stagger.step / 2), withTiming(1, { duration: 420, easing: ARRIVE }));
-  }, [index, p]);
+  }, [index, p, reduced]);
   const style = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scale: 0.9 + p.value * 0.1 }] }));
+  const label = T(section.title);
+  const corps = corpsTuile(label, width);
   const open = () => {
     if (id === 'boutique') ouvrirOffres(clubActif, 'plus');
     else if (section.external) void ouvrirDansApp(section.external);
@@ -188,8 +192,8 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
             </View>
           ) : null}
         </View>
-        <Body size="caption" weight="bold" numberOfLines={2} style={s.tileLabel}>
-          {T(section.title)}
+        <Body size="caption" weight="bold" numberOfLines={2} textBreakStrategy="simple" android_hyphenationFrequency="none" style={[s.tileLabel, corps ? { fontSize: corps, lineHeight: Math.round(corps * 1.3) } : null]}>
+          {label}
         </Body>
       </Tap>
     </Animated.View>
@@ -197,6 +201,21 @@ function GridTile({ id, index, width, locked }: { id: SectionId; index: number; 
 }
 
 /** L'aperçu vivant de la barre de l'adhérent (la vraie capsule, en réduit). */
+/**
+ * Un libellé de tuile ne se coupe jamais au milieu d'un mot (« Mon abonn / ement » sur un Redmi A5) :
+ * si le mot le plus long ne tient pas dans la tuile, le corps descend juste ce qu'il faut.
+ * Montserrat gras fait environ 0,7 em par caractère ; on tient compte de la taille de texte du téléphone.
+ */
+function corpsTuile(label: string, largeurTuile: number): number | undefined {
+  const base = 13;
+  const interieur = largeurTuile - space[2] * 2 - 2;
+  const plusLong = Math.max(...label.split(/\s+/).map((m) => m.length));
+  const echelle = Math.min(PixelRatio.getFontScale(), 1.4);
+  const largeurMot = plusLong * 0.7 * base * echelle;
+  if (largeurMot <= interieur) return undefined;
+  return Math.max(9, Math.floor((interieur / (plusLong * 0.7 * echelle)) * 2) / 2);
+}
+
 export function BarPreview({ bar }: { bar?: string[] }) {
   const T = useT();
   const s = useStyles();

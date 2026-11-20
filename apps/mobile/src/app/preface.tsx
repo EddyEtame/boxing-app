@@ -41,6 +41,8 @@ export default function Preface() {
   const insets = useSafeAreaInsets();
   // Petit téléphone : le logo rétrécit et l'accroche s'efface, le titre n'est jamais masqué par les portes.
   const compact = useWindowDimensions().height < 700;
+  // Animations coupées (accessibilité, options développeur) : tout est là d'emblée, sinon les portes restaient invisibles.
+  const reduced = useReducedMotion();
 
   // L'ambiance et « qui es-tu ? » sont sur cet écran : l'entonnoir du back office les atteint d'un coup.
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function Preface() {
       <OnPhotoContext.Provider value>
         <View style={[s.hero, compact && s.heroCompact]}>
           <SpotLogo compact={compact} />
-          <Animated.View entering={FadeInDown.delay(260).duration(560).easing(ARRIVE)} style={s.heroText}>
+          <Animated.View entering={reduced ? undefined : FadeInDown.delay(260).duration(560).easing(ARRIVE)} style={s.heroText}>
             <Display size="display2" tight style={s.center}>
               {T('preface.headline')}
             </Display>
@@ -77,10 +79,10 @@ export default function Preface() {
         </View>
       </OnPhotoContext.Provider>
 
-      <Animated.View entering={FadeInDown.delay(340).duration(560).easing(ARRIVE)} style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + space[3] }]}>
+      <Animated.View entering={reduced ? undefined : FadeInDown.delay(340).duration(560).easing(ARRIVE)} style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + space[3] }]}>
         <Door who="member" index={0} primary title={T('preface.member')} sub={T('preface.memberSub')} meta={T('preface.memberMeta')} onPress={enter} />
         <Door who="guest" index={1} title={T('preface.discover')} sub={T('preface.discoverSub')} meta={T('preface.discoverMeta')} onPress={enter} />
-        <Animated.View entering={FadeInDown.delay(620).duration(480).easing(ARRIVE)}>
+        <Animated.View entering={reduced ? undefined : FadeInDown.delay(620).duration(480).easing(ARRIVE)}>
           <Tap
             onPress={() => {
               track('cta_sign_in', { from: 'preface' });
@@ -185,8 +187,9 @@ function Door({ who, index, primary, title, sub, meta, onPress }: DoorProps) {
   const s = useStyles();
   const t = useTheme();
   const ink = primary ? t.onPrimary : t.text;
+  const reduced = useReducedMotion();
   return (
-    <Animated.View entering={FadeInDown.delay(440 + index * 90).duration(480).easing(ARRIVE)}>
+    <Animated.View entering={reduced ? undefined : FadeInDown.delay(440 + index * 90).duration(480).easing(ARRIVE)}>
       <Tap onPress={() => onPress(who)} scaleTo={0.98} haptic="medium" accessibilityRole="button" accessibilityLabel={`${title}. ${sub}`} style={[s.door, primary ? { backgroundColor: t.primary } : s.doorQuiet]}>
         <View style={s.doorText}>
           <Display size="display4" tight style={{ color: ink }}>

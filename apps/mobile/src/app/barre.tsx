@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { sectionVisible } from '@/features/flags';
 import { SECTIONS } from '@/features/sections';
@@ -25,6 +25,8 @@ import { BarPreview } from '@/screens/plus';
  */
 export default function BarreScreen() {
   const T = useT();
+  // Animations coupées sur le téléphone : les lignes apparaissent sans transition.
+  const reduced = useReducedMotion();
   const s = useStyles();
   const saved = usePrefs((st) => st.bar);
   const setBar = usePrefs((st) => st.setBar);
@@ -44,14 +46,14 @@ export default function BarreScreen() {
 
   return (
     <Page title={T('bar.title')} subtitle={T('bar.sub')} leading="close" tabBar={false}>
-      <Animated.View layout={LinearTransition.duration(duration.round)}>
+      <Animated.View layout={reduced ? undefined : LinearTransition.duration(duration.round)}>
         <BarPreview bar={draft.length === BAR_SIZE ? draft : [...draft, ...available].slice(0, BAR_SIZE)} />
       </Animated.View>
 
       <Section title={T('bar.inBar', { n: draft.length, max: BAR_SIZE })}>
         <Card padded={false} style={s.list}>
           {draft.map((id, i) => (
-            <Animated.View key={id} layout={LinearTransition.duration(duration.round)} entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)}>
+            <Animated.View key={id} layout={reduced ? undefined : LinearTransition.duration(duration.round)} entering={reduced ? undefined : FadeIn.duration(duration.cross)} exiting={reduced ? undefined : FadeOut.duration(duration.jab)}>
               <SlotRow id={id} position={i + 1} last={i === draft.length - 1} onUp={i > 0 ? () => move(i, -1) : undefined} onDown={i < draft.length - 1 ? () => move(i, 1) : undefined} onRemove={() => setDraft(draft.filter((x) => x !== id))} />
             </Animated.View>
           ))}
@@ -66,7 +68,7 @@ export default function BarreScreen() {
       <Section title={T('bar.available')} note={full ? T('bar.fullNote') : undefined}>
         <Card padded={false} style={s.list}>
           {available.map((id, i) => (
-            <Animated.View key={id} layout={LinearTransition.duration(duration.round)} entering={FadeIn.duration(duration.cross)} exiting={FadeOut.duration(duration.jab)}>
+            <Animated.View key={id} layout={reduced ? undefined : LinearTransition.duration(duration.round)} entering={reduced ? undefined : FadeIn.duration(duration.cross)} exiting={reduced ? undefined : FadeOut.duration(duration.jab)}>
               <AddRow id={id} disabled={full} last={i === available.length - 1} onAdd={() => setDraft([...draft, id])} />
             </Animated.View>
           ))}

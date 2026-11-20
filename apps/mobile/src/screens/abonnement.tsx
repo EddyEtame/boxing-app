@@ -221,7 +221,7 @@ function Corps() {
       <Reveal>
         <Section title={T('sub.details')} note={lu ? T('sub.readAt', { h: lu }) : undefined}>
           <Card padded={false} style={s.list}>
-            <Detail label={T('sub.status')} value={actif ? T('sub.statusActive') : attente ? T('sub.pending') : T('sub.statusEnded')} tone={actif ? 'positive' : 'negative'} />
+            <Detail label={T('sub.status')} value={actif ? T('sub.statusActive') : attente ? T('sub.pending') : enVerification ? T('sub.checking') : !snap ? T('sub.statusNone') : T('sub.statusEnded')} tone={actif ? 'positive' : !snap || attente || enVerification ? undefined : 'negative'} />
             <Detail label={T('sub.badge')} value={snap?.badgeEnregistre ? T('sub.badgeYes') : T('sub.badgeNo')} />
             <Detail label={T('sub.managedBy')} value="Deciplus" last />
           </Card>

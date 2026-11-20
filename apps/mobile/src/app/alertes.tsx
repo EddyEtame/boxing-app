@@ -9,7 +9,7 @@ import { duree } from '@/features/time';
 import { useLocale, useT } from '@/i18n';
 import { lireAvis } from '@/lib/api';
 import { lireNotifications } from '@/lib/admin-api';
-import { usePrefs } from '@/state/prefs';
+import { notifActive, usePrefs } from '@/state/prefs';
 import { selectStatut, useSession } from '@/state/session';
 import { IconClock, IconGear } from '@/ui/icons';
 import { Button, Card, IconTile, Row } from '@/ui/kit';
@@ -73,7 +73,7 @@ export default function AlertesScreen() {
     }
     ouvrirLien(url);
   };
-  const visibles = notifs.filter((n) => reglages[n.type] !== false);
+  const visibles = notifs.filter((n) => notifActive(reglages, n.type));
 
   return (
     <Page title={T('alerts.title')} leading="back" tabBar={false}>

@@ -93,7 +93,8 @@ export function Button({ label, onPress, variant = 'primary', icon: Icon, disabl
       accessibilityState={{ disabled: !!disabled }}
       style={[s.button, small && s.buttonSmall, { backgroundColor: bg }, variant === 'secondary' && s.buttonOutline, disabled && s.disabled, style]}>
       {Icon ? <Icon size={small ? 18 : 20} color={fg} /> : null}
-      <Body size={small ? 'bodySmall' : 'body'} weight="bold" tone={tone}>
+      {/* Une ligne, centrée, réduite si besoin : sur Android, le libellé passait à la ligne puis la 2e ligne était rognée. */}
+      <Body size={small ? 'bodySmall' : 'body'} weight="bold" tone={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} textBreakStrategy="simple" style={s.buttonLabel}>
         {label}
       </Body>
     </Tap>
@@ -110,7 +111,7 @@ export function Chip({ label, selected, onPress, icon: Icon, style }: { label: s
   return (
     <Tap onPress={onPress} scaleTo={0.94} haptic="selection" accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={label} style={[s.chip, selected && s.chipOn, style]}>
       {Icon ? <Icon size={16} color={selected ? t.onPrimary : t.textMuted} /> : null}
-      <Body size="bodySmall" weight="bold" tone={selected ? 'onPrimary' : 'muted'} numberOfLines={1}>
+      <Body size="bodySmall" weight="bold" tone={selected ? 'onPrimary' : 'muted'} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} textBreakStrategy="simple" style={s.chipLabel}>
         {label}
       </Body>
     </Tap>
@@ -281,9 +282,11 @@ const useStyles = makeStyles((t) => ({
   sectionNote: { marginTop: -space[2], marginBottom: space[3] },
   button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2], minHeight: 54, borderRadius: radius.control + 4, paddingHorizontal: space[5] },
   buttonSmall: { minHeight: 42, paddingHorizontal: space[4], borderRadius: radius.control },
+  buttonLabel: { flexShrink: 1, textAlign: 'center' },
   buttonOutline: { borderWidth: stroke.thin, borderColor: t.lineStrong },
   disabled: { opacity: 0.4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: space[4], borderRadius: radius.pill, backgroundColor: t.chip },
+  chipLabel: { flexShrink: 1, textAlign: 'center' },
   chipOn: { backgroundColor: t.primary },
   seg: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: t.chip, borderRadius: radius.control + 2, padding: 3 },
   segFull: { alignSelf: 'stretch' },

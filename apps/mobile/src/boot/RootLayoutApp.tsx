@@ -111,8 +111,12 @@ function RootLayout() {
     if (!booted) return;
     // L'app est à l'écran : le journal de démarrage le note, le prochain lancement n'aura rien à montrer.
     void noterEtape(PRET);
-    void demanderDroitsAppareil();
   }, [booted]);
+
+  // Les autorisations attendent que la personne soit entree dans son compte, et ne sont demandees qu'une fois.
+  useEffect(() => {
+    if (booted && auth === 'connecte') void demanderDroitsAppareil();
+  }, [booted, auth]);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.bg);

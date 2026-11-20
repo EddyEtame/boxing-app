@@ -4,7 +4,7 @@ import { Linking, View } from 'react-native';
 
 import { useT } from '@/i18n';
 import { demanderNotifications, lireDroitNotifications, preparerCanalNotifications, type DroitNotifications } from '@/lib/notifications';
-import { usePrefs } from '@/state/prefs';
+import { notifActive, usePrefs } from '@/state/prefs';
 import { IconCheck } from '@/ui/icons';
 import { Button, Card, Section, Toggle } from '@/ui/kit';
 import { Page, Reveal } from '@/ui/Page';
@@ -63,7 +63,7 @@ export default function NotificationsScreen() {
                     {T(`notif.types.${type}.sub`)}
                   </Body>
                 </View>
-                <Toggle value={notif[type] !== false} onChange={(v) => setNotif(type, v)} label={T(`notif.types.${type}.label`)} />
+                <Toggle value={notifActive(notif, type)} onChange={(v) => setNotif(type, v)} label={T(`notif.types.${type}.label`)} />
               </View>
             ))}
           </Card>

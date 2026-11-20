@@ -252,6 +252,9 @@ export function Reveal({ children, delay = 0, style }: PropsWithChildren<{ delay
     opacity: shown.value,
     transform: [{ translateY: (1 - shown.value) * 16 }],
   }));
+  // Animations coupées (accessibilité, options développeur à 0) : une vue simple, visible tout de suite.
+  // Rien ne doit dépendre d'une animation pour apparaître.
+  if (reduced) return <View style={style}>{children}</View>;
   return (
     <Animated.View
       style={[style, animated]}

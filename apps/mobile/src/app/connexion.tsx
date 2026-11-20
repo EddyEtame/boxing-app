@@ -6,8 +6,9 @@ import { TextInput, View, type KeyboardTypeOptions, type ReturnKeyTypeOptions, t
 import { track } from '@/features/analytics';
 import { ApiError, cleErreurApi, lancerLien, lireMe } from '@/lib/api';
 import { dateVersIso, formaterDate, formaterTelephone, normaliserTelephone } from '@/lib/identite';
+import { ouvrirDansApp, URL_CONFIDENTIALITE } from '@/lib/in-app-browser';
 import { supabase } from '@/lib/supabase';
-import { useT, type MessageKey } from '@/i18n';
+import { useI18nStore, useT, type MessageKey } from '@/i18n';
 import { useSession } from '@/state/session';
 import { Ceremonie } from '@/screens/compte/Ceremonie';
 import { CodeSaisie } from '@/screens/compte/CodeSaisie';
@@ -28,10 +29,12 @@ type AuthEchec = { message?: string; code?: string; name?: string };
 const ATTENTE_MS = 3 * 60 * 1000;
 const SONDE_MS = 5_000;
 const RENVOI_SECONDES = 60;
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function cleAuth(error: AuthEchec): MessageKey {
   const code = error.code ?? '';
   const msg = (error.message ?? '').toLowerCase();
+  if (code === 'otp_expired' || code === 'invalid_otp' || msg.includes('token has expired') || msg.includes('otp')) return 'auth.codeInvalid';
   if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return 'auth.emailUnverified';
   if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered') || msg.includes('already been registered')) return 'auth.emailUsed';
   if (code === 'weak_password' || msg.includes('at least') || msg.includes('too short') || msg.includes('weak')) return 'auth.passwordShort';
@@ -81,8 +84,9 @@ export default function ConnexionScreen() {
 
   const tel = normaliserTelephone(telephone);
   const dateIso = dateVersIso(naissance);
-  const creationOk = prenom.trim().length >= 2 && nom.trim().length >= 2 && email.includes('@') && !!tel && !!dateIso && motDePasse.length >= 8;
-  const connexionOk = email.includes('@') && motDePasse.length >= 8;
+  const emailOk = EMAIL_OK.test(email.trim());
+  const creationOk = prenom.trim().length >= 2 && nom.trim().length >= 2 && emailOk && !!tel && !!dateIso && motDePasse.length >= 8;
+  const connexionOk = emailOk && motDePasse.length >= 8;
   const decouverte = mode === 'creation' && profil === 'decouverte';
   const declareAbonne = mode === 'creation' && profil === 'abonne';
 
@@ -131,10 +135,13 @@ export default function ConnexionScreen() {
         else setEtape('resultat');
         return;
       }
-      if (decouverte) {
+      // « Pas encore » a l'inscription reste vrai aux connexions suivantes : pas d'attente de recherche.
+      const sansAbonnement = decouverte || (mode === 'connexion' && useSession.getState().abonnementDeclare === false);
+      if (sansAbonnement) {
         // Sans abonnement declare, on cherche quand meme une ancienne fiche (CDC §2), sans le faire attendre.
         void lancerLien().catch(() => undefined);
-        setEtape('resultat');
+        if (mode === 'connexion') setRetour(true);
+        else setEtape('resultat');
         return;
       }
       try {
@@ -206,6 +213,7 @@ export default function ConnexionScreen() {
             telephone: tel,
             date_naissance: dateIso,
             abonnement_declare: profil === 'abonne',
+            langue: useI18nStore.getState().locale,
           },
         },
       });
@@ -262,6 +270,7 @@ export default function ConnexionScreen() {
       const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: saisi, type: codePour });
       if (error) {
         setErreur(cleAuth(error));
+        setCode('');
         return;
       }
       if (codePour === 'recovery') setEtape('nouveau');
@@ -386,11 +395,11 @@ export default function ConnexionScreen() {
             ) : null}
             {mode === 'creation' ? (
               <View style={s.row}>
-                <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder={T('auth.firstNamePh')} style={{ flex: 1 }} autoComplete="given-name" onNext={() => nomRef.current?.focus()} />
-                <Field inputRef={nomRef} label={T('auth.lastName')} value={nom} onChange={setNom} placeholder={T('auth.lastNamePh')} style={{ flex: 1 }} autoComplete="family-name" onNext={() => emailRef.current?.focus()} />
+                <Field label={T('auth.firstName')} value={prenom} onChange={setPrenom} placeholder={T('auth.firstNamePh')} style={{ flex: 1 }} erreur={prenom.trim().length < 2 ? T('auth.nameShort') : null} autoComplete="given-name" onNext={() => nomRef.current?.focus()} />
+                <Field inputRef={nomRef} label={T('auth.lastName')} value={nom} onChange={setNom} placeholder={T('auth.lastNamePh')} style={{ flex: 1 }} erreur={nom.trim().length < 2 ? T('auth.nameShort') : null} autoComplete="family-name" onNext={() => emailRef.current?.focus()} />
               </View>
             ) : null}
-            <Field inputRef={emailRef} label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" autoComplete="email" onNext={() => (mode === 'creation' ? telephoneRef : motDePasseRef).current?.focus()} />
+            <Field inputRef={emailRef} label={T('auth.email')} value={email} onChange={setEmail} placeholder={T('auth.emailPh')} keyboard="email-address" erreur={emailOk ? null : T('auth.emailInvalid')} autoComplete="email" onNext={() => (mode === 'creation' ? telephoneRef : motDePasseRef).current?.focus()} />
             {mode === 'creation' ? (
               <>
                 <Field inputRef={telephoneRef} label={T('auth.phone')} value={telephone} onChange={(v) => setTelephone(formaterTelephone(v))} placeholder="06 12 34 56 78" keyboard="phone-pad" maxLength={18} autoComplete="tel" onNext={() => naissanceRef.current?.focus()} />
@@ -399,11 +408,18 @@ export default function ConnexionScreen() {
                 {naissance.length >= 8 && !dateIso ? <Body size="caption" tone="negative">{T('auth.birthInvalid')}</Body> : null}
               </>
             ) : null}
-            <Field inputRef={motDePasseRef} label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure autoComplete={mode === 'creation' ? 'new-password' : 'current-password'} returnKey="go" onNext={valider} />
+            <Field inputRef={motDePasseRef} label={T('auth.password')} value={motDePasse} onChange={setMotDePasse} placeholder={T('auth.passwordPh')} secure erreur={mode === 'creation' && motDePasse.length < 8 ? T('auth.passwordShort') : null} autoComplete={mode === 'creation' ? 'new-password' : 'current-password'} returnKey="go" onNext={valider} />
             {mode === 'creation' ? (
-              <Body size="caption" tone="muted">
-                {profil === 'decouverte' ? T('auth.createNoteDiscover') : T('auth.createNote')}
-              </Body>
+              <>
+                <Body size="caption" tone="muted">
+                  {profil === 'decouverte' ? T('auth.createNoteDiscover') : T('auth.createNote')}
+                </Body>
+                <Tap onPress={() => void ouvrirDansApp(URL_CONFIDENTIALITE)} accessibilityRole="link" accessibilityLabel={T('auth.privacyLink')} style={s.lien}>
+                  <Body size="caption" weight="bold" tone="muted">
+                    {T('auth.privacyLink')}
+                  </Body>
+                </Tap>
+              </>
             ) : (
               <Tap onPress={() => { setErreur(null); setEtape('oubli'); }} accessibilityRole="button" accessibilityLabel={T('auth.forgot')} style={s.lien}>
                 <Body size="caption" weight="bold" tone="muted">
@@ -466,14 +482,18 @@ type FieldProps = {
   returnKey?: ReturnKeyTypeOptions;
   /** La touche du clavier passe au champ suivant, ou valide sur le dernier. */
   onNext?: () => void;
+  /** Message affiche sous le champ une fois que la personne l'a quitte. */
+  erreur?: string | null;
 };
 
-function Field({ label, value, onChange, placeholder, keyboard, secure, style, inputRef, autoComplete, maxLength, returnKey = 'next', onNext }: FieldProps) {
+function Field({ label, value, onChange, placeholder, keyboard, secure, style, inputRef, autoComplete, maxLength, returnKey = 'next', onNext, erreur }: FieldProps) {
   const s = useStyles();
   const t = useTheme();
   const T = useT();
   const [focus, setFocus] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [quitte, setQuitte] = useState(false);
+  const montrer = !!erreur && quitte && value.length > 0;
   return (
     <View style={[s.field, style]}>
       <Body size="caption" weight="bold" tone="muted">
@@ -496,8 +516,11 @@ function Field({ label, value, onChange, placeholder, keyboard, secure, style, i
           autoCapitalize={keyboard || secure ? 'none' : 'words'}
           autoCorrect={false}
           onFocus={() => setFocus(true)}
-          onBlur={() => setFocus(false)}
-          style={[s.input, secure && s.passwordInput, { color: t.text, borderColor: focus ? t.text : t.line }]}
+          onBlur={() => {
+            setFocus(false);
+            setQuitte(true);
+          }}
+          style={[s.input, secure && s.passwordInput, { color: t.text, borderColor: montrer ? t.negative : focus ? t.text : t.line }]}
           accessibilityLabel={label}
         />
         {secure ? (
@@ -512,6 +535,11 @@ function Field({ label, value, onChange, placeholder, keyboard, secure, style, i
           </Tap>
         ) : null}
       </View>
+      {montrer ? (
+        <Body size="caption" tone="negative">
+          {erreur}
+        </Body>
+      ) : null}
     </View>
   );
 }

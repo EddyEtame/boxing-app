@@ -193,12 +193,14 @@ export const useSession = create<SessionState>()(
       version: 1,
       storage: persistStorage,
       skipHydration: IS_SERVER,
-      partialize: (s) => ({ clubsChoisis: s.clubsChoisis, clubActif: s.clubActif, clubsChoisisParLui: s.clubsChoisisParLui }),
+      // La fiche est gardee : une fois le compte verifie, le statut et le badge restent la au prochain lancement, meme sans reseau.
+      partialize: (s) => ({ clubsChoisis: s.clubsChoisis, clubActif: s.clubActif, clubsChoisisParLui: s.clubsChoisisParLui, me: s.me }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SessionState>;
         const clubsChoisis = nettoyerClubs(p.clubsChoisis);
         const clubActif = estClub(p.clubActif) && clubsChoisis.includes(p.clubActif) ? p.clubActif : clubsChoisis[0];
-        return { ...current, clubsChoisis, clubActif, clubsChoisisParLui: p.clubsChoisisParLui === true };
+        const me = p.me && typeof p.me === 'object' && typeof p.me.id === 'string' ? p.me : null;
+        return { ...current, clubsChoisis, clubActif, clubsChoisisParLui: p.clubsChoisisParLui === true, me };
       },
       onRehydrateStorage: () => () => {
         useSession.setState({ clubsHydrated: true });
