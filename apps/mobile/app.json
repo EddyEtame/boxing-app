@@ -38,6 +38,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_IMAGES",
@@ -57,8 +58,7 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
