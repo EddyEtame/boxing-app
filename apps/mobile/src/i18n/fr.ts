@@ -94,6 +94,7 @@ export const fr = {
     tilePlanning: 'Planning',
     tilePlanningToday: '{n} cours aujourd’hui · {club}',
     tilePlanningNone: 'Pas de cours aujourd’hui · {club}',
+    tilePlanningDone: 'Plus de cours aujourd’hui · {club}',
     tileStats: 'Mes stats',
     tileStatsSub: '{n} {n:séance|séances} en {mois}',
     tileSub: 'Abonnement',

@@ -53,7 +53,11 @@ function Corps() {
   const nextClub = next ? clubById(next.slot.club) : club;
   const topClub = stats.byClub[0] ? clubById(stats.byClub[0].club) : club;
   const ouvert = ouvertMaintenant(club, now, live).ouvert;
-  const coursToday = slotsFor(clubActif, jourFr(now)).filter((sl) => normaliseActivite(sl.activite).famille !== 'accesLibre').length;
+  // Les cours encore a venir aujourd'hui : un cours fini ne compte plus (sinon « 3 cours » a 21 h alors que le planning dit « plus de cours »).
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  const coursJour = slotsFor(clubActif, jourFr(now)).filter((sl) => normaliseActivite(sl.activite).famille !== 'accesLibre');
+  const coursToday = coursJour.filter((sl) => sl.fin > minutesNow).length;
+  const plusDeCours = coursJour.length > 0 && coursToday === 0;
   const snap = me.snapshot;
   const coachs = PERSONNES.filter((p) => p.type === 'coach' && p.clubs.includes(clubActif));
   const initiale = `${me.prenom[0] ?? ''}${me.nom[0] ?? ''}`;
@@ -120,7 +124,7 @@ function Corps() {
 
       <Reveal delay={180} style={s.tiles}>
         <QuickTile index={0} icon={IconBadge} tone="accent" title={T('home.tileBadge')} sub={snap?.badgeEnregistre ? T('home.tileBadgeOn') : T('home.tileBadgeOff')} subTone={snap?.badgeEnregistre ? 'accent' : 'muted'} onPress={() => router.navigate('/badge')} />
-        <QuickTile index={1} icon={IconPlanning} title={T('home.tilePlanning')} sub={coursToday ? T('home.tilePlanningToday', { n: coursToday, club: club.court }) : T('home.tilePlanningNone', { club: club.court })} onPress={() => router.navigate('/planning')} />
+        <QuickTile index={1} icon={IconPlanning} title={T('home.tilePlanning')} sub={coursToday ? T('home.tilePlanningToday', { n: coursToday, club: club.court }) : plusDeCours ? T('home.tilePlanningDone', { club: club.court }) : T('home.tilePlanningNone', { club: club.court })} onPress={() => router.navigate('/planning')} />
         <QuickTile index={2} icon={IconChart} title={T('home.tileStats')} sub={T('home.tileStatsSub', { n: stats.month, mois: monthName(now, lang) })} onPress={() => router.navigate('/stats')} />
         <QuickTile index={3} icon={IconCard} tone={snap?.abonnementActif ? 'positive' : 'accent'} title={T('home.tileSub')} sub={sousAbonnement} subTone={snap?.abonnementActif ? 'positive' : 'muted'} onPress={() => router.navigate('/abonnement')} />
       </Reveal>

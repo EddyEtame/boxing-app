@@ -88,6 +88,7 @@ export const en: Translation = {
     tilePlanning: 'Schedule',
     tilePlanningToday: '{n} {n:class|classes} today · {club}',
     tilePlanningNone: 'No classes today · {club}',
+    tilePlanningDone: 'No more classes today · {club}',
     tileStats: 'My stats',
     tileStatsSub: '{n} {n:session|sessions} in {mois}',
     tileSub: 'Membership',
