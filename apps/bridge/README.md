@@ -35,7 +35,7 @@ Voir `.env.example` (noms seulement, aucun secret dans le depot).
 | BOUTIQUE_CHECKOUT_BASE_URL | Base URL du checkout app (query signee), ex. `https://boutique.boxingcenter.fr/checkout/app` |
 | SEND_EMAIL_HOOK_SECRET | Secret du crochet Supabase, format `v1,whsec_<base64>` |
 | BREVO_API_KEY | Envoi des e-mails |
-| BREVO_SENDER_EMAIL | Defaut suzinabot@gmail.com |
+| BREVO_SENDER_EMAIL | Defaut contact@boxingcenter.fr |
 | BREVO_SENDER_NAME | Defaut Boxing Center |
 | BREVO_REPLY_TO | Defaut boxingcenter31@gmail.com |
 

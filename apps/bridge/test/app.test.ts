@@ -29,7 +29,7 @@ const env: Env = {
   ADMIN_BRIDGE_SECRET: 'admin-secret',
   SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from('hook-secret-key').toString('base64')}`,
   BREVO_API_KEY: 'brevo-key',
-  BREVO_SENDER_EMAIL: 'suzinabot@gmail.com',
+  BREVO_SENDER_EMAIL: 'contact@boxingcenter.fr',
   BREVO_SENDER_NAME: 'Boxing Center',
   BREVO_REPLY_TO: 'boxingcenter31@gmail.com',
   SHOP_BRIDGE_SECRET: 'shop-secret',
@@ -153,7 +153,7 @@ test('PUBLIC_URL doit etre https', () => {
     BOUTIQUE_CHECKOUT_BASE_URL: 'https://boutique.boxingcenter.fr/checkout/app',
   });
   assert.equal(parsed.PORT, 8080);
-  assert.equal(parsed.BREVO_SENDER_EMAIL, 'suzinabot@gmail.com');
+  assert.equal(parsed.BREVO_SENDER_EMAIL, 'contact@boxingcenter.fr');
   assert.equal(parsed.BOT_URL, 'http://127.0.0.1:3050');
 });
 

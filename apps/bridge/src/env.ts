@@ -49,7 +49,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     ADMIN_BRIDGE_SECRET: pick(source, 'ADMIN_BRIDGE_SECRET') ?? '',
     SEND_EMAIL_HOOK_SECRET: pick(source, 'SEND_EMAIL_HOOK_SECRET') ?? '',
     BREVO_API_KEY: pick(source, 'BREVO_API_KEY') ?? '',
-    BREVO_SENDER_EMAIL: pick(source, 'BREVO_SENDER_EMAIL') ?? 'suzinabot@gmail.com',
+    BREVO_SENDER_EMAIL: pick(source, 'BREVO_SENDER_EMAIL') ?? 'contact@boxingcenter.fr',
     BREVO_SENDER_NAME: pick(source, 'BREVO_SENDER_NAME') ?? 'Boxing Center',
     BREVO_REPLY_TO: pick(source, 'BREVO_REPLY_TO') ?? 'boxingcenter31@gmail.com',
     SHOP_BRIDGE_SECRET: pick(source, 'SHOP_BRIDGE_SECRET') ?? '',
