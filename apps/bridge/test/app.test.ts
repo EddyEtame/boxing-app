@@ -294,11 +294,35 @@ test('POST /v1/link refuse un e-mail non confirme', async () => {
 
 test('POST /v1/link deja en cours renvoie 202', async () => {
   await withApp(async ({ app, store, robot }) => {
-    store.profiles.set(userA.id, profile({ link_status: 'en_attente' }));
+    store.profiles.set(userA.id, profile({ link_status: 'en_attente', link_updated_at: new Date(NOW.getTime() - 60 * 1000).toISOString() }));
     const res = await app.inject({ method: 'POST', url: '/v1/link', headers: { authorization: 'Bearer token-a' } });
     assert.equal(res.statusCode, 202);
     assert.equal(res.json().status, 'en_attente');
     assert.equal(robot.jobs.length, 0);
+  });
+});
+
+test('POST /v1/link lance le robot pour une fiche jamais envoyee', async () => {
+  await withApp(async ({ app, store, robot }) => {
+    store.profiles.set(userA.id, profile({ link_status: 'en_attente', link_updated_at: null }));
+    const res = await app.inject({ method: 'POST', url: '/v1/link', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(res.statusCode, 202);
+    assert.equal(robot.jobs.length, 1);
+    const current = await store.getProfile(userA.id);
+    assert.equal(current?.link_updated_at, NOW.toISOString());
+  });
+});
+
+test('GET /v1/me debloque une fiche jamais envoyee au robot', async () => {
+  await withApp(async ({ app, store, robot }) => {
+    store.profiles.set(userA.id, profile({ link_status: 'en_attente', link_updated_at: null }));
+    const me = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(me.statusCode, 200);
+    assert.equal(me.json().link.status, 'en_attente');
+    assert.equal(robot.jobs.length, 1);
+    const again = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: 'Bearer token-a' } });
+    assert.equal(again.statusCode, 200);
+    assert.equal(robot.jobs.length, 1);
   });
 });
 

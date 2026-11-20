@@ -311,6 +311,33 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     });
   }
 
+  /** Le profil nait en « en_attente » sans date : tant que rien n'est parti au robot, ce n'est pas une recherche. */
+  function rechercheJamaisLancee(profile: Profile): boolean {
+    return profile.link_status === 'en_attente' && !profile.link_updated_at;
+  }
+
+  function rechercheEnCours(profile: Profile): boolean {
+    if (profile.link_status !== 'en_attente' || !profile.link_updated_at) return false;
+    const age = deps.now().getTime() - Date.parse(profile.link_updated_at);
+    return Number.isFinite(age) && age < LINK_STALE_MS;
+  }
+
+  async function lancerRecherche(profile: Profile): Promise<{ trop?: true; erreur?: unknown; orderId?: string }> {
+    const now = deps.now();
+    const recent = await deps.store.countLinkRequestsSince(profile.id, new Date(now.getTime() - LINK_GAP_MS).toISOString());
+    const day = await deps.store.countLinkRequestsSince(profile.id, new Date(now.getTime() - LINK_DAY_MS).toISOString());
+    if (recent >= 1 || day >= LINK_DAY_MAX) return { trop: true };
+    const opened = await openRequest(profile, null);
+    await deps.store.updateProfile(profile.id, { link_status: 'en_attente', link_updated_at: now.toISOString() });
+    try {
+      await sendLookup(profile, opened.orderId, null);
+    } catch (err) {
+      await deps.store.updateLinkRequest(opened.id, { status: 'erreur', reason: 'robot_indisponible' });
+      return { erreur: err, orderId: opened.orderId };
+    }
+    return { orderId: opened.orderId };
+  }
+
   async function openRequest(profile: Profile, memberId: string | null): Promise<{ id: string; orderId: string }> {
     const orderId = `app-${randomUUID()}`;
     const created = await deps.store.insertLinkRequest({
@@ -336,6 +363,15 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(404).send({ error: 'profil_introuvable' });
       return;
     }
+    // Fiche jamais envoyee au robot (statut par defaut sans date) : on lance la recherche ici,
+    // sinon l'app attend une reponse qui ne viendra jamais.
+    if (user.emailConfirmed && rechercheJamaisLancee(profile) && profileIsComplete(profile)) {
+      const lancement = await lancerRecherche(profile);
+      if (lancement.erreur) req.log.error({ err: lancement.erreur, profileId: profile.id }, 'recherche automatique impossible');
+      const fresh = (await deps.store.getProfile(profile.id)) ?? profile;
+      reply.send(await presentMe(fresh));
+      return;
+    }
     reply.send(await presentMe(profile));
   });
 
@@ -355,7 +391,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(200).send({ status: 'lie' satisfies LinkStatus });
       return;
     }
-    if (profile.link_status === 'en_attente') {
+    if (rechercheEnCours(profile)) {
       reply.code(202).send({ status: 'en_attente' satisfies LinkStatus });
       return;
     }
@@ -363,20 +399,13 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(409).send({ error: 'profil_incomplet' });
       return;
     }
-    const now = deps.now();
-    const recent = await deps.store.countLinkRequestsSince(profile.id, new Date(now.getTime() - LINK_GAP_MS).toISOString());
-    const day = await deps.store.countLinkRequestsSince(profile.id, new Date(now.getTime() - LINK_DAY_MS).toISOString());
-    if (recent >= 1 || day >= LINK_DAY_MAX) {
+    const lancement = await lancerRecherche(profile);
+    if (lancement.trop) {
       reply.code(429).send({ error: 'trop_de_demandes' });
       return;
     }
-    const opened = await openRequest(profile, null);
-    await deps.store.updateProfile(profile.id, { link_status: 'en_attente', link_updated_at: now.toISOString() });
-    try {
-      await sendLookup(profile, opened.orderId, null);
-    } catch (err) {
-      await deps.store.updateLinkRequest(opened.id, { status: 'erreur', reason: 'robot_indisponible' });
-      req.log.error({ err, orderId: opened.orderId }, 'robot injoignable');
+    if (lancement.erreur) {
+      req.log.error({ err: lancement.erreur, orderId: lancement.orderId }, 'robot injoignable');
       reply.code(503).send({ error: 'robot_indisponible' });
       return;
     }
@@ -822,7 +851,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       return;
     }
     const row = body as {
-      user?: { email?: unknown; user_metadata?: { prenom?: unknown } };
+      user?: { email?: unknown; user_metadata?: { prenom?: unknown; langue?: unknown } };
       email_data?: { token?: unknown; token_new?: unknown; email_action_type?: unknown };
     };
     const email = typeof row.user?.email === 'string' ? row.user.email.trim() : '';
@@ -835,7 +864,8 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(400).send({ error: 'requete_invalide' });
       return;
     }
-    const message = buildAuthEmail({ action, prenom, code });
+    const langue = typeof row.user?.user_metadata?.langue === 'string' ? row.user.user_metadata.langue : null;
+    const message = buildAuthEmail({ action, prenom, code, langue });
     try {
       await deps.mailer.send({ to: email, subject: message.subject, html: message.html, text: message.text });
     } catch (err) {
