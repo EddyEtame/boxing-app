@@ -26,7 +26,7 @@ type CodePour = 'signup' | 'recovery';
 
 type AuthEchec = { message?: string; code?: string; name?: string };
 
-const ATTENTE_MS = 3 * 60 * 1000;
+const ATTENTE_MS = 4 * 60 * 1000;
 const SONDE_MS = 5_000;
 const RENVOI_SECONDES = 60;
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -188,7 +188,19 @@ export default function ConnexionScreen() {
     };
     void sonder();
     const intervalle = setInterval(() => void sonder(), SONDE_MS);
-    const stop = setTimeout(() => finir(null), ATTENTE_MS);
+    // 4 minutes sans reponse : on dit qu'on n'a pas trouve, au lieu de laisser chercher sans fin.
+    const stop = setTimeout(() => {
+      void (async () => {
+        let me: Me | null = null;
+        try {
+          me = await lireMe();
+        } catch {
+          me = useSession.getState().me;
+        }
+        if (me && me.link.status === 'en_attente') me = { ...me, link: { ...me.link, status: 'prospect' } };
+        finir(me);
+      })();
+    }, ATTENTE_MS);
     return () => {
       vivant = false;
       clearInterval(intervalle);

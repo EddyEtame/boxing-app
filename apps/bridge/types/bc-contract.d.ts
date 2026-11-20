@@ -63,6 +63,8 @@ export const MEMBER_API: {
 };
 
 export const SNAPSHOT_REFRESH_MS: number;
+export const SNAPSHOT_BADGE_WAIT_MS: number;
+export function snapshotRefreshMs(badgeEnregistre: boolean | null | undefined): number;
 
 export function statutFor(
   link: LinkStatus,

@@ -51,6 +51,11 @@ export type LinkResponse = { status: LinkStatus };
 
 /** Relire la fiche au plus toutes les 6 heures (livrable 2, §5). */
 export const SNAPSHOT_REFRESH_MS = 6 * 60 * 60 * 1000;
+/** Abonne sans badge : l'accueil le pose dans la journee, la fiche est relue toutes les 10 minutes. */
+export const SNAPSHOT_BADGE_WAIT_MS = 10 * 60 * 1000;
+export function snapshotRefreshMs(badgeEnregistre: boolean | null | undefined): number {
+  return badgeEnregistre === true ? SNAPSHOT_REFRESH_MS : SNAPSHOT_BADGE_WAIT_MS;
+}
 
 /** L'espace intégral exige une fiche liée et un abonnement en cours ; tout le reste est restreint. */
 export function statutFor(link: LinkStatus, snapshot: Pick<MemberSnapshot, 'abonnementActif'> | null): Exclude<Statut, 'invite'> {

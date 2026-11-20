@@ -1,4 +1,4 @@
-import { SNAPSHOT_REFRESH_MS, type Me, type Statut } from '@bc/contract';
+import { snapshotRefreshMs, type Me, type Statut } from '@bc/contract';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -241,7 +241,7 @@ export async function rafraichirSiAncien(): Promise<boolean> {
       useSession.getState().applyMe(me);
     }
     const lu = me.snapshot?.readAt ? Date.parse(me.snapshot.readAt) : NaN;
-    if (Number.isFinite(lu) && Date.now() - lu < SNAPSHOT_REFRESH_MS) return true;
+    if (Number.isFinite(lu) && Date.now() - lu < snapshotRefreshMs(me.snapshot?.badgeEnregistre)) return true;
     const suivant = await rafraichirMe();
     useSession.getState().applyMe(suivant);
     return true;

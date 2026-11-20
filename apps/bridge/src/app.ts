@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import rateLimit from '@fastify/rate-limit';
-import { MEMBER_API, SNAPSHOT_REFRESH_MS, clubFromDeciplusGym, statutFor } from '@bc/contract';
+import { MEMBER_API, clubFromDeciplusGym, snapshotRefreshMs, statutFor } from '@bc/contract';
 import type { LinkStatus, Me, MemberSnapshot, Passage } from '@bc/contract';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
@@ -35,7 +35,8 @@ const LINK_GAP_MS = 2 * 60 * 1000;
 const LINK_DAY_MS = 24 * 60 * 60 * 1000;
 const LINK_DAY_MAX = 5;
 /** Sans retour du robot, la fiche passe a « aucun abonnement trouve ». */
-const LINK_STALE_MS = 6 * 60 * 1000;
+// Au bout de 4 minutes sans reponse du robot, la recherche est close : « aucun abonnement trouve ».
+const LINK_STALE_MS = 4 * 60 * 1000;
 /** Une relecture sans retour ne bloque pas les suivantes au-dela de ce delai. */
 const REREAD_LOCK_MS = 10 * 60 * 1000;
 const SIGNATURE_WINDOW_SEC = 300;
@@ -423,7 +424,7 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
     if (profile.link_status === 'lie' && profile.deciplus_member_id) {
       const current = await deps.store.getSnapshot(profile.id);
       const age = current ? deps.now().getTime() - Date.parse(current.read_at) : Number.POSITIVE_INFINITY;
-      const stale = !current || !Number.isFinite(age) || age >= SNAPSHOT_REFRESH_MS;
+      const stale = !current || !Number.isFinite(age) || age >= snapshotRefreshMs(current.badge_enregistre);
       if (stale) {
         const since = new Date(deps.now().getTime() - REREAD_LOCK_MS).toISOString();
         const busy = await deps.store.hasInFlightReread(profile.id, since);
