@@ -56,7 +56,8 @@ function serviceKey(): string {
 
 /** Assez pour vérifier un jeton et lire une fiche. */
 export function memberAuthConfigured(): boolean {
-  return Boolean(supabaseUrl() && anonKey() && serviceKey());
+  // La cle service est facultative : sans elle, la fiche se lit avec le jeton de l'adherent (RLS « lecture du sien »).
+  return Boolean(supabaseUrl() && anonKey());
 }
 
 export function bearerOf(request: Request): string | null {
@@ -106,11 +107,15 @@ export async function memberUser(request: Request): Promise<MemberUser | null> {
   }
 }
 
-async function rest<T>(path: string): Promise<T[]> {
-  const key = serviceKey();
+/** Avec la cle service si elle est la ; sinon avec le jeton de l'adherent, qui ne lit que ses propres lignes. */
+async function rest<T>(path: string, userToken?: string): Promise<T[]> {
+  const service = serviceKey();
+  const key = service || anonKey();
+  const bearer = service || userToken || '';
+  if (!bearer) throw new Unavailable();
   let res: Response;
   try {
-    res = await fetch(`${supabaseUrl()}/rest/v1/${path}`, { headers: { apikey: key, authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    res = await fetch(`${supabaseUrl()}/rest/v1/${path}`, { headers: { apikey: key, authorization: `Bearer ${bearer}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch {
     throw new Unavailable();
   }
@@ -137,12 +142,12 @@ type SnapshotRow = { abonnement_actif?: boolean | null; badge_enregistre?: boole
 const LINK_STATUSES: LinkStatus[] = ['en_attente', 'lie', 'a_revoir', 'prospect'];
 
 /** La fiche d'un adhérent ; sans ligne `profiles`, un compte restreint sans rien de connu. */
-async function fetchProfile(userId: string): Promise<MemberProfile> {
+async function fetchProfile(userId: string, userToken?: string): Promise<MemberProfile> {
   if (!UUID.test(userId)) throw new Unavailable();
   const id = encodeURIComponent(userId);
   const [profiles, snapshots] = await Promise.all([
-    rest<ProfileRow>(`profiles?id=eq.${id}&select=id,prenom,nom,club_principal,deciplus_member_id,link_status,date_naissance&limit=1`),
-    rest<SnapshotRow>(`deciplus_snapshots?profile_id=eq.${id}&select=abonnement_actif,badge_enregistre&limit=1`),
+    rest<ProfileRow>(`profiles?id=eq.${id}&select=id,prenom,nom,club_principal,deciplus_member_id,link_status,date_naissance&limit=1`, userToken),
+    rest<SnapshotRow>(`deciplus_snapshots?profile_id=eq.${id}&select=abonnement_actif,badge_enregistre&limit=1`, userToken),
   ]);
   const p = profiles[0];
   const s = snapshots[0];
@@ -174,7 +179,7 @@ export async function requireMember(request: Request, opts: { actif?: boolean } 
   try {
     const user = await fetchUser(token);
     if (!user) return { ok: false, status: 401, error: 'session' };
-    const profile = await fetchProfile(user.id);
+    const profile = await fetchProfile(user.id, token);
     if (opts.actif && profile.statut !== 'actif') return { ok: false, status: 403, error: 'statut' };
     return { ok: true, member: { user, profile } };
   } catch (e) {
@@ -198,10 +203,10 @@ export async function optionalMember(request: Request): Promise<Member | null> {
  * Les vidéos réservées (CDC §9) : un abonnement en cours ou un badge
  * enregistré suffit (la règle d'origine de /api/videos/[id]/lecture).
  */
-export async function memberCanWatch(userId: string): Promise<boolean> {
-  if (!supabaseUrl() || !serviceKey() || !UUID.test(userId)) return false;
+export async function memberCanWatch(userId: string, userToken?: string): Promise<boolean> {
+  if (!supabaseUrl() || (!serviceKey() && !userToken) || !UUID.test(userId)) return false;
   try {
-    const rows = await rest<SnapshotRow>(`deciplus_snapshots?profile_id=eq.${encodeURIComponent(userId)}&select=abonnement_actif,badge_enregistre&limit=1`);
+    const rows = await rest<SnapshotRow>(`deciplus_snapshots?profile_id=eq.${encodeURIComponent(userId)}&select=abonnement_actif,badge_enregistre&limit=1`, userToken);
     const row = rows[0];
     return Boolean(row?.abonnement_actif || row?.badge_enregistre);
   } catch {

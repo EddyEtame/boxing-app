@@ -2,7 +2,7 @@ import { readVideos } from '@/server/content';
 import { digestEqual, hmac } from '@/server/crypto';
 import { sessionSecret } from '@/server/env';
 import { clientIp, corsHeaders, json } from '@/server/http';
-import { memberCanWatch, memberUser } from '@/server/member-auth';
+import { bearerOf, memberCanWatch, memberUser } from '@/server/member-auth';
 import { hit } from '@/server/rate-limit';
 
 const METHODS = 'GET, OPTIONS';
@@ -48,7 +48,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!video.gratuite) {
     const uid = (await memberUser(request))?.id;
     if (!uid) return json({ error: 'session' }, { status: 401, headers });
-    if (!(await memberCanWatch(uid))) return json({ error: 'droits' }, { status: 403, headers });
+    if (!(await memberCanWatch(uid, bearerOf(request) ?? undefined))) return json({ error: 'droits' }, { status: 403, headers });
   }
   const secret = sessionSecret();
   if (!secret) return json({ error: 'off' }, { status: 503, headers });
