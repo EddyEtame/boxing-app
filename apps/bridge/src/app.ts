@@ -274,8 +274,8 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
         event_id: `lien-timeout:${profile.id}:${profile.link_updated_at}`,
         profile_id: profile.id,
         kind: 'lien_introuvable',
-        title: 'Aucun abonnement trouve',
-        body: 'Nous n avons pas retrouve d abonnement avec tes informations. Verifie-les a l accueil, ou prends une offre.',
+        title: 'Aucun abonnement trouvé',
+        body: 'On n’a pas retrouvé d’abonnement avec tes informations. Vérifie-les à l’accueil, ou prends une offre.',
       });
     } catch {
       // Contrainte SQL pas encore elargie : l'ecran d'accueil suffit.
@@ -287,10 +287,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
   async function notifierLien(profileId: string, requestId: string, status: 'lie' | 'a_revoir' | 'prospect'): Promise<void> {
     const copy =
       status === 'lie'
-        ? { kind: 'lien_trouve' as const, title: 'Abonnement retrouve', body: 'Ton abonnement est relie. Il est visible dans l app.' }
+        ? { kind: 'lien_trouve' as const, title: 'Abonnement retrouvé', body: 'Ton abonnement est relié. Il est visible dans l’app.' }
         : status === 'a_revoir'
-          ? { kind: 'lien_revue' as const, title: 'Le club verifie', body: 'Tes informations ne correspondent pas tout a fait. Le club verifie ton compte.' }
-          : { kind: 'lien_introuvable' as const, title: 'Aucun abonnement trouve', body: 'Nous n avons pas retrouve d abonnement avec tes informations. Verifie-les a l accueil, ou prends une offre.' };
+          ? { kind: 'lien_revue' as const, title: 'Le club vérifie', body: 'Tes informations ne correspondent pas tout à fait. Le club vérifie ton compte.' }
+          : { kind: 'lien_introuvable' as const, title: 'Aucun abonnement trouvé', body: 'On n’a pas retrouvé d’abonnement avec tes informations. Vérifie-les à l’accueil, ou prends une offre.' };
     try {
       await deps.store.insertMemberNotice({
         event_id: `lien:${requestId}:${status}`,
@@ -659,8 +659,10 @@ export async function buildApp(deps: Deps): Promise<FastifyInstance> {
       reply.code(200).send({ status: request.status });
       return;
     }
+    // Une relecture de fiche deja liee (badge, contrat) ne renvoie pas « Abonnement retrouvé » a chaque fois.
+    const avant = (await deps.store.getProfile(request.profile_id))?.link_status ?? null;
     const status = await applyMemberStatus(deps.store, request, payload, deps.now());
-    await notifierLien(request.profile_id, request.id, status);
+    if (status !== avant) await notifierLien(request.profile_id, request.id, status);
     reply.code(200).send({ status });
   });
 
