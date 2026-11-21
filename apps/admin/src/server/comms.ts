@@ -10,6 +10,7 @@ import { checkNotif, checkOutgoing, cleanText, type FieldErrors } from '@/lib/co
 import { TZ, parseLocal } from '@/lib/format';
 import { can, inScope, scopeClubs } from '@/lib/permissions';
 import { heure, normaliseActivite } from '@/lib/planning/model';
+import type { ReceivedMessage } from '@/lib/public/comms';
 import type { ClubId, OutgoingMessage, PushNotification, SessionUser, Statut } from '@/lib/types';
 
 /**
@@ -308,4 +309,37 @@ export function deliveryStatus(): { pushKey: boolean; deciplusBridge: boolean } 
       process.env.MEMBER_BRIDGE_URL?.trim() || process.env.DECIPLUS_BRIDGE_URL?.trim(),
     ),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ce que l'adhérent relit dans l'app (GET /api/messages/recus)         */
+/* ------------------------------------------------------------------ */
+
+const RECEIVED_WINDOW = 90 * 86_400_000;
+const RECEIVED_MAX = 50;
+
+/**
+ * Les messages de l'équipe qui concernent cet adhérent : ceux qui lui sont
+ * adressés par son numéro Deciplus, et ceux d'un groupe dont il fait partie
+ * (son club principal, son statut). Les disciplines visées sont rendues telles
+ * quelles : le serveur ne connaît pas celles de l'adhérent. Jamais l'auteur,
+ * seulement la signature choisie ; jamais un exemple.
+ */
+export async function readReceivedFor(member: { deciplusMemberId: string | null; club: ClubId | null; statut: Statut }, now = Date.now()): Promise<ReceivedMessage[]> {
+  const list = (await read('envois')) as OutgoingRow[];
+  return list
+    .filter((o) => {
+      if (o.demo) return false;
+      const ts = Date.parse(o.createdAt);
+      if (!Number.isFinite(ts) || ts > now || now - ts > RECEIVED_WINDOW) return false;
+      if (o.to.kind === 'membre') return Boolean(member.deciplusMemberId) && o.to.memberId === member.deciplusMemberId;
+      if (!o.to.statuts.includes(member.statut)) return false;
+      return o.to.clubs === 'all' || (member.club !== null && o.to.clubs.includes(member.club));
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, RECEIVED_MAX)
+    .map((o): ReceivedMessage => {
+      const familles = o.to.kind === 'groupe' && o.to.familles.length ? { familles: [...o.to.familles] } : {};
+      return { id: o.id, signature: o.signature, text: o.text, at: o.createdAt, cible: o.to.kind, ...familles };
+    });
 }

@@ -6,7 +6,7 @@ import { ActionError } from './session';
 import type { Assignee, StoredThread, ThreadView } from '@/lib/comms/types';
 import { checkReply, cleanText } from '@/lib/comms/validate';
 import { can, inScope } from '@/lib/permissions';
-import type { ThreadResponse } from '@/lib/public/comms';
+import type { MemberThreadSummary, ThreadResponse } from '@/lib/public/comms';
 import type { ClubId, InboxMessage, InboxThread, SessionUser, Statut, Sujet } from '@/lib/types';
 
 /**
@@ -24,7 +24,10 @@ const MAX_MESSAGES = 200;
 
 const toView = (t: StoredThread): ThreadView => {
   const { app, ...rest } = t;
-  return { ...rest, declared: Boolean(app) };
+  const view: ThreadView & { ownerId?: string } = { ...rest, declared: Boolean(app) };
+  // L'identifiant Supabase de l'adhérent ne part pas dans le navigateur de l'équipe.
+  delete view.ownerId;
+  return view;
 };
 
 async function threads(): Promise<StoredThread[]> {
@@ -252,8 +255,11 @@ export type AppMessageInput = { anonId: string; club: ClubId; statut: Statut; su
 const anonHash = (anonId: string) => sha256(`bc-anon|${anonId}`).slice(0, 32);
 const tokenHash = (token: string) => sha256(`bc-thread|${token}`);
 
-/** Ouvre un fil. Le jeton n'existe qu'ici et dans l'app : seule son empreinte est gardée. */
-export async function openThreadFromApp(input: AppMessageInput): Promise<{ thread: StoredThread; token: string }> {
+/**
+ * Ouvre un fil. Le jeton n'existe qu'ici et dans l'app : seule son empreinte est gardée.
+ * `ownerId` : l'adhérent reconnu par sa session, qui retrouvera ce fil (GET /api/messages).
+ */
+export async function openThreadFromApp(input: AppMessageInput, ownerId?: string): Promise<{ thread: StoredThread; token: string }> {
   const token = randomToken(24);
   const at = new Date().toISOString();
   const ah = anonHash(input.anonId);
@@ -267,22 +273,35 @@ export async function openThreadFromApp(input: AppMessageInput): Promise<{ threa
     createdAt: at,
     updatedAt: at,
     app: { anonHash: ah, tokenHash: tokenHash(token), identity: 'declaree' },
+    ...(ownerId ? { ownerId } : {}),
   };
   await update('messagerie', (list) => ({ next: [thread, ...(list as StoredThread[])].slice(0, MAX_THREADS), result: undefined }));
   return { thread, token };
 }
 
 function tokenMatches(t: StoredThread, token: string): boolean {
-  return Boolean(t.app) && digestEqual(tokenHash(token), t.app!.tokenHash);
+  return Boolean(t.app) && token.length > 0 && digestEqual(tokenHash(token), t.app!.tokenHash);
 }
 
-/** Ajoute un message à un fil, si le jeton est le bon. Un fil traité se rouvre. */
-export async function appendFromApp(threadId: string, token: string, input: AppMessageInput): Promise<StoredThread | null> {
+/** Le fil appartient à l'adhérent de la session (fils ouverts avec une session seulement). */
+function ownerMatches(t: StoredThread, ownerId: string | null | undefined): boolean {
+  return Boolean(ownerId && t.ownerId && t.ownerId === ownerId);
+}
+
+/** L'accès d'un fil : son jeton, ou la session de son propriétaire. */
+export type ThreadAccess = { token?: string | null; ownerId?: string | null };
+
+/**
+ * Ajoute un message à un fil, si le jeton est le bon (et vient de la même
+ * installation) ou si la session est celle du propriétaire. Un fil traité se rouvre.
+ */
+export async function appendFromApp(threadId: string, access: ThreadAccess, input: AppMessageInput): Promise<StoredThread | null> {
   return update('messagerie', (list) => {
     const all = list as StoredThread[];
     const i = all.findIndex((t) => t.id === threadId);
     const t = all[i];
-    if (!t || !tokenMatches(t, token) || t.app!.anonHash !== anonHash(input.anonId)) return { next: list, result: null };
+    const byToken = Boolean(t && access.token && tokenMatches(t, access.token) && t.app!.anonHash === anonHash(input.anonId));
+    if (!t || !(byToken || ownerMatches(t, access.ownerId))) return { next: list, result: null };
     const at = new Date().toISOString();
     const nextThread: StoredThread = {
       ...t,
@@ -298,9 +317,9 @@ export async function appendFromApp(threadId: string, token: string, input: AppM
 }
 
 /** Le fil tel que l'adhérent le lit : sans note interne, sans nom de compte. */
-export async function readForApp(threadId: string, token: string): Promise<ThreadResponse | null> {
+export async function readForApp(threadId: string, access: ThreadAccess): Promise<ThreadResponse | null> {
   const t = (await threads()).find((x) => x.id === threadId);
-  if (!t || !tokenMatches(t, token)) return null;
+  if (!t || !((access.token && tokenMatches(t, access.token)) || ownerMatches(t, access.ownerId))) return null;
   return {
     id: t.id,
     status: t.status,
@@ -310,3 +329,25 @@ export async function readForApp(threadId: string, token: string): Promise<Threa
   };
 }
 
+/**
+ * Les fils d'un adhérent, le plus récent en tête : le sujet, le statut et le
+ * dernier message visible (jamais une note interne, jamais le nom du compte).
+ */
+export async function readOwnerThreads(ownerId: string, max = 100): Promise<MemberThreadSummary[]> {
+  if (!ownerId) return [];
+  return (await threads())
+    .filter((t) => t.ownerId === ownerId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, max)
+    .map((t) => {
+      const last = [...t.messages].reverse().find((m) => m.from !== 'note');
+      const text = last ? (last.text.length > 160 ? `${last.text.slice(0, 159).trimEnd()}…` : last.text) : '';
+      return {
+        id: t.id,
+        status: t.status,
+        sujet: t.sujet,
+        updatedAt: t.updatedAt,
+        dernier: last ? { from: last.from as 'member' | 'staff' | 'auto', text, at: last.at } : null,
+      };
+    });
+}

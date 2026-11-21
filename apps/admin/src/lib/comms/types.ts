@@ -84,6 +84,8 @@ export type NotifRow = PushNotification;
  */
 export type StoredThread = InboxThread & {
   app?: { anonHash: string; tokenHash: string; identity: 'declaree' };
+  /** L'identifiant Supabase de l'adhérent quand l'app a envoyé sa session : il retrouve ses fils sur tout appareil. */
+  ownerId?: string;
 };
 
 /** Ce que le navigateur reçoit : jamais une empreinte. */

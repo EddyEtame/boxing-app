@@ -8,7 +8,7 @@ import { inScope } from '@/lib/permissions';
 import { closureOn, freeRanges, hasFreeAccess, hoursOf } from '@/lib/planning/hours';
 import { isFree } from '@/lib/planning/model';
 import { blocking, type CheckCode, type ModerationCheck, type QueueItem } from '@/lib/team/moderation';
-import { NIVEAUX, RETRAIT_MOTIFS, SPARRING, TRAINING_TYPES, type ClubId, type Closure, type FeatureKey, type FeatureState, type ModerationRules, type Niveau, type PlanningState, type RetraitMotif, type SessionUser, type Slot, type TrainingProposal, type TrainingType } from '@/lib/types';
+import { NIVEAUX, RETRAIT_MOTIFS, SPARRING, TRAINING_TYPES, type ClubId, type Closure, type FeatureKey, type FeatureState, type ModerationRules, type Niveau, type PlanningState, type RetraitMotif, type SessionUser, type Slot, type TrainingInscrit, type TrainingProposal, type TrainingType } from '@/lib/types';
 
 /**
  * LA MODÉRATION DES ENTRAÎNEMENTS ENTRE MEMBRES (CDC §11).
@@ -337,11 +337,72 @@ export function checkProposalInput(raw: unknown, today: string): { input: Propos
   };
 }
 
-export async function submitFromApp(input: ProposalInput): Promise<{ id: string; status: 'a-verifier' | 'en-ligne'; checks: CheckCode[] }> {
+/** `ownerId` : l'identifiant Supabase de l'organisateur, quand l'app a envoyé sa session. */
+export async function submitFromApp(input: ProposalInput, ownerId?: string): Promise<{ id: string; status: 'a-verifier' | 'en-ligne'; checks: CheckCode[] }> {
   const ctx = await checkContext();
   const checks = checksFor(input, ctx);
   const status = ctx.rules.premoderation || blocking(checks) ? 'a-verifier' : 'en-ligne';
-  const proposal: TrainingProposal = { ...input, id: newId('ent'), participants: 0, status, createdAt: new Date().toISOString() };
+  const proposal: TrainingProposal = { ...input, ...(ownerId ? { ownerId } : {}), id: newId('ent'), participants: 0, status, createdAt: new Date().toISOString() };
   await update('propositions', (list) => ({ next: [proposal, ...list].slice(0, 2000), result: undefined }));
   return { id: proposal.id, status, checks: checks.map((c) => c.code) };
+}
+
+/* ------------------------------------------------------------------ */
+/* « Je participe » (CDC §11 B, C)                                      */
+/* ------------------------------------------------------------------ */
+
+const MAX_INSCRITS = 200;
+
+/** Qui appelle, tel que la session le dit : jamais ce que l'app déclare. */
+export type Participant = { userId: string; prenom: string; deciplusMemberId: string | null; age?: number };
+
+/** L'organisateur : par sa session quand la proposition la porte, sinon par son numéro Deciplus. */
+export function isOrganizer(p: TrainingProposal, who: Pick<Participant, 'userId' | 'deciplusMemberId'>): boolean {
+  if (p.ownerId) return p.ownerId === who.userId;
+  return Boolean(who.deciplusMemberId) && p.organizer.memberId === who.deciplusMemberId;
+}
+
+export const isInscrit = (p: TrainingProposal, userId: string): boolean => (p.inscrits ?? []).some((i) => i.userId === userId);
+
+export type ParticipationResult =
+  | { ok: true; id: string; inscrit: boolean; participants: number }
+  | { ok: false; error: 'introuvable' | 'passee' | 'organisateur' | 'coupee' | 'age'; quoi?: string };
+
+/**
+ * Inscrit (`join`) ou désinscrit l'adhérent. Idempotent : répéter l'appel ne
+ * change rien et rend le même état. Seule une proposition en ligne et à venir
+ * s'y prête ; l'organisateur ne s'inscrit pas à sa propre séance ; l'âge
+ * minimal des règles vaut aussi pour rejoindre (CDC §11 E).
+ */
+export async function setParticipation(id: string, who: Participant, join: boolean): Promise<ParticipationResult> {
+  const [rules, features] = await Promise.all([read('regles'), readFeatures()]);
+  const now = parisNow();
+  const prenom = who.prenom.replace(/\s+/g, ' ').trim().slice(0, 40) || 'Membre';
+  return update('propositions', (list) => {
+    const i = list.findIndex((p) => p.id === id);
+    const p = list[i];
+    const same = (r: ParticipationResult) => ({ next: list, result: r });
+    if (!p || p.status !== 'en-ligne') return same({ ok: false, error: 'introuvable' });
+    if (!features[`entrainements.${p.type}` as FeatureKey].on) return same({ ok: false, error: 'coupee', quoi: p.type });
+    if (p.date < now.ymd || (p.date === now.ymd && p.debut < now.minutes)) return same({ ok: false, error: 'passee' });
+    const already = isInscrit(p, who.userId);
+    const state = (q: TrainingProposal): ParticipationResult => ({ ok: true, id: q.id, inscrit: isInscrit(q, who.userId), participants: q.participants });
+    if (join) {
+      if (already) return same(state(p));
+      if (isOrganizer(p, who)) return same({ ok: false, error: 'organisateur' });
+      const min = SPARRING.includes(p.type) ? rules.sparringMinAge : rules.otherMinAge;
+      if (who.age !== undefined && who.age < min) return same({ ok: false, error: 'age' });
+      if ((p.inscrits ?? []).length >= MAX_INSCRITS) return same(state(p));
+      const entry: TrainingInscrit = { userId: who.userId, prenom, at: new Date().toISOString() };
+      const q: TrainingProposal = { ...p, inscrits: [...(p.inscrits ?? []), entry], participants: p.participants + 1 };
+      const next = [...list];
+      next[i] = q;
+      return { next, result: state(q) };
+    }
+    if (!already) return same(state(p));
+    const q: TrainingProposal = { ...p, inscrits: (p.inscrits ?? []).filter((x) => x.userId !== who.userId), participants: Math.max(0, p.participants - 1) };
+    const next = [...list];
+    next[i] = q;
+    return { next, result: state(q) };
+  });
 }

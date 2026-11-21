@@ -1,11 +1,12 @@
 import { isClubId } from '@/lib/clubs';
 import { LIMITS } from '@/lib/comms/types';
 import { cleanText } from '@/lib/comms/validate';
-import type { MemberMessageRequest, MemberMessageResponse, PublicError } from '@/lib/public/comms';
+import type { MemberMessageRequest, MemberMessageResponse, MemberThreadsResponse, PublicError } from '@/lib/public/comms';
 import { SUJETS, type Statut, type Sujet } from '@/lib/types';
 import { isOn } from '@/server/collections';
-import { appendFromApp, openThreadFromApp } from '@/server/comms-inbox';
+import { appendFromApp, openThreadFromApp, readOwnerThreads } from '@/server/comms-inbox';
 import { clientIp, corsHeaders, json } from '@/server/http';
+import { optionalMember, requireMember } from '@/server/member-auth';
 import { hit } from '@/server/rate-limit';
 
 /**
@@ -19,8 +20,17 @@ import { hit } from '@/server/rate-limit';
  *    rien n'est vérifié tant que Deciplus n'est pas branché.
  * Sans `threadId`, un fil s'ouvre et son jeton de lecture est rendu une seule
  * fois ; avec `threadId` et l'en-tête `x-bc-thread-token`, le message s'ajoute.
+ *
+ * Avec une session valable (`Authorization: Bearer`), le fil est rattaché à
+ * l'adhérent : il le retrouve par GET sur tout appareil, et peut y ajouter un
+ * message sans le jeton du fil. Le statut, le prénom et le numéro viennent
+ * alors de sa fiche, et `anonId` / `statut` peuvent manquer (MemberMessageBody).
+ * Une session absente ou refusée ne bloque pas l'app déjà en ligne : elle
+ * retombe sur le corps déclaré.
+ *
+ * GET : les fils de l'adhérent de la session (MemberThreadsResponse).
  */
-const METHODS = 'POST, OPTIONS';
+const METHODS = 'GET, POST, OPTIONS';
 const MAX_BODY = 8 * 1024;
 const ANON = /^[A-Za-z0-9-]{8,64}$/;
 const MEMBER = /^\d{3,10}$/;
@@ -29,7 +39,7 @@ const STATUTS: Statut[] = ['invite', 'restreint', 'actif'];
 
 function cors(request: Request): Headers {
   const h = corsHeaders(request, METHODS);
-  if (h.has('Access-Control-Allow-Origin')) h.set('Access-Control-Allow-Headers', 'content-type, x-bc-thread-token');
+  if (h.has('Access-Control-Allow-Origin')) h.set('Access-Control-Allow-Headers', 'content-type, authorization, x-bc-thread-token');
   return h;
 }
 
@@ -37,6 +47,20 @@ const refuse = (body: PublicError, status: number, headers: Headers) => json(bod
 
 export function OPTIONS(request: Request) {
   return new Response(null, { status: 204, headers: cors(request) });
+}
+
+export async function GET(request: Request) {
+  const headers = cors(request);
+  const byIp = hit(`messages:fils:${clientIp(request.headers)}`, 120, 60_000);
+  if (!byIp.ok) {
+    headers.set('Retry-After', String(byIp.retryAfterSec));
+    return refuse({ error: 'debit', retryAfter: byIp.retryAfterSec }, 429, headers);
+  }
+  if (!(await isOn('messagerie'))) return refuse({ error: 'off' }, 503, headers);
+  const auth = await requireMember(request);
+  if (!auth.ok) return refuse({ error: auth.error }, auth.status, headers);
+  const items = await readOwnerThreads(auth.member.user.id);
+  return json({ items } satisfies MemberThreadsResponse, { headers });
 }
 
 export async function POST(request: Request) {
@@ -64,6 +88,20 @@ export async function POST(request: Request) {
   }
   if (!body || typeof body !== 'object') return refuse({ error: 'invalide' }, 400, headers);
 
+  // La session, si l'app l'envoie : sa fiche fait foi pour le statut, le prénom et le numéro.
+  const member = await optionalMember(request);
+  if (member) {
+    const p = member.profile;
+    body = {
+      ...body,
+      anonId: typeof body.anonId === 'string' && ANON.test(body.anonId) ? body.anonId : `u-${member.user.id}`,
+      statut: p.statut,
+      club: p.club ?? body.club,
+      ...(p.prenom ? { name: `${p.prenom} ${p.nom}`.trim().slice(0, LIMITS.name) } : {}),
+      ...(p.deciplusMemberId && MEMBER.test(p.deciplusMemberId) ? { memberId: p.deciplusMemberId } : {}),
+    };
+  }
+
   const text = cleanText(body.text, true);
   const name = body.name === undefined ? undefined : cleanText(body.name, false);
   const fields: string[] = [];
@@ -90,12 +128,13 @@ export async function POST(request: Request) {
   const input = { anonId, club: body.club!, statut: body.statut, sujet: body.sujet!, text, name: name || undefined, memberId: body.memberId };
 
   if (body.threadId) {
-    const token = request.headers.get('x-bc-thread-token') ?? '';
-    const thread = token.length >= 16 && token.length <= 128 ? await appendFromApp(body.threadId, token, input) : null;
+    const raw = request.headers.get('x-bc-thread-token') ?? '';
+    const token = raw.length >= 16 && raw.length <= 128 ? raw : null;
+    const thread = token || member ? await appendFromApp(body.threadId, { token, ownerId: member?.user.id }, input) : null;
     if (!thread) return refuse({ error: 'introuvable' }, 404, headers);
     return json({ threadId: thread.id, status: thread.status } satisfies MemberMessageResponse, { status: 200, headers });
   }
 
-  const { thread, token } = await openThreadFromApp(input);
+  const { thread, token } = await openThreadFromApp(input, member?.user.id);
   return json({ threadId: thread.id, token, status: thread.status } satisfies MemberMessageResponse, { status: 201, headers });
 }

@@ -249,6 +249,8 @@ export type TrainingCheck = {
 export const RETRAIT_MOTIFS = ['coordonnees', 'hors-acces-libre', 'securite', 'propos', 'doublon', 'autre'] as const;
 export type RetraitMotif = (typeof RETRAIT_MOTIFS)[number];
 
+export type TrainingInscrit = { userId: string; prenom: string; at: string };
+
 export type TrainingProposal = {
   id: string;
   type: TrainingType;
@@ -260,7 +262,11 @@ export type TrainingProposal = {
   niveau: Niveau;
   observation?: string;
   organizer: { memberId: string; prenom: string; age?: number };
+  /** L'identifiant Supabase de l'organisateur quand l'app a envoyé sa session (propositions récentes). */
+  ownerId?: string;
   participants: number;
+  /** Les « Je participe » venus de l'app : l'identifiant Supabase, le prénom seul et l'heure. Les exemples n'en ont pas. */
+  inscrits?: TrainingInscrit[];
   status: 'a-verifier' | 'en-ligne' | 'retiree';
   decision?: { by: string; at: string; motif?: RetraitMotif; note?: string };
   createdAt: string;

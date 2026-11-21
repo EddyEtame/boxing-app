@@ -3,7 +3,8 @@ import type { PublicTraining, TrainingCreated, TrainingsResponse } from '@/lib/p
 import type { FeatureKey } from '@/lib/types';
 import { read, readFeatures } from '@/server/collections';
 import { clientIp, corsHeaders, json } from '@/server/http';
-import { checkProposalInput, parisNow, submitFromApp } from '@/server/moderation';
+import { optionalMember } from '@/server/member-auth';
+import { checkProposalInput, isInscrit, isOrganizer, parisNow, submitFromApp } from '@/server/moderation';
 import { hit } from '@/server/rate-limit';
 
 /**
@@ -16,6 +17,11 @@ import { hit } from '@/server/rate-limit';
  * contrôles de la modération, puis « à vérifier » (prémodération ou contrôle
  * bloquant) ou en ligne. Tant que l'app n'a pas de connexion adhérent, le
  * numéro et l'âge sont déclarés par l'app, pas prouvés : l'équipe le sait.
+ *
+ * Avec une session valable (`Authorization: Bearer`), GET ajoute `moi` à
+ * chaque séance (inscrit, organisateur), et POST prend l'organisateur dans la
+ * fiche (numéro, prénom, âge) et rattache la proposition à la session. Sans
+ * session, rien ne change pour l'app déjà en ligne.
  */
 const METHODS = 'GET, POST, OPTIONS';
 const MAX_BODY = 4096;
@@ -39,6 +45,8 @@ export async function GET(request: Request) {
   const updatedAt = new Date().toISOString();
   if (!features.entrainements.on) return json({ items: [], off: true, updatedAt } satisfies TrainingsResponse, { headers });
 
+  const member = await optionalMember(request);
+  const who = member ? { userId: member.user.id, deciplusMemberId: member.profile.deciplusMemberId } : null;
   const items: PublicTraining[] = (await read('propositions'))
     .filter((p) => p.status === 'en-ligne' && features[`entrainements.${p.type}` as FeatureKey].on && (!club || p.club === club))
     .filter((p) => p.date > now.ymd || (p.date === now.ymd && p.debut >= now.minutes))
@@ -54,6 +62,7 @@ export async function GET(request: Request) {
       ...(p.observation ? { observation: p.observation } : {}),
       participants: p.participants,
       organisateur: { prenom: p.organizer.prenom },
+      ...(who ? { moi: { inscrit: isInscrit(p, who.userId), organisateur: isOrganizer(p, who) } } : {}),
     }));
   return json({ items, off: false, updatedAt } satisfies TrainingsResponse, { headers });
 }
@@ -77,6 +86,18 @@ export async function POST(request: Request) {
     return json({ error: 'json' }, { status: 400, headers });
   }
 
+  // La session fait foi pour l'organisateur ; l'app déjà en ligne envoie encore le sien.
+  const member = await optionalMember(request);
+  if (member && body && typeof body === 'object') {
+    const declared = ((body as Record<string, unknown>).organisateur ?? {}) as Record<string, unknown>;
+    const p = member.profile;
+    (body as Record<string, unknown>).organisateur = {
+      memberId: p.deciplusMemberId ?? declared.memberId,
+      prenom: p.prenom || declared.prenom,
+      ...(p.age !== undefined ? { age: p.age } : declared.age !== undefined ? { age: declared.age } : {}),
+    };
+  }
+
   const { input, errors } = checkProposalInput(body, parisNow().ymd);
   if (!input) return json({ error: 'champs', champs: errors }, { status: 400, headers });
 
@@ -91,6 +112,6 @@ export async function POST(request: Request) {
     return json({ error: 'debit' }, { status: 429, headers });
   }
 
-  const created: TrainingCreated = await submitFromApp(input);
+  const created: TrainingCreated = await submitFromApp(input, member?.user.id);
   return json(created, { status: 201, headers });
 }

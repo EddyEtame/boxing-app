@@ -3,4 +3,4 @@
  * membres : défini dans @bc/contract (admin.ts), réexporté ici pour les routes
  * de l'admin.
  */
-export type { FeaturesResponse, PublicTraining, TrainingCreated, TrainingRequest, TrainingsResponse } from '@bc/contract';
+export type { FeaturesResponse, ParticipantsResponse, ParticipationResponse, PublicTraining, TrainingCreated, TrainingParticipant, TrainingRequest, TrainingsResponse } from '@bc/contract';

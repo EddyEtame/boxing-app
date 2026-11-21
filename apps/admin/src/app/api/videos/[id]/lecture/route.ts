@@ -2,6 +2,7 @@ import { readVideos } from '@/server/content';
 import { digestEqual, hmac } from '@/server/crypto';
 import { sessionSecret } from '@/server/env';
 import { clientIp, corsHeaders, json } from '@/server/http';
+import { memberCanWatch, memberUser } from '@/server/member-auth';
 import { hit } from '@/server/rate-limit';
 
 const METHODS = 'GET, OPTIONS';
@@ -13,32 +14,6 @@ function originOf(request: Request): string {
   const safeHost = /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? host : url.host;
   const safeProto = proto === 'https' || proto === 'http' ? proto : 'http';
   return `${safeProto}://${safeHost}`;
-}
-
-async function userId(request: Request): Promise<string | null> {
-  const header = request.headers.get('authorization') ?? '';
-  const token = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
-  if (!token) return null;
-  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  if (!url || !anon) return null;
-  const res = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anon, authorization: `Bearer ${token}` } });
-  if (!res.ok) return null;
-  const body = (await res.json()) as { id?: string };
-  return typeof body.id === 'string' ? body.id : null;
-}
-
-async function memberCanWatch(userId: string): Promise<boolean> {
-  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (!url || !key) return false;
-  const res = await fetch(`${url}/rest/v1/deciplus_snapshots?profile_id=eq.${userId}&select=abonnement_actif,badge_enregistre`, {
-    headers: { apikey: key, authorization: `Bearer ${key}` },
-  });
-  if (!res.ok) return false;
-  const rows = (await res.json()) as { abonnement_actif?: boolean; badge_enregistre?: boolean }[];
-  const row = rows[0];
-  return Boolean(row?.abonnement_actif || row?.badge_enregistre);
 }
 
 async function streamUrl(ref: string): Promise<string | null> {
@@ -71,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const video = (await readVideos()).find((v) => v.id === id && v.status === 'publie' && v.source.ref);
   if (!video) return json({ error: 'introuvable' }, { status: 404, headers });
   if (!video.gratuite) {
-    const uid = await userId(request);
+    const uid = (await memberUser(request))?.id;
     if (!uid) return json({ error: 'session' }, { status: 401, headers });
     if (!(await memberCanWatch(uid))) return json({ error: 'droits' }, { status: 403, headers });
   }
