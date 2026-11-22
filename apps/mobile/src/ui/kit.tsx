@@ -93,8 +93,10 @@ export function Button({ label, onPress, variant = 'primary', icon: Icon, disabl
       accessibilityState={{ disabled: !!disabled }}
       style={[s.button, small && s.buttonSmall, { backgroundColor: bg }, variant === 'secondary' && s.buttonOutline, disabled && s.disabled, style]}>
       {Icon ? <Icon size={small ? 18 : 20} color={fg} /> : null}
-      {/* Une ligne, centrée, réduite si besoin : sur Android, le libellé passait à la ligne puis la 2e ligne était rognée. */}
-      <Body size={small ? 'bodySmall' : 'body'} weight="bold" tone={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} textBreakStrategy="simple" style={s.buttonLabel}>
+      {/* Une ligne, centrée, réduite si besoin : sur Android, le libellé passait à la ligne puis la 2e ligne était rognée.
+          Seul dans le bouton, il en prend toute la largeur : sa boîte mesurée au plus juste restait trop étroite
+          sur Android 16, et « Voir les offres » se lisait « Voir les ». */}
+      <Body size={small ? 'bodySmall' : 'body'} weight="bold" tone={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} textBreakStrategy="simple" style={[s.buttonLabel, !Icon && s.buttonLabelSeul]}>
         {label}
       </Body>
     </Tap>
@@ -283,6 +285,7 @@ const useStyles = makeStyles((t) => ({
   button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2], minHeight: 54, borderRadius: radius.control + 4, paddingHorizontal: space[5] },
   buttonSmall: { minHeight: 42, paddingHorizontal: space[4], borderRadius: radius.control },
   buttonLabel: { flexShrink: 1, textAlign: 'center' },
+  buttonLabelSeul: { flexGrow: 1 },
   buttonOutline: { borderWidth: stroke.thin, borderColor: t.lineStrong },
   disabled: { opacity: 0.4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: space[4], borderRadius: radius.pill, backgroundColor: t.chip },
